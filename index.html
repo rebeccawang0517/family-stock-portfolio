@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家族股票投資組合管理系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo4wM2MkiX-nNyd4zIBSGvedfxVB7Jfb1",
+            authDomain: "rebecca-financial-platform.firebaseapp.com",
+            projectId: "rebecca-financial-platform",
+            storageBucket: "rebecca-financial-platform.firebasestorage.app",
+            messagingSenderId: "335938745651",
+            appId: "1:335938745651:web:2c090e33a72db1a5adfa46"
+        };
+
+        const allowedEmails = [
+            'rebecca.chen@gmail.com',
+            'eric.wang@gmail.com',
+            'ian.lee@gmail.com'
+        ];
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        window.firebaseApp = { auth, db, provider, allowedEmails };
+    </script>
+
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+            <h1 class="text-3xl font-bold text-slate-100 mb-2 text-center">家族股票管理系統</h1>
+            <p class="text-slate-400 text-center mb-8">Professional Portfolio Management</p>
+            
+            <div class="space-y-4">
+                <button onclick="loginWithGoogle()" class="w-full bg-white hover:bg-gray-100 text-gray-900 font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-3 transition-colors">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    使用 Google 帳號登入
+                </button>
+                
+                <p class="text-sm text-slate-400 text-center">僅限 Rebecca、Eric、Ian 使用</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainApp" class="hidden p-4 md:p-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl p-6 mb-6">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                        <h1 class="text-3xl font-bold text-slate-100 mb-2">家族股票投資組合管理系統</h1>
+                        <p class="text-slate-400">已登入：<span id="userEmail" class="text-blue-400"></span></p>
+                    </div>
+                    
+                    <div class="flex items-center gap-3 flex-wrap no-print">
+                        <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            📥 匯出 Excel
+                        </button>
+                        <button onclick="window.print()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            🖨️ 列印
+                        </button>
+                        <button onclick="logout()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            登出
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-6">
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-300 font-medium">匯率 USD/TWD</span>
+                    <input type="number" id="usdRate" value="31.5" step="0.01" class="bg-slate-700 text-slate-100 px-3 py-1 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-24 text-right font-mono" onchange="updateStats()" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                    <div class="text-slate-400 text-sm mb-1">總投資成本</div>
+                    <div id="totalCost" class="text-2xl font-bold text-slate-100">TWD 0</div>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                    <div class="text-slate-400 text-sm mb-1">總市值</div>
+                    <div id="totalValue" class="text-2xl font-bold text-slate-100">TWD 0</div>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                    <div class="text-slate-400 text-sm mb-1">總損益</div>
+                    <div id="totalProfit" class="text-2xl font-bold">TWD 0</div>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                    <div class="text-slate-400 text-sm mb-1">總報酬率</div>
+                    <div id="totalReturn" class="text-2xl font-bold">0%</div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-slate-900 border-b border-slate-700">
+                                <th class="px-3 py-3 text-left text-slate-300">地區</th>
+                                <th class="px-3 py-3 text-left text-slate-300">公司</th>
+                                <th class="px-3 py-3 text-left text-slate-300">代號</th>
+                                <th class="px-3 py-3 text-right text-slate-300">成本價</th>
+                                <th class="px-3 py-3 text-right text-slate-300">股數</th>
+                                <th class="px-3 py-3 text-right text-slate-300">投資成本</th>
+                                <th class="px-3 py-3 text-right text-slate-300">現價</th>
+                                <th class="px-3 py-3 text-right text-slate-300">現值</th>
+                                <th class="px-3 py-3 text-right text-slate-300">報酬率</th>
+                                <th class="px-3 py-3 text-left text-slate-300">持有人</th>
+                                <th class="px-3 py-3 text-left text-slate-300">平台</th>
+                                <th class="px-3 py-3 text-center text-slate-300 no-print">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockTableBody">
+                            <tr class="bg-blue-900 bg-opacity-20 border-b-2 border-blue-500 no-print">
+                                <td class="px-3 py-2">
+                                    <select id="newRegion" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
+                                        <option>台股</option>
+                                        <option>美股</option>
+                                    </select>
+                                </td>
+                                <td class="px-3 py-2">
+                                    <input type="text" id="newCompany" placeholder="公司名稱" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm" />
+                                </td>
+                                <td class="px-3 py-2">
+                                    <input type="text" id="newSymbol" placeholder="代號" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm font-mono" />
+                                </td>
+                                <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
+                                <td class="px-3 py-2">
+                                    <input type="number" id="newShares" placeholder="股數" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" />
+                                </td>
+                                <td class="px-3 py-2">
+                                    <input type="number" id="newCost" placeholder="成本" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" />
+                                </td>
+                                <td class="px-3 py-2">
+                                    <input type="number" id="newPrice" placeholder="現價" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" />
+                                </td>
+                                <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
+                                <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
+                                <td class="px-3 py-2">
+                                    <select id="newHolder" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
+                                        <option value="">選擇</option>
+                                        <option>Rebecca</option>
+                                        <option>Eric</option>
+                                        <option>Ian</option>
+                                    </select>
+                                </td>
+                                <td class="px-3 py-2">
+                                    <select id="newPlatform" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
+                                        <option>付委托</option>
+                                        <option>信託</option>
+                                    </select>
+                                </td>
+                                <td class="px-3 py-2 text-center">
+                                    <button onclick="addStock()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded">新增</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-blue-900 bg-opacity-30 border border-blue-700 border-opacity-50 rounded-lg p-4 text-sm text-blue-200">
+                <strong>💡 使用說明：</strong> 資料即時同步雲端，Rebecca、Eric、Ian 都能查看和編輯
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        const { auth, db, provider, allowedEmails } = window.firebaseApp;
+        let currentUser = null;
+        let stocks = [];
+
+        import { onAuthStateChanged, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user && allowedEmails.includes(user.email)) {
+                currentUser = user;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('userEmail').textContent = user.email;
+                await loadStocks();
+            } else if (user) {
+                alert('您的帳號無權訪問此系統');
+                await auth.signOut();
+            } else {
+                document.getElementById('loginScreen').classList.remove('hidden');
+                document.getElementById('mainApp').classList.add('hidden');
+            }
+        });
+
+        window.loginWithGoogle = async () => {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                alert('登入失敗：' + error.message);
+            }
+        };
+
+        window.logout = async () => {
+            if (confirm('確定要登出嗎？')) {
+                await auth.signOut();
+            }
+        };
+
+        async function loadStocks() {
+            const stocksRef = collection(db, 'stocks');
+            onSnapshot(stocksRef, (snapshot) => {
+                stocks = [];
+                snapshot.forEach((doc) => {
+                    stocks.push({ id: doc.id, ...doc.data() });
+                });
+                renderStocks();
+                updateStats();
+            });
+        }
+
+        function renderStocks() {
+            const tbody = document.getElementById('stockTableBody');
+            const addRow = tbody.querySelector('tr');
+            tbody.innerHTML = '';
+            tbody.appendChild(addRow);
+
+            stocks.forEach(stock => {
+                const calc = calculateFields(stock);
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-700 hover:bg-slate-750';
+                tr.innerHTML = `
+                    <td class="px-3 py-3 text-slate-300">${stock.region}</td>
+                    <td class="px-3 py-3 text-slate-300">${stock.companyName}</td>
+                    <td class="px-3 py-3 text-slate-100 font-mono font-semibold">${stock.symbol}</td>
+                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${calc.costPrice.toFixed(2)}</td>
+                    <td class="px-3 py-3 text-right text-slate-300 font-mono">${stock.shares.toLocaleString()}</td>
+                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${stock.investmentCost.toLocaleString()}</td>
+                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${stock.currentPrice.toFixed(2)}</td>
+                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${calc.currentValue.toLocaleString()}</td>
+                    <td class="px-3 py-3 text-right font-mono font-semibold ${calc.returnRate >= 0 ? 'text-green-400' : 'text-red-400'}">
+                        ${calc.returnRate >= 0 ? '+' : ''}${calc.returnRate.toFixed(2)}%
+                    </td>
+                    <td class="px-3 py-3 text-slate-300">${stock.holder}</td>
+                    <td class="px-3 py-3 text-slate-300">${stock.platform}</td>
+                    <td class="px-3 py-3 text-center no-print">
+                        <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function calculateFields(stock) {
+            const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
+            const shares = parseFloat(stock.shares) || 0;
+            const investmentCost = parseFloat(stock.investmentCost) || 0;
+            const currentPrice = parseFloat(stock.currentPrice) || 0;
+            
+            const costPrice = shares > 0 ? investmentCost / shares : 0;
+            const currentValue = currentPrice * shares;
+            const returnRate = investmentCost > 0 ? ((currentValue - investmentCost) / investmentCost) * 100 : 0;
+            
+            const currentValueTWD = stock.region === '美股' ? currentValue * usdRate : currentValue;
+            const investmentCostTWD = stock.region === '美股' ? investmentCost * usdRate : investmentCost;
+            
+            return { costPrice, currentPrice, currentValue, currentValueTWD, investmentCostTWD, returnRate };
+        }
+
+        window.updateStats = function() {
+            const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
+            let totalCost = 0, totalValue = 0;
+
+            stocks.forEach(stock => {
+                const calc = calculateFields(stock);
+                totalCost += calc.investmentCostTWD;
+                totalValue += calc.currentValueTWD;
+            });
+
+            const profit = totalValue - totalCost;
+            const returnRate = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
+
+            document.getElementById('totalCost').textContent = 'TWD ' + totalCost.toLocaleString(undefined, {maximumFractionDigits: 0});
+            document.getElementById('totalValue').textContent = 'TWD ' + totalValue.toLocaleString(undefined, {maximumFractionDigits: 0});
+            document.getElementById('totalProfit').textContent = 'TWD ' + profit.toLocaleString(undefined, {maximumFractionDigits: 0});
+            document.getElementById('totalProfit').className = 'text-2xl font-bold ' + (profit >= 0 ? 'text-green-400' : 'text-red-400');
+            document.getElementById('totalReturn').textContent = (returnRate >= 0 ? '+' : '') + returnRate.toFixed(2) + '%';
+            document.getElementById('totalReturn').className = 'text-2xl font-bold ' + (returnRate >= 0 ? 'text-green-400' : 'text-red-400');
+        }
+
+        window.addStock = async () => {
+            const region = document.getElementById('newRegion').value;
+            const companyName = document.getElementById('newCompany').value;
+            const symbol = document.getElementById('newSymbol').value.toUpperCase();
+            const shares = parseFloat(document.getElementById('newShares').value);
+            const investmentCost = parseFloat(document.getElementById('newCost').value);
+            const currentPrice = parseFloat(document.getElementById('newPrice').value);
+            const holder = document.getElementById('newHolder').value;
+            const platform = document.getElementById('newPlatform').value;
+
+            if (!symbol || !shares || !investmentCost || !currentPrice || !holder) {
+                alert('請填寫所有必填欄位');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, 'stocks'), {
+                    region, companyName, symbol, shares, investmentCost, currentPrice, holder, platform,
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser.email
+                });
+
+                document.getElementById('newCompany').value = '';
+                document.getElementById('newSymbol').value = '';
+                document.getElementById('newShares').value = '';
+                document.getElementById('newCost').value = '';
+                document.getElementById('newPrice').value = '';
+                document.getElementById('newHolder').value = '';
+            } catch (error) {
+                alert('新增失敗：' + error.message);
+            }
+        };
+
+        window.deleteStock = async (id) => {
+            if (!confirm('確定要刪除嗎？')) return;
+            try {
+                await deleteDoc(doc(db, 'stocks', id));
+            } catch (error) {
+                alert('刪除失敗：' + error.message);
+            }
+        };
+
+        window.exportToExcel = () => {
+            const data = stocks.map(stock => {
+                const calc = calculateFields(stock);
+                return {
+                    地區: stock.region,
+                    公司名稱: stock.companyName,
+                    股票代號: stock.symbol,
+                    成本股價: calc.costPrice.toFixed(2),
+                    股數: stock.shares,
+                    投資成本: stock.investmentCost,
+                    現價: stock.currentPrice,
+                    現值: calc.currentValue.toFixed(2),
+                    報酬率: calc.returnRate.toFixed(2) + '%',
+                    持有人: stock.holder,
+                    持有平台: stock.platform
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '投資組合');
+            XLSX.writeFile(wb, `投資組合_${new Date().toISOString().split('T')[0]}.xlsx`);
+        };
+    </script>
+</body>
+</html>
