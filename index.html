@@ -243,11 +243,17 @@
             tbody.appendChild(addRow);
 
             stocks.forEach(stock => {
+                // 先验证和转换所有数值字段
+                stock.shares = parseFloat(stock.shares) || 0;
+                stock.investmentCost = parseFloat(stock.investmentCost) || 0;
+                stock.currentPrice = parseFloat(stock.currentPrice) || 0;
+                stock.companyName = stock.companyName || '';
+                                
                 const calc = calculateFields(stock);
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-slate-700 hover:bg-slate-750';
                 tr.innerHTML = `
-                    <td class="px-3 py-3 text-slate-300">${stock.region}</td>
+                    <td class="px-3 py-3 text-slate-300">${stock.region || ''}</td>
                     <td class="px-3 py-3 text-slate-300">${stock.companyName}</td>
                     <td class="px-3 py-3 text-slate-100 font-mono font-semibold">${stock.symbol}</td>
                     <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${calc.costPrice.toFixed(2)}</td>
@@ -307,22 +313,29 @@
 
         window.addStock = async () => {
             const region = document.getElementById('newRegion').value;
-            const companyName = document.getElementById('newCompany').value;
+            const companyName = document.getElementById('newCompany').value || '';
             const symbol = document.getElementById('newSymbol').value.toUpperCase();
-            const shares = parseFloat(document.getElementById('newShares').value);
-            const investmentCost = parseFloat(document.getElementById('newCost').value);
-            const currentPrice = parseFloat(document.getElementById('newPrice').value);
+            const shares = parseFloat(document.getElementById('newShares').value) || 0;
+            const investmentCost = parseFloat(document.getElementById('newCost').value) || 0;
+            const currentPrice = parseFloat(document.getElementById('newPrice').value) || 0;
             const holder = document.getElementById('newHolder').value;
             const platform = document.getElementById('newPlatform').value;
 
-            if (!symbol || !shares || !investmentCost || !currentPrice || !holder) {
+            if (!symbol || shares <= 0 || investmentCost <= 0 || currentPrice <= 0 || !holder) {
                 alert('請填寫所有必填欄位');
                 return;
             }
 
             try {
-                await addDoc(collection(db, 'stocks'), {
-                    region, companyName, symbol, shares, investmentCost, currentPrice, holder, platform,
+                await addDoc(collection(db, 'stock'), {
+                    region: region,
+                    companyName: companyName,
+                    symbol: symbol,
+                    shares: shares,
+                    investmentCost: investmentCost,
+                    currentPrice: currentPrice,
+                    holder: holder,
+                    platform: platform,
                     createdAt: new Date().toISOString(),
                     createdBy: currentUser.email
                 });
