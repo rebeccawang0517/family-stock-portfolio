@@ -312,6 +312,8 @@
         }
 
         window.addStock = async () => {
+            console.log('=== 開始新增股票 ===');
+            
             const region = document.getElementById('newRegion').value;
             const companyName = document.getElementById('newCompany').value || '';
             const symbol = document.getElementById('newSymbol').value.toUpperCase();
@@ -323,11 +325,14 @@
 
             if (!symbol || shares <= 0 || investmentCost <= 0 || currentPrice <= 0 || !holder) {
                 alert('請填寫所有必填欄位');
+                console.error('驗證失敗');
                 return;
             }
 
+            console.log('輸入數據:', { region, companyName, symbol, shares, investmentCost, currentPrice, holder, platform });
+            
             try {
-                await addDoc(collection(db, 'stock'), {
+                await addDoc(collection(db, 'stocks'), {
                     region: region,
                     companyName: companyName,
                     symbol: symbol,
