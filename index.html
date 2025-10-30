@@ -330,20 +330,28 @@
             }
 
             console.log('輸入數據:', { region, companyName, symbol, shares, investmentCost, currentPrice, holder, platform });
+
+            const stockData = {
+                region: region,
+                companyName: companyName,
+                symbol: symbol,
+                shares: shares,
+                investmentCost: investmentCost,
+                currentPrice: currentPrice,
+                holder: holder,
+                platform: platform,
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser.email
+            };
+            
+            console.log('準備寫入數據庫:', stockData);
+            console.log('集合名稱: stocks');
+            console.log('當前用戶:', currentUser);
             
             try {
-                await addDoc(collection(db, 'stocks'), {
-                    region: region,
-                    companyName: companyName,
-                    symbol: symbol,
-                    shares: shares,
-                    investmentCost: investmentCost,
-                    currentPrice: currentPrice,
-                    holder: holder,
-                    platform: platform,
-                    createdAt: new Date().toISOString(),
-                    createdBy: currentUser.email
-                });
+                const docRef = await addDoc(collection(db, 'stocks'), stockData);
+                console.log('✅ 寫入成功! Document ID:', docRef.id);
+                alert('新增成功！');
 
                 document.getElementById('newCompany').value = '';
                 document.getElementById('newSymbol').value = '';
@@ -352,6 +360,8 @@
                 document.getElementById('newPrice').value = '';
                 document.getElementById('newHolder').value = '';
             } catch (error) {
+                console.error('❌ 寫入失敗:', error);
+                console.error('錯誤詳情:', error.code, error.message);
                 alert('新增失敗：' + error.message);
             }
         };
