@@ -87,7 +87,7 @@
                     
                     <div class="flex items-center gap-3 flex-wrap no-print">
                         <button onclick="updateAllPricesAndRate()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
-                            🔄 一鍵全部更新
+                            🔄 更新
                         </button>
                         <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
                             📥 匯出 Excel
@@ -193,7 +193,7 @@
                                     <input type="text" id="newCompany" placeholder="公司名稱" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm" readonly />
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="text" id="newSymbol" placeholder="代號" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm font-mono" onchange="fetchCompanyName()" />
+                                    <input type="text" id="newSymbol" placeholder="代號" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm font-mono" style="text-transform: uppercase;" onchange="fetchCompanyName()" />
                                 </td>
                                 <td class="px-3 py-2">
                                     <input type="number" id="newCostPrice" placeholder="成本價" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" onchange="calculateCost()" step="0.01" />
@@ -302,8 +302,138 @@
                     // 獲取價格（優先使用 regularMarketPrice，否則使用 previousClose）
                     const price = meta.regularMarketPrice || meta.chartPreviousClose || meta.previousClose;
                     
-                    // 獲取公司名稱
-                    const companyName = meta.longName || meta.shortName || symbol;
+                    // 獲取公司名稱 - 預設使用股票代號
+                    let companyName = symbol;
+                    
+                    // 台股常見公司名稱映射（修正 Yahoo Finance 資料不準確的問題）
+                    if (region === '台股') {
+                        const taiwanStocks = {
+                            // === ETF ===
+                            '0050': '元大台灣50',
+                            '0056': '元大高股息',
+                            '00679B': '元大美債20年',
+                            
+                            // === 0050 & 0056 主要成分股 ===
+                            '2330': '台積電',
+                            '2317': '鴻海',
+                            '2454': '聯發科',
+                            '2412': '中華電',
+                            '2308': '台達電',
+                            '2882': '國泰金',
+                            '2881': '富邦金',
+                            '2891': '中信金',
+                            '2886': '兆豐金',
+                            '2884': '玉山金',
+                            '2885': '元大金',
+                            '2892': '第一金',
+                            '2887': '台新金',
+                            '2883': '開發金',
+                            '5880': '合庫金',
+                            '2880': '華南金',
+                            '2888': '新光金',
+                            '2890': '永豐金',
+                            '5876': '上海商銀',
+                            '2801': '彰銀',
+                            '2809': '京城銀',
+                            
+                            // === 電子股 ===
+                            '3711': '日月光投控',
+                            '2382': '廣達',
+                            '2303': '聯電',
+                            '2357': '華碩',
+                            '2301': '光寶科',
+                            '2395': '研華',
+                            '2408': '南亞科',
+                            '3008': '大立光',
+                            '2409': '友達',
+                            '2345': '智邦',
+                            '2327': '國巨',
+                            '3034': '聯詠',
+                            '6669': '緯穎',
+                            '6415': '矽力-KY',
+                            '3017': '奇鋐',
+                            '2376': '技嘉',
+                            '2474': '可成',
+                            '3045': '台灣大',
+                            '4904': '遠傳',
+                            '4938': '和碩',
+                            '2324': '仁寶',
+                            '2356': '英業達',
+                            '3231': '緯創',
+                            '6770': '力積電',
+                            '2371': '大同',
+                            '2353': '宏碁',
+                            '2377': '微星',
+                            '3443': '創意',
+                            '3661': '世芯-KY',
+                            '6781': 'AES-KY',
+                            '3529': '力旺',
+                            '6533': '晶心科',
+                            
+                            // === 傳產股 ===
+                            '1301': '台塑',
+                            '1303': '南亞',
+                            '1326': '台化',
+                            '6505': '台塑化',
+                            '1101': '台泥',
+                            '1102': '亞泥',
+                            '2002': '中鋼',
+                            '2207': '和泰車',
+                            '2105': '正新',
+                            '2912': '統一超',
+                            '1216': '統一',
+                            '9904': '寶成',
+                            '9910': '豐泰',
+                            '2615': '萬海',
+                            '2609': '陽明',
+                            '2603': '長榮',
+                            '5871': '中租-KY',
+                            '9921': '巨大',
+                            '2049': '上銀',
+                            '1590': '亞德客-KY',
+                            '2204': '中華',
+                            '1476': '儒鴻',
+                            '1477': '聚陽',
+                            '2201': '裕隆',
+                            '2227': '裕日車',
+                            '2542': '興富發',
+                            '5522': '遠雄',
+                            '2535': '達欣工',
+                            '9945': '潤泰新',
+                            '2547': '日勝生',
+                            
+                            // === 其他常見個股 ===
+                            '2344': '華邦電',
+                            '2337': '旺宏',
+                            '2352': '佳世達',
+                            '2354': '鴻準',
+                            '2360': '致茂',
+                            '2379': '瑞昱',
+                            '2439': '美律',
+                            '2449': '京元電子',
+                            '2458': '義隆',
+                            '6121': '新普',
+                            '6176': '瑞儀',
+                            '6239': '力成',
+                            '6271': '同欣電',
+                            '8046': '南電',
+                            '2347': '聯強',
+                            '2493': '揚博',
+                            '3702': '大聯大',
+                            '4943': '康控-KY',
+                            '6116': '彩晶',
+                            '6213': '聯茂',
+                            '8131': '福懋科'
+                        };
+                        
+                        // 如果在清單中找到，使用清單名稱；否則保持使用代號
+                        if (taiwanStocks[symbol]) {
+                            companyName = taiwanStocks[symbol];
+                        }
+                    } else {
+                        // 美股：優先使用 Yahoo 的名稱，如果沒有就用代號
+                        companyName = meta.longName || meta.shortName || symbol;
+                    }
                     
                     return {
                         price: Math.abs(price), // 確保價格為正值
@@ -343,18 +473,34 @@
 
         // 獲取公司名稱（在輸入代號時）
         window.fetchCompanyName = async function() {
-            const symbol = document.getElementById('newSymbol').value.toUpperCase().trim();
-            const region = document.getElementById('newRegion').value;
+            const symbolInput = document.getElementById('newSymbol');
+            const regionSelect = document.getElementById('newRegion');
+            const companyInput = document.getElementById('newCompany');
+            
+            let symbol = symbolInput.value.toUpperCase().trim();
             
             if (!symbol) return;
             
-            document.getElementById('newCompany').value = '獲取中...';
+            // === 自動判斷地區 ===
+            // 台股：純數字開頭（2330, 0050, 00679B）
+            // 美股：字母開頭（AAPL, TSLA）
+            if (/^\d/.test(symbol)) {
+                // 數字開頭 = 台股
+                regionSelect.value = '台股';
+            } else if (/^[A-Z]/.test(symbol)) {
+                // 字母開頭 = 美股
+                regionSelect.value = '美股';
+            }
+            
+            const region = regionSelect.value;
+            
+            companyInput.value = '獲取中...';
             
             const info = await fetchStockInfo(symbol, region);
             if (info) {
-                document.getElementById('newCompany').value = info.companyName;
+                companyInput.value = info.companyName;
             } else {
-                document.getElementById('newCompany').value = '';
+                companyInput.value = '';
                 alert('無法獲取公司名稱，請檢查股票代號');
             }
         };
@@ -406,7 +552,7 @@
             ]);
             
             button.disabled = false;
-            button.innerHTML = '🔄 一鍵全部更新';
+            button.innerHTML = '🔄 更新';
             updateLastUpdateTime();
         };
 
