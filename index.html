@@ -287,7 +287,11 @@
                     apiSymbol = symbol + '.TW';
                 }
                 
-                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
+                // 使用 CORS 代理來繞過瀏覽器限制
+                const corsProxy = 'https://api.allorigins.win/raw?url=';
+                const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
+                const url = corsProxy + encodeURIComponent(apiUrl);
+                
                 const response = await fetch(url);
                 const data = await response.json();
                 
@@ -317,7 +321,12 @@
         // 獲取匯率
         async function fetchExchangeRate() {
             try {
-                const response = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/USDTWD=X');
+                // 使用 CORS 代理
+                const corsProxy = 'https://api.allorigins.win/raw?url=';
+                const apiUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/USDTWD=X';
+                const url = corsProxy + encodeURIComponent(apiUrl);
+                
+                const response = await fetch(url);
                 const data = await response.json();
                 
                 if (data.chart && data.chart.result && data.chart.result[0]) {
