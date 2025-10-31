@@ -10,7 +10,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyAt8QWDrmdYxnIsjEWX6DJ5tHXnDPDSwdM",
@@ -37,6 +37,20 @@
     <style>
         @media print {
             .no-print { display: none !important; }
+        }
+        .loading-spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -72,6 +86,9 @@
                     </div>
                     
                     <div class="flex items-center gap-3 flex-wrap no-print">
+                        <button onclick="updateAllPricesAndRate()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            🔄 一鍵全部更新
+                        </button>
                         <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
                             📥 匯出 Excel
                         </button>
@@ -86,9 +103,18 @@
             </div>
 
             <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-6">
-                <div class="flex items-center justify-between">
-                    <span class="text-slate-300 font-medium">匯率 USD/TWD</span>
-                    <input type="number" id="usdRate" value="31.5" step="0.01" class="bg-slate-700 text-slate-100 px-3 py-1 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-24 text-right font-mono" onchange="updateStats()" />
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-4">
+                        <span class="text-slate-300 font-medium">匯率 USD/TWD</span>
+                        <input type="number" id="usdRate" value="31.5" step="0.01" class="bg-slate-700 text-slate-100 px-3 py-1 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-24 text-right font-mono" onchange="updateStats()" />
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="flex items-center gap-2 text-slate-300">
+                            <input type="checkbox" id="autoRefresh" class="rounded" checked onchange="toggleAutoRefresh(this.checked)">
+                            <span>自動更新 (每5分鐘)</span>
+                        </label>
+                        <span id="lastUpdate" class="text-slate-500 text-sm"></span>
+                    </div>
                 </div>
             </div>
 
@@ -108,6 +134,31 @@
                 <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
                     <div class="text-slate-400 text-sm mb-1">總報酬率</div>
                     <div id="totalReturn" class="text-2xl font-bold">0%</div>
+                </div>
+            </div>
+
+            <!-- 篩選器 -->
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-6 no-print">
+                <div class="flex items-center gap-4 flex-wrap">
+                    <span class="text-slate-300 font-medium">篩選：</span>
+                    <select id="filterRegion" onchange="applyFilters()" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600">
+                        <option value="">全部地區</option>
+                        <option value="台股">台股</option>
+                        <option value="美股">美股</option>
+                    </select>
+                    <select id="filterHolder" onchange="applyFilters()" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600">
+                        <option value="">全部持有人</option>
+                        <option value="Rebecca">Rebecca</option>
+                        <option value="Eric">Eric</option>
+                        <option value="Ian">Ian</option>
+                    </select>
+                    <select id="filterPlatform" onchange="applyFilters()" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600">
+                        <option value="">全部平台</option>
+                        <option value="複委託">複委託</option>
+                        <option value="證券">證券</option>
+                        <option value="信託">信託</option>
+                    </select>
+                    <button onclick="clearFilters()" class="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1.5 rounded">清除篩選</button>
                 </div>
             </div>
 
@@ -139,21 +190,21 @@
                                     </select>
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="text" id="newCompany" placeholder="公司名稱" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm" />
+                                    <input type="text" id="newCompany" placeholder="公司名稱" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm" readonly />
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="text" id="newSymbol" placeholder="代號" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm font-mono" />
-                                </td>
-                                <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
-                                <td class="px-3 py-2">
-                                    <input type="number" id="newShares" placeholder="股數" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" />
+                                    <input type="text" id="newSymbol" placeholder="代號" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm font-mono" onchange="fetchCompanyName()" />
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="number" id="newCost" placeholder="成本" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" />
+                                    <input type="number" id="newCostPrice" placeholder="成本價" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" onchange="calculateCost()" step="0.01" />
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="number" id="newPrice" placeholder="現價" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" />
+                                    <input type="number" id="newShares" placeholder="股數" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" onchange="calculateCost()" />
                                 </td>
+                                <td class="px-3 py-2">
+                                    <input type="number" id="newCost" placeholder="成本" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" onchange="calculateCostPrice()" />
+                                </td>
+                                <td class="px-3 py-2 text-slate-500 text-right text-xs">自動獲取</td>
                                 <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
                                 <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
                                 <td class="px-3 py-2">
@@ -181,7 +232,14 @@
             </div>
 
             <div class="mt-6 bg-blue-900 bg-opacity-30 border border-blue-700 border-opacity-50 rounded-lg p-4 text-sm text-blue-200">
-                <strong>💡 使用說明：</strong> 資料即時同步雲端，Rebecca、Eric 都能查看和編輯
+                <strong>💡 使用說明：</strong> 
+                <ul class="list-disc list-inside mt-2 space-y-1">
+                    <li>輸入股票代號後會自動獲取公司名稱</li>
+                    <li>輸入成本價+股數會自動計算投資成本，或輸入投資成本+股數會自動計算成本價</li>
+                    <li>系統會自動獲取最新股價（若未開盤則顯示前一收盤價）</li>
+                    <li>點擊「一鍵全部更新」可同時更新匯率和所有股價</li>
+                    <li>可使用篩選功能查看特定地區、持有人或平台的股票</li>
+                </ul>
             </div>
         </div>
     </div>
@@ -190,9 +248,11 @@
         const { auth, db, provider, allowedEmails } = window.firebaseApp;
         let currentUser = null;
         let stocks = [];
+        let filteredStocks = [];
+        let autoRefreshInterval = null;
 
         import { onAuthStateChanged, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
         onAuthStateChanged(auth, async (user) => {
             if (user && allowedEmails.includes(user.email)) {
@@ -201,6 +261,14 @@
                 document.getElementById('mainApp').classList.remove('hidden');
                 document.getElementById('userEmail').textContent = user.email;
                 await loadStocks();
+                
+                // 首次加載時更新匯率
+                await fetchExchangeRate();
+                
+                // 啟動自動刷新
+                if (document.getElementById('autoRefresh').checked) {
+                    toggleAutoRefresh(true);
+                }
             } else if (user) {
                 alert('您的帳號無權訪問此系統');
                 await auth.signOut();
@@ -209,6 +277,176 @@
                 document.getElementById('mainApp').classList.add('hidden');
             }
         });
+
+        // 獲取股票資訊（價格和公司名稱）
+        async function fetchStockInfo(symbol, region) {
+            try {
+                let apiSymbol = symbol;
+                
+                if (region === '台股') {
+                    apiSymbol = symbol + '.TW';
+                }
+                
+                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.chart && data.chart.result && data.chart.result[0]) {
+                    const result = data.chart.result[0];
+                    const meta = result.meta;
+                    
+                    // 獲取價格（優先使用 regularMarketPrice，否則使用 previousClose）
+                    const price = meta.regularMarketPrice || meta.chartPreviousClose || meta.previousClose;
+                    
+                    // 獲取公司名稱
+                    const companyName = meta.longName || meta.shortName || symbol;
+                    
+                    return {
+                        price: Math.abs(price), // 確保價格為正值
+                        companyName: companyName
+                    };
+                }
+                
+                return null;
+            } catch (error) {
+                console.error(`獲取 ${symbol} 資訊失敗:`, error);
+                return null;
+            }
+        }
+
+        // 獲取匯率
+        async function fetchExchangeRate() {
+            try {
+                const response = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/USDTWD=X');
+                const data = await response.json();
+                
+                if (data.chart && data.chart.result && data.chart.result[0]) {
+                    const rate = data.chart.result[0].meta.regularMarketPrice || data.chart.result[0].meta.previousClose;
+                    if (rate) {
+                        document.getElementById('usdRate').value = Math.abs(rate).toFixed(2);
+                        updateStats();
+                    }
+                }
+            } catch (error) {
+                console.error('獲取匯率失敗:', error);
+            }
+        }
+
+        // 獲取公司名稱（在輸入代號時）
+        window.fetchCompanyName = async function() {
+            const symbol = document.getElementById('newSymbol').value.toUpperCase().trim();
+            const region = document.getElementById('newRegion').value;
+            
+            if (!symbol) return;
+            
+            document.getElementById('newCompany').value = '獲取中...';
+            
+            const info = await fetchStockInfo(symbol, region);
+            if (info) {
+                document.getElementById('newCompany').value = info.companyName;
+            } else {
+                document.getElementById('newCompany').value = '';
+                alert('無法獲取公司名稱，請檢查股票代號');
+            }
+        };
+
+        // 計算投資成本（當輸入成本價或股數時）
+        window.calculateCost = function() {
+            const costPrice = parseFloat(document.getElementById('newCostPrice').value);
+            const shares = parseFloat(document.getElementById('newShares').value);
+            
+            if (costPrice && shares) {
+                const totalCost = costPrice * shares;
+                document.getElementById('newCost').value = totalCost.toFixed(2);
+            }
+        };
+
+        // 計算成本價（當輸入投資成本或股數時）
+        window.calculateCostPrice = function() {
+            const totalCost = parseFloat(document.getElementById('newCost').value);
+            const shares = parseFloat(document.getElementById('newShares').value);
+            
+            if (totalCost && shares && shares > 0) {
+                const costPrice = totalCost / shares;
+                document.getElementById('newCostPrice').value = costPrice.toFixed(2);
+            }
+        };
+
+        // 更新單個股票的價格
+        async function updateStockPrice(stockId, symbol, region) {
+            const info = await fetchStockInfo(symbol, region);
+            if (info && info.price) {
+                const stockRef = doc(db, 'stocks', stockId);
+                await updateDoc(stockRef, {
+                    currentPrice: info.price,
+                    lastPriceUpdate: new Date().toISOString()
+                });
+            }
+        }
+
+        // 一鍵更新所有（匯率+股價）
+        window.updateAllPricesAndRate = async function() {
+            const button = event.target;
+            button.disabled = true;
+            button.innerHTML = '🔄 更新中...<span class="loading-spinner"></span>';
+            
+            // 同時更新匯率和所有股價
+            await Promise.all([
+                fetchExchangeRate(),
+                ...stocks.map(stock => updateStockPrice(stock.id, stock.symbol, stock.region))
+            ]);
+            
+            button.disabled = false;
+            button.innerHTML = '🔄 一鍵全部更新';
+            updateLastUpdateTime();
+        };
+
+        // 自動刷新功能
+        window.toggleAutoRefresh = function(enabled) {
+            if (enabled) {
+                autoRefreshInterval = setInterval(() => {
+                    updateAllPricesAndRate();
+                }, 5 * 60 * 1000);
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+            }
+        };
+
+        // 更新最後更新時間顯示
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-TW');
+            document.getElementById('lastUpdate').textContent = `最後更新: ${timeStr}`;
+        }
+
+        // 篩選功能
+        window.applyFilters = function() {
+            const regionFilter = document.getElementById('filterRegion').value;
+            const holderFilter = document.getElementById('filterHolder').value;
+            const platformFilter = document.getElementById('filterPlatform').value;
+            
+            filteredStocks = stocks.filter(stock => {
+                if (regionFilter && stock.region !== regionFilter) return false;
+                if (holderFilter && stock.holder !== holderFilter) return false;
+                if (platformFilter && stock.platform !== platformFilter) return false;
+                return true;
+            });
+            
+            renderStocks();
+            updateStats();
+        };
+
+        window.clearFilters = function() {
+            document.getElementById('filterRegion').value = '';
+            document.getElementById('filterHolder').value = '';
+            document.getElementById('filterPlatform').value = '';
+            filteredStocks = [...stocks];
+            renderStocks();
+            updateStats();
+        };
 
         window.loginWithGoogle = async () => {
             try {
@@ -220,6 +458,9 @@
 
         window.logout = async () => {
             if (confirm('確定要登出嗎？')) {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                }
                 await auth.signOut();
             }
         };
@@ -231,6 +472,7 @@
                 snapshot.forEach((doc) => {
                     stocks.push({ id: doc.id, ...doc.data() });
                 });
+                filteredStocks = [...stocks];
                 renderStocks();
                 updateStats();
             });
@@ -242,25 +484,37 @@
             tbody.innerHTML = '';
             tbody.appendChild(addRow);
 
-            stocks.forEach(stock => {
-                // 先验证和转换所有数值字段
+            const displayStocks = filteredStocks.length > 0 || 
+                                  document.getElementById('filterRegion').value || 
+                                  document.getElementById('filterHolder').value || 
+                                  document.getElementById('filterPlatform').value 
+                                  ? filteredStocks : stocks;
+
+            displayStocks.forEach(stock => {
+                // 先驗證和轉換所有數值字段，並確保價格為正值
                 stock.shares = parseFloat(stock.shares) || 0;
                 stock.investmentCost = parseFloat(stock.investmentCost) || 0;
-                stock.currentPrice = parseFloat(stock.currentPrice) || 0;
+                stock.currentPrice = Math.abs(parseFloat(stock.currentPrice) || 0);
                 stock.companyName = stock.companyName || '';
                                 
                 const calc = calculateFields(stock);
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-slate-700 hover:bg-slate-750';
+                
+                const lastUpdate = stock.lastPriceUpdate ? new Date(stock.lastPriceUpdate).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '未更新';
+                
                 tr.innerHTML = `
                     <td class="px-3 py-3 text-slate-300">${stock.region || ''}</td>
-                    <td class="px-3 py-3 text-slate-300">${stock.companyName}</td>
+                    <td class="px-3 py-3 text-slate-300">${stock.companyName || stock.symbol}</td>
                     <td class="px-3 py-3 text-slate-100 font-mono font-semibold">${stock.symbol}</td>
                     <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${calc.costPrice.toFixed(2)}</td>
                     <td class="px-3 py-3 text-right text-slate-300 font-mono">${stock.shares.toLocaleString()}</td>
                     <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${stock.investmentCost.toLocaleString()}</td>
-                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${stock.currentPrice.toFixed(2)}</td>
-                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${calc.currentValue.toLocaleString()}</td>
+                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs" title="最後更新: ${lastUpdate}">
+                        ${Math.abs(stock.currentPrice).toFixed(2)}
+                        <button onclick="updateStockPrice('${stock.id}', '${stock.symbol}', '${stock.region}')" class="ml-1 text-blue-400 hover:text-blue-300 text-xs">🔄</button>
+                    </td>
+                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${calc.currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                     <td class="px-3 py-3 text-right font-mono font-semibold ${calc.returnRate >= 0 ? 'text-green-400' : 'text-red-400'}">
                         ${calc.returnRate >= 0 ? '+' : ''}${calc.returnRate.toFixed(2)}%
                     </td>
@@ -278,7 +532,7 @@
             const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
             const shares = parseFloat(stock.shares) || 0;
             const investmentCost = parseFloat(stock.investmentCost) || 0;
-            const currentPrice = parseFloat(stock.currentPrice) || 0;
+            const currentPrice = Math.abs(parseFloat(stock.currentPrice) || 0); // 確保價格為正值
             
             const costPrice = shares > 0 ? investmentCost / shares : 0;
             const currentValue = currentPrice * shares;
@@ -294,7 +548,13 @@
             const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
             let totalCost = 0, totalValue = 0;
 
-            stocks.forEach(stock => {
+            const displayStocks = filteredStocks.length > 0 || 
+                                  document.getElementById('filterRegion').value || 
+                                  document.getElementById('filterHolder').value || 
+                                  document.getElementById('filterPlatform').value 
+                                  ? filteredStocks : stocks;
+
+            displayStocks.forEach(stock => {
                 const calc = calculateFields(stock);
                 totalCost += calc.investmentCostTWD;
                 totalValue += calc.currentValueTWD;
@@ -312,56 +572,67 @@
         }
 
         window.addStock = async () => {
-            console.log('=== 開始新增股票 ===');
-            
             const region = document.getElementById('newRegion').value;
-            const companyName = document.getElementById('newCompany').value || '';
-            const symbol = document.getElementById('newSymbol').value.toUpperCase();
-            const shares = parseFloat(document.getElementById('newShares').value) || 0;
-            const investmentCost = parseFloat(document.getElementById('newCost').value) || 0;
-            const currentPrice = parseFloat(document.getElementById('newPrice').value) || 0;
+            const companyName = document.getElementById('newCompany').value;
+            const symbol = document.getElementById('newSymbol').value.toUpperCase().trim();
+            const shares = parseFloat(document.getElementById('newShares').value);
+            const costPrice = parseFloat(document.getElementById('newCostPrice').value);
+            const investmentCost = parseFloat(document.getElementById('newCost').value);
             const holder = document.getElementById('newHolder').value;
             const platform = document.getElementById('newPlatform').value;
 
-            if (!symbol || shares <= 0 || investmentCost <= 0 || currentPrice <= 0 || !holder) {
-                alert('請填寫所有必填欄位');
-                console.error('驗證失敗');
+            if (!symbol || !shares || !holder) {
+                alert('請填寫股票代號、股數和持有人');
                 return;
             }
 
-            console.log('輸入數據:', { region, companyName, symbol, shares, investmentCost, currentPrice, holder, platform });
+            if (!costPrice && !investmentCost) {
+                alert('請填寫成本價或投資成本');
+                return;
+            }
 
-            const stockData = {
-                region: region,
-                companyName: companyName,
-                symbol: symbol,
-                shares: shares,
-                investmentCost: investmentCost,
-                currentPrice: currentPrice,
-                holder: holder,
-                platform: platform,
-                createdAt: new Date().toISOString(),
-                createdBy: currentUser.email
-            };
+            // 計算缺少的值
+            let finalCostPrice = costPrice;
+            let finalInvestmentCost = investmentCost;
             
-            console.log('準備寫入數據庫:', stockData);
-            console.log('集合名稱: stocks');
-            console.log('當前用戶:', currentUser);
-            
+            if (!finalCostPrice && finalInvestmentCost) {
+                finalCostPrice = finalInvestmentCost / shares;
+            } else if (finalCostPrice && !finalInvestmentCost) {
+                finalInvestmentCost = finalCostPrice * shares;
+            }
+
+            // 自動獲取當前價格和公司名稱
+            const info = await fetchStockInfo(symbol, region);
+            if (!info || !info.price) {
+                alert('無法獲取股票價格，請檢查股票代號是否正確');
+                return;
+            }
+
+            const finalCompanyName = companyName || info.companyName;
+
             try {
-                const docRef = await addDoc(collection(db, 'stocks'), stockData);
-                console.log('✅ 寫入成功! Document ID:', docRef.id);
-                alert('新增成功！');
+                await addDoc(collection(db, 'stocks'), {
+                    region, 
+                    companyName: finalCompanyName, 
+                    symbol, 
+                    shares, 
+                    investmentCost: finalInvestmentCost, 
+                    currentPrice: Math.abs(info.price), 
+                    holder, 
+                    platform,
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser.email,
+                    lastPriceUpdate: new Date().toISOString()
+                });
 
+                // 清空輸入框
                 document.getElementById('newCompany').value = '';
                 document.getElementById('newSymbol').value = '';
                 document.getElementById('newShares').value = '';
+                document.getElementById('newCostPrice').value = '';
                 document.getElementById('newCost').value = '';
-                document.getElementById('newPrice').value = '';
                 document.getElementById('newHolder').value = '';
             } catch (error) {
-                console.error('❌ 寫入失敗:', error);
-                console.error('錯誤詳情:', error.code, error.message);
                 alert('新增失敗：' + error.message);
             }
         };
@@ -375,21 +646,30 @@
             }
         };
 
+        window.updateStockPrice = updateStockPrice;
+
         window.exportToExcel = () => {
-            const data = stocks.map(stock => {
+            const displayStocks = filteredStocks.length > 0 || 
+                                  document.getElementById('filterRegion').value || 
+                                  document.getElementById('filterHolder').value || 
+                                  document.getElementById('filterPlatform').value 
+                                  ? filteredStocks : stocks;
+
+            const data = displayStocks.map(stock => {
                 const calc = calculateFields(stock);
                 return {
                     地區: stock.region,
-                    公司名稱: stock.companyName,
+                    公司名稱: stock.companyName || stock.symbol,
                     股票代號: stock.symbol,
                     成本股價: calc.costPrice.toFixed(2),
                     股數: stock.shares,
                     投資成本: stock.investmentCost,
-                    現價: stock.currentPrice,
+                    現價: Math.abs(stock.currentPrice).toFixed(2),
                     現值: calc.currentValue.toFixed(2),
                     報酬率: calc.returnRate.toFixed(2) + '%',
                     持有人: stock.holder,
-                    持有平台: stock.platform
+                    持有平台: stock.platform,
+                    最後更新: stock.lastPriceUpdate || ''
                 };
             });
 
