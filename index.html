@@ -52,6 +52,118 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* 手機端優化 */
+        @media (max-width: 768px) {
+            /* 隱藏桌面版新增行 */
+            .desktop-add-row {
+                display: none !important;
+            }
+            
+            /* 表格在手機上的優化 */
+            table {
+                font-size: 12px;
+            }
+            
+            /* 浮動新增按鈕 */
+            .mobile-fab {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                width: 60px;
+                height: 60px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                color: white;
+                font-size: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+                z-index: 1000;
+                border: none;
+                cursor: pointer;
+            }
+            
+            /* 手機端彈出表單 */
+            .mobile-form-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.8);
+                z-index: 2000;
+                display: flex;
+                align-items: flex-end;
+                padding: 0;
+            }
+            
+            .mobile-form-container {
+                background: #1e293b;
+                border-radius: 20px 20px 0 0;
+                width: 100%;
+                max-height: 90vh;
+                overflow-y: auto;
+                padding: 20px;
+                animation: slideUp 0.3s ease-out;
+            }
+            
+            @keyframes slideUp {
+                from {
+                    transform: translateY(100%);
+                }
+                to {
+                    transform: translateY(0);
+                }
+            }
+        }
+        
+        /* 桌面端隱藏手機專用元素 */
+        @media (min-width: 769px) {
+            .mobile-fab {
+                display: none !important;
+            }
+            .mobile-only {
+                display: none !important;
+            }
+        }
+        
+        /* 分析模態框 */
+        .analysis-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .analysis-content {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 20px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(59, 130, 246, 0.5);
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
@@ -167,22 +279,22 @@
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="bg-slate-900 border-b border-slate-700">
-                                <th class="px-3 py-3 text-left text-slate-300">地區</th>
-                                <th class="px-3 py-3 text-left text-slate-300">公司</th>
-                                <th class="px-3 py-3 text-left text-slate-300">代號</th>
-                                <th class="px-3 py-3 text-right text-slate-300">成本價</th>
-                                <th class="px-3 py-3 text-right text-slate-300">股數</th>
-                                <th class="px-3 py-3 text-right text-slate-300">投資成本</th>
-                                <th class="px-3 py-3 text-right text-slate-300">現價</th>
-                                <th class="px-3 py-3 text-right text-slate-300">現值</th>
-                                <th class="px-3 py-3 text-right text-slate-300">報酬率</th>
-                                <th class="px-3 py-3 text-left text-slate-300">持有人</th>
-                                <th class="px-3 py-3 text-left text-slate-300">平台</th>
+                                <th class="px-3 py-3 text-center text-slate-300">地區</th>
+                                <th class="px-3 py-3 text-center text-slate-300">公司</th>
+                                <th class="px-3 py-3 text-center text-slate-300">代號</th>
+                                <th class="px-3 py-3 text-center text-slate-300">成本價</th>
+                                <th class="px-3 py-3 text-center text-slate-300">股數</th>
+                                <th class="px-3 py-3 text-center text-slate-300">投資成本</th>
+                                <th class="px-3 py-3 text-center text-slate-300">現價</th>
+                                <th class="px-3 py-3 text-center text-slate-300">現值</th>
+                                <th class="px-3 py-3 text-center text-slate-300">報酬率</th>
+                                <th class="px-3 py-3 text-center text-slate-300">持有人</th>
+                                <th class="px-3 py-3 text-center text-slate-300">平台</th>
                                 <th class="px-3 py-3 text-center text-slate-300 no-print">操作</th>
                             </tr>
                         </thead>
                         <tbody id="stockTableBody">
-                            <tr class="bg-blue-900 bg-opacity-20 border-b-2 border-blue-500 no-print">
+                            <tr class="desktop-add-row bg-blue-900 bg-opacity-20 border-b-2 border-blue-500 no-print">
                                 <td class="px-3 py-2">
                                     <select id="newRegion" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
                                         <option>台股</option>
@@ -196,13 +308,13 @@
                                     <input type="text" id="newSymbol" placeholder="代號" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm font-mono" style="text-transform: uppercase;" onchange="fetchCompanyName()" />
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="number" id="newCostPrice" placeholder="成本價" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" onchange="calculateCost()" step="0.01" />
+                                    <input type="number" id="newCostPrice" placeholder="成本價" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" step="0.01" />
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="number" id="newShares" placeholder="股數" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" onchange="calculateCost()" />
+                                    <input type="number" id="newShares" placeholder="股數" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" />
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="number" id="newCost" placeholder="成本" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-right" onchange="calculateCostPrice()" />
+                                    <input type="number" id="newCost" placeholder="成本" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" />
                                 </td>
                                 <td class="px-3 py-2 text-slate-500 text-right text-xs">自動獲取</td>
                                 <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
@@ -240,6 +352,96 @@
                     <li>點擊「一鍵全部更新」可同時更新匯率和所有股價</li>
                     <li>可使用篩選功能查看特定地區、持有人或平台的股票</li>
                 </ul>
+            </div>
+            
+            <!-- 手機端浮動新增按鈕 -->
+            <button class="mobile-fab no-print" onclick="openMobileForm()">
+                +
+            </button>
+            
+            <!-- 手機端新增表單彈窗 -->
+            <div id="mobileFormOverlay" class="mobile-form-overlay no-print" style="display: none;" onclick="closeMobileForm(event)">
+                <div class="mobile-form-container" onclick="event.stopPropagation()">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold text-slate-100">新增股票</h2>
+                        <button onclick="closeMobileForm()" class="text-slate-400 text-2xl">&times;</button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-slate-300 text-sm mb-2">地區</label>
+                            <select id="mobileRegion" class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600">
+                                <option>台股</option>
+                                <option>美股</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-slate-300 text-sm mb-2">股票代號 *</label>
+                            <input type="text" id="mobileSymbol" placeholder="例如：2330 或 AAPL" 
+                                   class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600 font-mono" 
+                                   style="text-transform: uppercase;"
+                                   onchange="fetchCompanyNameMobile()" />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-slate-300 text-sm mb-2">公司名稱</label>
+                            <input type="text" id="mobileCompany" placeholder="自動獲取" 
+                                   class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600" 
+                                   readonly />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-slate-300 text-sm mb-2">股數 *</label>
+                            <input type="number" id="mobileShares" placeholder="持有股數" 
+                                   class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600" 
+                                   onchange="calculateCostMobile()" />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-slate-300 text-sm mb-2">成本價</label>
+                            <input type="number" id="mobileCostPrice" placeholder="每股成本" 
+                                   class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600" 
+                                   step="0.01"
+                                   onchange="calculateCostMobile()" />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-slate-300 text-sm mb-2">投資成本</label>
+                            <input type="number" id="mobileCost" placeholder="總投資金額" 
+                                   class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600"
+                                   onchange="calculateCostPriceMobile()" />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-slate-300 text-sm mb-2">持有人 *</label>
+                            <select id="mobileHolder" class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600">
+                                <option value="">請選擇</option>
+                                <option>Rebecca</option>
+                                <option>Eric</option>
+                                <option>Ian</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-slate-300 text-sm mb-2">平台</label>
+                            <select id="mobilePlatform" class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600">
+                                <option>複委託</option>
+                                <option>證券</option>
+                                <option>信託</option>
+                            </select>
+                        </div>
+                        
+                        <div class="pt-4 space-y-3">
+                            <button onclick="addStockMobile()" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg">
+                                ✓ 新增股票
+                            </button>
+                            <button onclick="closeMobileForm()" class="w-full bg-slate-600 hover:bg-slate-500 text-white py-3 rounded-lg">
+                                取消
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -505,27 +707,35 @@
             }
         };
 
-        // 計算投資成本（當輸入成本價或股數時）
-        window.calculateCost = function() {
-            const costPrice = parseFloat(document.getElementById('newCostPrice').value);
-            const shares = parseFloat(document.getElementById('newShares').value);
+        // 智能計算函數 - 根據已填寫的字段自動計算缺少的字段
+        window.calculateFromFields = function() {
+            const costPriceInput = document.getElementById('newCostPrice');
+            const sharesInput = document.getElementById('newShares');
+            const costInput = document.getElementById('newCost');
             
-            if (costPrice && shares) {
-                const totalCost = costPrice * shares;
-                document.getElementById('newCost').value = totalCost.toFixed(2);
+            const costPrice = parseFloat(costPriceInput.value) || 0;
+            const shares = parseFloat(sharesInput.value) || 0;
+            const cost = parseFloat(costInput.value) || 0;
+            
+            // 計算邏輯：任意兩個有值，計算第三個
+            if (costPrice && shares && !cost) {
+                // 有成本價和股數，計算投資成本
+                costInput.value = (costPrice * shares).toFixed(2);
+            } else if (costPrice && cost && !shares) {
+                // 有成本價和投資成本，計算股數
+                sharesInput.value = Math.floor(cost / costPrice);
+            } else if (shares && cost && !costPrice) {
+                // 有股數和投資成本，計算成本價
+                costPriceInput.value = (cost / shares).toFixed(2);
+            } else if (costPrice && shares && cost) {
+                // 三個都有值時，以最後修改的為準，更新投資成本
+                costInput.value = (costPrice * shares).toFixed(2);
             }
         };
-
-        // 計算成本價（當輸入投資成本或股數時）
-        window.calculateCostPrice = function() {
-            const totalCost = parseFloat(document.getElementById('newCost').value);
-            const shares = parseFloat(document.getElementById('newShares').value);
-            
-            if (totalCost && shares && shares > 0) {
-                const costPrice = totalCost / shares;
-                document.getElementById('newCostPrice').value = costPrice.toFixed(2);
-            }
-        };
+        
+        // 保留舊函數以兼容
+        window.calculateCost = window.calculateFromFields;
+        window.calculateCostPrice = window.calculateFromFields;
 
         // 更新單個股票的價格
         async function updateStockPrice(stockId, symbol, region) {
@@ -659,22 +869,27 @@
                 const lastUpdate = stock.lastPriceUpdate ? new Date(stock.lastPriceUpdate).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '未更新';
                 
                 tr.innerHTML = `
-                    <td class="px-3 py-3 text-slate-300">${stock.region || ''}</td>
-                    <td class="px-3 py-3 text-slate-300">${stock.companyName || stock.symbol}</td>
-                    <td class="px-3 py-3 text-slate-100 font-mono font-semibold">${stock.symbol}</td>
-                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${calc.costPrice.toFixed(2)}</td>
-                    <td class="px-3 py-3 text-right text-slate-300 font-mono">${stock.shares.toLocaleString()}</td>
-                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${stock.investmentCost.toLocaleString()}</td>
-                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs" title="最後更新: ${lastUpdate}">
+                    <td class="px-3 py-3 text-center text-slate-300">${stock.region || ''}</td>
+                    <td class="px-3 py-3 text-center">
+                        <button onclick="openAnalysisModal('${stock.symbol}', '${stock.region}', '${(stock.companyName || stock.symbol).replace(/'/g, "\\'")}', ${stock.investmentCost}, ${stock.shares})" 
+                                class="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer font-medium">
+                            ${stock.companyName || stock.symbol}
+                        </button>
+                    </td>
+                    <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${stock.symbol}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${calc.costPrice.toFixed(2)}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${stock.shares.toLocaleString()}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${stock.investmentCost.toLocaleString()}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs" title="最後更新: ${lastUpdate}">
                         ${Math.abs(stock.currentPrice).toFixed(2)}
                         <button onclick="updateStockPrice('${stock.id}', '${stock.symbol}', '${stock.region}')" class="ml-1 text-blue-400 hover:text-blue-300 text-xs">🔄</button>
                     </td>
-                    <td class="px-3 py-3 text-right text-slate-300 font-mono text-xs">${calc.currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                    <td class="px-3 py-3 text-right font-mono font-semibold ${calc.returnRate >= 0 ? 'text-green-400' : 'text-red-400'}">
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${calc.currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                    <td class="px-3 py-3 text-center font-mono font-semibold ${calc.returnRate >= 0 ? 'text-green-400' : 'text-red-400'}">
                         ${calc.returnRate >= 0 ? '+' : ''}${calc.returnRate.toFixed(2)}%
                     </td>
-                    <td class="px-3 py-3 text-slate-300">${stock.holder}</td>
-                    <td class="px-3 py-3 text-slate-300">${stock.platform}</td>
+                    <td class="px-3 py-3 text-center text-slate-300">${stock.holder}</td>
+                    <td class="px-3 py-3 text-center text-slate-300">${stock.platform}</td>
                     <td class="px-3 py-3 text-center no-print">
                         <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300">🗑️</button>
                     </td>
@@ -833,6 +1048,439 @@
             XLSX.utils.book_append_sheet(wb, ws, '投資組合');
             XLSX.writeFile(wb, `投資組合_${new Date().toISOString().split('T')[0]}.xlsx`);
         };
+        
+        // === 手機端表單函數 ===
+        
+        // 打開手機端表單
+        window.openMobileForm = function() {
+            document.getElementById('mobileFormOverlay').style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // 防止背景滾動
+        };
+        
+        // 關閉手機端表單
+        window.closeMobileForm = function(event) {
+            // 如果有event且點擊的是overlay本身（不是container內部），才關閉
+            if (!event || event.target.id === 'mobileFormOverlay') {
+                document.getElementById('mobileFormOverlay').style.display = 'none';
+                document.body.style.overflow = ''; // 恢復滾動
+                // 清空表單
+                clearMobileForm();
+            }
+        };
+        
+        // 清空手機端表單
+        function clearMobileForm() {
+            document.getElementById('mobileSymbol').value = '';
+            document.getElementById('mobileCompany').value = '';
+            document.getElementById('mobileShares').value = '';
+            document.getElementById('mobileCostPrice').value = '';
+            document.getElementById('mobileCost').value = '';
+            document.getElementById('mobileHolder').value = '';
+        }
+        
+        // 手機端獲取公司名稱
+        window.fetchCompanyNameMobile = async function() {
+            const symbolInput = document.getElementById('mobileSymbol');
+            const regionSelect = document.getElementById('mobileRegion');
+            const companyInput = document.getElementById('mobileCompany');
+            
+            let symbol = symbolInput.value.toUpperCase().trim();
+            
+            if (!symbol) return;
+            
+            // 自動判斷地區
+            if (/^\d/.test(symbol)) {
+                regionSelect.value = '台股';
+            } else if (/^[A-Z]/.test(symbol)) {
+                regionSelect.value = '美股';
+            }
+            
+            const region = regionSelect.value;
+            
+            companyInput.value = '獲取中...';
+            
+            const info = await fetchStockInfo(symbol, region);
+            if (info) {
+                companyInput.value = info.companyName;
+            } else {
+                companyInput.value = '';
+                alert('無法獲取公司名稱，請檢查股票代號');
+            }
+        };
+        
+        // 手機端智能計算函數
+        window.calculateCostMobile = function() {
+            const costPriceInput = document.getElementById('mobileCostPrice');
+            const sharesInput = document.getElementById('mobileShares');
+            const costInput = document.getElementById('mobileCost');
+            
+            const costPrice = parseFloat(costPriceInput.value) || 0;
+            const shares = parseFloat(sharesInput.value) || 0;
+            const cost = parseFloat(costInput.value) || 0;
+            
+            // 任意兩個有值，計算第三個
+            if (costPrice && shares && !cost) {
+                costInput.value = (costPrice * shares).toFixed(2);
+            } else if (costPrice && cost && !shares) {
+                sharesInput.value = Math.floor(cost / costPrice);
+            } else if (shares && cost && !costPrice) {
+                costPriceInput.value = (cost / shares).toFixed(2);
+            } else if (costPrice && shares && cost) {
+                costInput.value = (costPrice * shares).toFixed(2);
+            }
+        };
+        
+        // 保留兼容
+        window.calculateCostPriceMobile = window.calculateCostMobile;
+        
+        // 手機端新增股票
+        window.addStockMobile = async function() {
+            const region = document.getElementById('mobileRegion').value;
+            const companyName = document.getElementById('mobileCompany').value;
+            const symbol = document.getElementById('mobileSymbol').value.toUpperCase().trim();
+            const shares = parseFloat(document.getElementById('mobileShares').value);
+            const costPrice = parseFloat(document.getElementById('mobileCostPrice').value);
+            const investmentCost = parseFloat(document.getElementById('mobileCost').value);
+            const holder = document.getElementById('mobileHolder').value;
+            const platform = document.getElementById('mobilePlatform').value;
+
+            if (!symbol || !shares || !holder) {
+                alert('請填寫股票代號、股數和持有人');
+                return;
+            }
+
+            if (!costPrice && !investmentCost) {
+                alert('請填寫成本價或投資成本');
+                return;
+            }
+
+            // 計算缺少的值
+            let finalCostPrice = costPrice;
+            let finalInvestmentCost = investmentCost;
+            
+            if (!finalCostPrice && finalInvestmentCost) {
+                finalCostPrice = finalInvestmentCost / shares;
+            } else if (finalCostPrice && !finalInvestmentCost) {
+                finalInvestmentCost = finalCostPrice * shares;
+            }
+
+            // 自動獲取當前價格和公司名稱
+            const info = await fetchStockInfo(symbol, region);
+            if (!info || !info.price) {
+                alert('無法獲取股票價格，請檢查股票代號是否正確');
+                return;
+            }
+
+            const finalCompanyName = companyName || info.companyName;
+
+            try {
+                await addDoc(collection(db, 'stocks'), {
+                    region, 
+                    companyName: finalCompanyName, 
+                    symbol, 
+                    shares, 
+                    investmentCost: finalInvestmentCost, 
+                    currentPrice: Math.abs(info.price), 
+                    holder, 
+                    platform,
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser.email,
+                    lastPriceUpdate: new Date().toISOString()
+                });
+
+                // 關閉表單並清空
+                closeMobileForm();
+                alert('✅ 新增成功！');
+            } catch (error) {
+                alert('新增失敗：' + error.message);
+            }
+        };
+        
+        // === 分析模態框功能 ===
+        
+        // 打開分析模態框
+        window.openAnalysisModal = async function(symbol, region, companyName, investmentCost, shares) {
+            const modal = document.getElementById('analysisModal');
+            const content = document.getElementById('analysisContent');
+            
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            
+            content.innerHTML = `
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-slate-100">${companyName} (${symbol})</h2>
+                        <button onclick="closeAnalysisModal()" class="text-slate-400 hover:text-slate-200 text-3xl">&times;</button>
+                    </div>
+                    <div class="text-center py-12">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                        <p class="text-slate-400">正在獲取分析數據...</p>
+                    </div>
+                </div>
+            `;
+            
+            try {
+                // 計算購買日期（估算）
+                const estimatedBuyDate = new Date();
+                estimatedBuyDate.setFullYear(estimatedBuyDate.getFullYear() - 1); // 假設持有1年
+                
+                // 同時獲取 3年、5年、10年 數據
+                const [data3y, data5y, data10y] = await Promise.all([
+                    fetchAnalysisData(symbol, region, '3y'),
+                    fetchAnalysisData(symbol, region, '5y'),
+                    fetchAnalysisData(symbol, region, '10y')
+                ]);
+                
+                // 顯示分析結果
+                displayAnalysisResults(symbol, region, companyName, investmentCost, shares, {
+                    '3y': data3y,
+                    '5y': data5y,
+                    '10y': data10y
+                });
+                
+            } catch (error) {
+                content.innerHTML = `
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-2xl font-bold text-slate-100">${companyName} (${symbol})</h2>
+                            <button onclick="closeAnalysisModal()" class="text-slate-400 hover:text-slate-200 text-3xl">&times;</button>
+                        </div>
+                        <div class="text-center py-12">
+                            <p class="text-red-400 text-lg">❌ 無法獲取分析數據</p>
+                            <p class="text-slate-400 mt-2">${error.message}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+        
+        // 關閉分析模態框
+        window.closeAnalysisModal = function() {
+            const modal = document.getElementById('analysisModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        };
+        
+        // 獲取分析數據
+        async function fetchAnalysisData(symbol, region, range) {
+            let apiSymbol = symbol;
+            if (region === '台股') {
+                apiSymbol = symbol + '.TW';
+            }
+            
+            const corsProxy = 'https://api.allorigins.win/raw?url=';
+            const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?interval=1d&range=${range}`;
+            const url = corsProxy + encodeURIComponent(apiUrl);
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (!data.chart || !data.chart.result || !data.chart.result[0]) {
+                throw new Error('無法獲取數據');
+            }
+            
+            const result = data.chart.result[0];
+            const timestamps = result.timestamp;
+            const closes = result.indicators.quote[0].close.filter(v => v !== null);
+            
+            // 計算日報酬率
+            const returns = [];
+            for (let i = 1; i < closes.length; i++) {
+                const dailyReturn = (closes[i] - closes[i-1]) / closes[i-1];
+                returns.push(dailyReturn);
+            }
+            
+            // 計算統計數據
+            const avgDailyReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+            const annualizedReturn = Math.pow(1 + avgDailyReturn, 252) - 1;
+            
+            // 計算標準差
+            const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgDailyReturn, 2), 0) / returns.length;
+            const dailyStdDev = Math.sqrt(variance);
+            const annualizedStdDev = dailyStdDev * Math.sqrt(252);
+            
+            // 計算夏普值（假設無風險利率為 1.5% 台股，4.5% 美股）
+            const riskFreeRate = region === '美股' ? 0.045 : 0.015;
+            const excessReturn = annualizedReturn - riskFreeRate;
+            const sharpeRatio = excessReturn / annualizedStdDev;
+            
+            // 計算最大回撤
+            let maxDrawdown = 0;
+            let peak = closes[0];
+            for (let price of closes) {
+                if (price > peak) peak = price;
+                const drawdown = (peak - price) / peak;
+                if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+            }
+            
+            // 計算總報酬
+            const totalReturn = (closes[closes.length - 1] - closes[0]) / closes[0];
+            
+            return {
+                totalReturn,
+                annualizedReturn,
+                annualizedStdDev,
+                sharpeRatio,
+                maxDrawdown,
+                tradingDays: closes.length,
+                riskFreeRate
+            };
+        }
+        
+        // 顯示分析結果
+        function displayAnalysisResults(symbol, region, companyName, investmentCost, shares, dataByPeriod) {
+            const content = document.getElementById('analysisContent');
+            
+            // 判斷夏普值等級的函數
+            const getSharpeGrade = (sharpe) => {
+                if (sharpe < 0) return { grade: '很差', color: 'text-red-400', icon: '🔴' };
+                if (sharpe < 1) return { grade: '普通', color: 'text-yellow-400', icon: '🟡' };
+                if (sharpe < 2) return { grade: '良好', color: 'text-green-400', icon: '🟢' };
+                if (sharpe < 3) return { grade: '優秀', color: 'text-blue-400', icon: '🔵' };
+                return { grade: '卓越', color: 'text-purple-400', icon: '🟣' };
+            };
+            
+            content.innerHTML = `
+                <div class="p-6">
+                    <!-- 標題 -->
+                    <div class="flex items-center justify-between mb-6 pb-4 border-b-2 border-blue-500">
+                        <div>
+                            <h2 class="text-3xl font-bold text-slate-100 mb-1">${companyName}</h2>
+                            <p class="text-slate-400">
+                                <span class="font-mono text-blue-400">${symbol}</span> 
+                                <span class="mx-2">|</span> 
+                                <span>${region}</span>
+                            </p>
+                        </div>
+                        <button onclick="closeAnalysisModal()" class="text-slate-400 hover:text-slate-200 text-3xl leading-none">&times;</button>
+                    </div>
+                    
+                    <!-- 夏普值比較 -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-bold text-slate-100 mb-4 flex items-center gap-2">
+                            <span>📊</span>
+                            <span>夏普值分析（Sharpe Ratio）</span>
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            ${['3y', '5y', '10y'].map(period => {
+                                const data = dataByPeriod[period];
+                                if (!data) return '<div class="bg-slate-700 rounded-lg p-4 text-center text-slate-500">數據不足</div>';
+                                const sharpeGrade = getSharpeGrade(data.sharpeRatio);
+                                return `
+                                    <div class="bg-gradient-to-br from-slate-700 to-slate-800 rounded-lg p-4 border-2 ${sharpeGrade.color.replace('text-', 'border-')}">
+                                        <div class="text-center mb-3">
+                                            <div class="text-sm text-slate-400 mb-1">${period === '3y' ? '3 年' : period === '5y' ? '5 年' : '10 年'}期</div>
+                                            <div class="text-4xl font-bold ${sharpeGrade.color} mb-1">${data.sharpeRatio.toFixed(3)}</div>
+                                            <div class="text-sm ${sharpeGrade.color} font-semibold flex items-center justify-center gap-1">
+                                                <span>${sharpeGrade.icon}</span>
+                                                <span>${sharpeGrade.grade}</span>
+                                            </div>
+                                        </div>
+                                        <div class="space-y-1 text-xs text-slate-300 border-t border-slate-600 pt-3">
+                                            <div class="flex justify-between">
+                                                <span>年化報酬</span>
+                                                <span class="${data.annualizedReturn >= 0 ? 'text-green-400' : 'text-red-400'} font-bold">
+                                                    ${(data.annualizedReturn * 100).toFixed(2)}%
+                                                </span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span>年化波動</span>
+                                                <span class="text-yellow-400">${(data.annualizedStdDev * 100).toFixed(2)}%</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span>最大回撤</span>
+                                                <span class="text-red-400">${(data.maxDrawdown * 100).toFixed(2)}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    
+                    <!-- 詳細指標 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- 報酬率分析 -->
+                        <div class="bg-slate-700 rounded-lg p-4">
+                            <h4 class="font-bold text-slate-100 mb-3 flex items-center gap-2">
+                                <span>📈</span>
+                                <span>報酬率比較</span>
+                            </h4>
+                            <div class="space-y-3">
+                                ${['3y', '5y', '10y'].map(period => {
+                                    const data = dataByPeriod[period];
+                                    if (!data) return '';
+                                    return `
+                                        <div>
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="text-slate-400">${period === '3y' ? '3 年' : period === '5y' ? '5 年' : '10 年'}</span>
+                                                <span class="${data.totalReturn >= 0 ? 'text-green-400' : 'text-red-400'} font-bold">
+                                                    ${data.totalReturn >= 0 ? '+' : ''}${(data.totalReturn * 100).toFixed(2)}%
+                                                </span>
+                                            </div>
+                                            <div class="flex justify-between text-xs text-slate-400">
+                                                <span>年化</span>
+                                                <span class="${data.annualizedReturn >= 0 ? 'text-green-400' : 'text-red-400'}">
+                                                    ${(data.annualizedReturn * 100).toFixed(2)}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                        
+                        <!-- 風險指標 -->
+                        <div class="bg-slate-700 rounded-lg p-4">
+                            <h4 class="font-bold text-slate-100 mb-3 flex items-center gap-2">
+                                <span>⚠️</span>
+                                <span>風險指標比較</span>
+                            </h4>
+                            <div class="space-y-3">
+                                ${['3y', '5y', '10y'].map(period => {
+                                    const data = dataByPeriod[period];
+                                    if (!data) return '';
+                                    return `
+                                        <div>
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="text-slate-400">${period === '3y' ? '3 年' : period === '5y' ? '5 年' : '10 年'}</span>
+                                                <span class="text-yellow-400 font-bold">${(data.annualizedStdDev * 100).toFixed(2)}%</span>
+                                            </div>
+                                            <div class="flex justify-between text-xs text-slate-400">
+                                                <span>最大回撤</span>
+                                                <span class="text-red-400">${(data.maxDrawdown * 100).toFixed(2)}%</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 投資建議 -->
+                    <div class="mt-6 bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-4">
+                        <h4 class="font-bold text-blue-300 mb-2 flex items-center gap-2">
+                            <span>💡</span>
+                            <span>關於夏普值</span>
+                        </h4>
+                        <div class="text-sm text-slate-300 space-y-1">
+                            <p><strong>夏普值</strong> = (年化報酬率 - 無風險利率) / 年化波動率</p>
+                            <p>數值越高，代表每承擔一單位風險所獲得的超額報酬越多。</p>
+                            <p class="text-xs text-slate-400 mt-2">
+                                註：本分析基於歷史數據，過去表現不代表未來結果。投資前請審慎評估。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
     </script>
+    
+    <!-- 分析模態框 HTML -->
+    <div id="analysisModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='analysisModal') closeAnalysisModal()">
+        <div id="analysisContent" class="analysis-content bg-slate-800 border-2 border-blue-500 rounded-lg max-w-5xl w-full mx-4" onclick="event.stopPropagation()">
+            <!-- 內容會動態插入這裡 -->
+        </div>
+    </div>
 </body>
 </html>
