@@ -321,8 +321,10 @@
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">平均成本價</th>
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">總投資成本</th>
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">現價</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">總現值</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">佔比 (依現值)</th>
+                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">漲跌幅</th>
+                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">總現值<br/><span class="text-xs text-slate-400">(原幣別)</span></th>
+                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">總現值<br/><span class="text-xs text-slate-400">(TWD)</span></th>
+                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">佔比 (依TWD現值)</th>
                                 </tr>
                             </thead>
                             <tbody id="summaryTableBody">
@@ -378,17 +380,39 @@
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="bg-slate-900 border-b border-slate-700">
-                                    <th class="px-4 py-3 text-center text-slate-300" style="min-width: 60px;">地區</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">公司</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">代號</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">股數</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">成本價</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">投資成本</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">現價</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">現值</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">報酬率</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">持有人</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">平台</th>
+                                    <th class="px-4 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" style="min-width: 60px;" onclick="sortTable('region')">
+                                        地區 <span class="sort-indicator text-xs" id="sort-region">↕</span>
+                                    </th>
+                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('companyName')">
+                                        公司 <span class="sort-indicator text-xs" id="sort-companyName">↕</span>
+                                    </th>
+                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('symbol')">
+                                        代號 <span class="sort-indicator text-xs" id="sort-symbol">↕</span>
+                                    </th>
+                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('shares')">
+                                        股數 <span class="sort-indicator text-xs" id="sort-shares">↕</span>
+                                    </th>
+                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('costPrice')">
+                                        成本價 <span class="sort-indicator text-xs" id="sort-costPrice">↕</span>
+                                    </th>
+                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('investmentCost')">
+                                        投資成本 <span class="sort-indicator text-xs" id="sort-investmentCost">↕</span>
+                                    </th>
+                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('currentPrice')">
+                                        現價 <span class="sort-indicator text-xs" id="sort-currentPrice">↕</span>
+                                    </th>
+                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('currentValue')">
+                                        現值 <span class="sort-indicator text-xs" id="sort-currentValue">↕</span>
+                                    </th>
+                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('returnRate')">
+                                        報酬率 <span class="sort-indicator text-xs" id="sort-returnRate">↕</span>
+                                    </th>
+                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('holder')">
+                                        持有人 <span class="sort-indicator text-xs" id="sort-holder">↕</span>
+                                    </th>
+                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('platform')">
+                                        平台 <span class="sort-indicator text-xs" id="sort-platform">↕</span>
+                                    </th>
                                     <th class="px-3 py-3 text-center text-slate-300 no-print">操作</th>
                                 </tr>
                             </thead>
@@ -581,7 +605,7 @@
             }
         });
 
-        // === 修正版：獲取股票資訊（支援債券 ETF + 重試機制）===
+        // === 修正版：獲取股票資訊（支援債券 ETF + 重試機制 + 漲跌幅）===
         async function fetchStockInfo(symbol, region, retryCount = 0) {
             const maxRetries = 3;
             
@@ -621,6 +645,15 @@
                     
                     // 獲取價格（優先使用 regularMarketPrice，否則使用 previousClose）
                     const price = meta.regularMarketPrice || meta.chartPreviousClose || meta.previousClose;
+                    
+                    // 獲取前一日收盤價
+                    const previousClose = meta.chartPreviousClose || meta.previousClose;
+                    
+                    // 計算漲跌幅
+                    let changePercent = 0;
+                    if (previousClose && price && previousClose !== 0) {
+                        changePercent = ((price - previousClose) / previousClose) * 100;
+                    }
                     
                     if (!price || price <= 0) {
                         throw new Error(`${symbol} 價格無效: ${price}`);
@@ -762,11 +795,12 @@
                         companyName = meta.longName || meta.shortName || symbol;
                     }
                     
-                    console.log(`✓ 成功獲取 ${symbol}: 價格=${price}, 名稱=${companyName}`);
+                    console.log(`✓ 成功獲取 ${symbol}: 價格=${price}, 名稱=${companyName}, 漲跌幅=${changePercent.toFixed(2)}%`);
                     
                     return {
                         price: Math.abs(price), // 確保價格為正值
-                        companyName: companyName
+                        companyName: companyName,
+                        changePercent: changePercent // 新增漲跌幅
                     };
                 }
                 
@@ -912,6 +946,7 @@
                 const stockRef = doc(db, 'stocks', stockId);
                 await updateDoc(stockRef, {
                     currentPrice: info.price,
+                    changePercent: info.changePercent || 0, // 同時更新漲跌幅
                     lastPriceUpdate: new Date().toISOString()
                 });
             }
@@ -923,15 +958,65 @@
             button.disabled = true;
             button.innerHTML = '🔄 更新中...<span class="loading-spinner"></span>';
             
-            // 同時更新匯率和所有股價
-            await Promise.all([
-                fetchExchangeRate(),
-                ...stocks.map(stock => updateStockPrice(stock.id, stock.symbol, stock.region))
-            ]);
-            
-            button.disabled = false;
-            button.innerHTML = '🔄 更新';
-            updateLastUpdateTime();
+            try {
+                // 先更新匯率
+                await fetchExchangeRate();
+                
+                // === 優化：按股票代號去重，避免重複抓取 ===
+                // 取得所有不重複的股票（symbol + region 組合）
+                const uniqueStocksMap = new Map();
+                stocks.forEach(stock => {
+                    const key = `${stock.symbol}_${stock.region}`;
+                    if (!uniqueStocksMap.has(key)) {
+                        uniqueStocksMap.set(key, {
+                            symbol: stock.symbol,
+                            region: stock.region,
+                            relatedStocks: []
+                        });
+                    }
+                    // 記錄所有相關的股票ID
+                    uniqueStocksMap.get(key).relatedStocks.push(stock.id);
+                });
+                
+                console.log(`📊 共 ${stocks.length} 筆明細，合併為 ${uniqueStocksMap.size} 檔不同股票`);
+                
+                // 批次更新所有不重複的股票
+                let successCount = 0;
+                let failCount = 0;
+                
+                for (const [key, stockInfo] of uniqueStocksMap) {
+                    const info = await fetchStockInfo(stockInfo.symbol, stockInfo.region);
+                    
+                    if (info && info.price) {
+                        // 更新所有相關的股票記錄
+                        await Promise.all(
+                            stockInfo.relatedStocks.map(stockId => {
+                                const stockRef = doc(db, 'stocks', stockId);
+                                return updateDoc(stockRef, {
+                                    currentPrice: info.price,
+                                    changePercent: info.changePercent || 0,
+                                    lastPriceUpdate: new Date().toISOString()
+                                });
+                            })
+                        );
+                        console.log(`✓ ${stockInfo.symbol}: 已更新 ${stockInfo.relatedStocks.length} 筆記錄`);
+                        successCount++;
+                    } else {
+                        console.error(`✗ ${stockInfo.symbol}: 更新失敗`);
+                        failCount++;
+                    }
+                }
+                
+                console.log(`✅ 更新完成：成功 ${successCount} 檔，失敗 ${failCount} 檔`);
+                
+            } catch (error) {
+                console.error('更新失敗:', error);
+                alert('更新失敗：' + error.message);
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '🔄 更新';
+                updateLastUpdateTime();
+            }
         };
 
         // 自動刷新功能
@@ -1055,14 +1140,18 @@
                         companyName: stock.companyName,
                         totalShares: 0,
                         totalCost: 0,
-                        currentPrice: stock.currentPrice
+                        currentPrice: stock.currentPrice,
+                        changePercent: stock.changePercent || 0 // 新增漲跌幅
                     };
                 }
                 merged[key].totalShares += parseFloat(stock.shares) || 0;
                 merged[key].totalCost += parseFloat(stock.investmentCost) || 0;
-                // 更新最新價格
+                // 更新最新價格和漲跌幅
                 if (stock.currentPrice) {
                     merged[key].currentPrice = stock.currentPrice;
+                }
+                if (stock.changePercent !== undefined) {
+                    merged[key].changePercent = stock.changePercent;
                 }
             });
             
@@ -1076,16 +1165,16 @@
             
             const mergedStocks = getMergedStockStats();
             
-            // 計算總現值（用於計算佔比）
+            // 計算總現值（用於計算佔比）- 改為以台幣計算
             const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
-            let totalPortfolioValue = 0;
+            let totalPortfolioValueTWD = 0;
             mergedStocks.forEach(stock => {
                 const currentValue = (parseFloat(stock.currentPrice) || 0) * stock.totalShares;
                 const valueTWD = stock.region === '美股' ? currentValue * usdRate : currentValue;
-                totalPortfolioValue += valueTWD;
+                totalPortfolioValueTWD += valueTWD;
             });
             
-            // 按照現值排序（由大到小）
+            // 按照台幣現值排序（由大到小）
             mergedStocks.sort((a, b) => {
                 const aValue = (parseFloat(a.currentPrice) || 0) * a.totalShares;
                 const bValue = (parseFloat(b.currentPrice) || 0) * b.totalShares;
@@ -1097,12 +1186,34 @@
             mergedStocks.forEach(stock => {
                 const avgCost = stock.totalShares > 0 ? stock.totalCost / stock.totalShares : 0;
                 const currentPrice = Math.abs(parseFloat(stock.currentPrice) || 0);
-                const currentValue = currentPrice * stock.totalShares;
-                const valueTWD = stock.region === '美股' ? currentValue * usdRate : currentValue;
-                const percentage = totalPortfolioValue > 0 ? (valueTWD / totalPortfolioValue * 100) : 0;
+                const currentValue = currentPrice * stock.totalShares; // 原幣別現值
+                const valueTWD = stock.region === '美股' ? currentValue * usdRate : currentValue; // 台幣現值
+                const percentage = totalPortfolioValueTWD > 0 ? (valueTWD / totalPortfolioValueTWD * 100) : 0;
+                const changePercent = parseFloat(stock.changePercent) || 0;
+                
+                // 漲跌幅顏色和符號
+                let changeColor = 'text-slate-400';
+                let changeSymbol = '';
+                if (changePercent > 0) {
+                    changeColor = 'text-green-400';
+                    changeSymbol = '+';
+                } else if (changePercent < 0) {
+                    changeColor = 'text-red-400';
+                }
+                
+                // 現價顏色
+                let priceColor = 'text-slate-100';
+                if (changePercent > 0) {
+                    priceColor = 'text-green-400';
+                } else if (changePercent < 0) {
+                    priceColor = 'text-red-400';
+                }
                 
                 // 判斷是否為債券ETF（不能做夏普值分析）
                 const isBondETF = stock.symbol && stock.symbol.includes('B') && stock.symbol.startsWith('00');
+                
+                // 幣別符號
+                const currencySymbol = stock.region === '美股' ? 'USD' : 'TWD';
                 
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-slate-700 hover:bg-slate-800 transition-colors';
@@ -1123,10 +1234,18 @@
                         }
                     </td>
                     <td class="px-4 py-3 text-center text-slate-100 font-mono">${stock.totalShares.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-center text-slate-100 font-mono">${avgCost.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-center text-slate-100 font-mono">${stock.totalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                    <td class="px-4 py-3 text-center text-green-400 font-mono font-semibold">${currentPrice.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-center text-green-400 font-mono font-bold">${currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                    <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">${avgCost.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">${stock.totalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                    <td class="px-4 py-3 text-center ${priceColor} font-mono font-semibold">${currentPrice.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-center ${changeColor} font-mono font-bold">
+                        ${changeSymbol}${changePercent.toFixed(2)}%
+                    </td>
+                    <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">
+                        <div>${currencySymbol} ${currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                    </td>
+                    <td class="px-4 py-3 text-center text-green-400 font-mono font-bold">
+                        TWD ${valueTWD.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                    </td>
                     <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center gap-2">
                             <div class="w-24 bg-slate-700 rounded-full h-2.5">
@@ -1306,7 +1425,8 @@
                     symbol, 
                     shares, 
                     investmentCost: finalInvestmentCost, 
-                    currentPrice: Math.abs(info.price), 
+                    currentPrice: Math.abs(info.price),
+                    changePercent: info.changePercent || 0, // 儲存漲跌幅
                     holder, 
                     platform,
                     createdAt: new Date().toISOString(),
@@ -1333,6 +1453,91 @@
                 addButton.innerHTML = originalText;
                 alert('❌ 新增失敗：' + error.message);
             }
+        };
+
+        // === 表格排序功能 ===
+        let sortConfig = { key: null, direction: 'asc' };
+        
+        window.sortTable = function(key) {
+            // 切換排序方向
+            if (sortConfig.key === key) {
+                sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortConfig.key = key;
+                sortConfig.direction = 'asc';
+            }
+            
+            // 更新排序指示器
+            document.querySelectorAll('.sort-indicator').forEach(el => {
+                el.textContent = '↕';
+                el.classList.remove('text-blue-400');
+            });
+            
+            const indicator = document.getElementById(`sort-${key}`);
+            if (indicator) {
+                indicator.textContent = sortConfig.direction === 'asc' ? '↑' : '↓';
+                indicator.classList.add('text-blue-400');
+            }
+            
+            // 取得要排序的資料
+            const displayStocks = filteredStocks.length > 0 || 
+                                  document.getElementById('filterRegion').value || 
+                                  document.getElementById('filterHolder').value || 
+                                  document.getElementById('filterPlatform').value 
+                                  ? filteredStocks : stocks;
+            
+            // 排序
+            const sortedStocks = [...displayStocks].sort((a, b) => {
+                let aVal, bVal;
+                
+                switch(key) {
+                    case 'costPrice':
+                        aVal = a.shares > 0 ? a.investmentCost / a.shares : 0;
+                        bVal = b.shares > 0 ? b.investmentCost / b.shares : 0;
+                        break;
+                    case 'currentValue':
+                        aVal = (parseFloat(a.currentPrice) || 0) * (parseFloat(a.shares) || 0);
+                        bVal = (parseFloat(b.currentPrice) || 0) * (parseFloat(b.shares) || 0);
+                        break;
+                    case 'returnRate':
+                        const aCost = a.shares > 0 ? a.investmentCost / a.shares : 0;
+                        const bCost = b.shares > 0 ? b.investmentCost / b.shares : 0;
+                        aVal = aCost > 0 ? ((parseFloat(a.currentPrice) - aCost) / aCost) * 100 : 0;
+                        bVal = bCost > 0 ? ((parseFloat(b.currentPrice) - bCost) / bCost) * 100 : 0;
+                        break;
+                    case 'shares':
+                    case 'investmentCost':
+                    case 'currentPrice':
+                        aVal = parseFloat(a[key]) || 0;
+                        bVal = parseFloat(b[key]) || 0;
+                        break;
+                    default:
+                        aVal = (a[key] || '').toString().toLowerCase();
+                        bVal = (b[key] || '').toString().toLowerCase();
+                }
+                
+                if (typeof aVal === 'number') {
+                    return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+                } else {
+                    if (sortConfig.direction === 'asc') {
+                        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                    } else {
+                        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                    }
+                }
+            });
+            
+            // 更新 filteredStocks 並重新渲染
+            if (filteredStocks.length > 0 || 
+                document.getElementById('filterRegion').value || 
+                document.getElementById('filterHolder').value || 
+                document.getElementById('filterPlatform').value) {
+                filteredStocks = sortedStocks;
+            } else {
+                stocks = sortedStocks;
+            }
+            
+            renderStocks();
         };
 
         window.deleteStock = async (id) => {
@@ -1519,7 +1724,8 @@
                     symbol, 
                     shares, 
                     investmentCost: finalInvestmentCost, 
-                    currentPrice: Math.abs(info.price), 
+                    currentPrice: Math.abs(info.price),
+                    changePercent: info.changePercent || 0, // 儲存漲跌幅
                     holder, 
                     platform,
                     createdAt: new Date().toISOString(),
