@@ -871,8 +871,12 @@
                 tr.innerHTML = `
                     <td class="px-3 py-3 text-center text-slate-300">${stock.region || ''}</td>
                     <td class="px-3 py-3 text-center">
-                        <button onclick="openAnalysisModal('${stock.symbol}', '${stock.region}', '${(stock.companyName || stock.symbol).replace(/'/g, "\\'")}', ${stock.investmentCost}, ${stock.shares})" 
-                                class="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer font-medium">
+                        <button class="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer font-medium analysis-btn"
+                                data-symbol="${stock.symbol}"
+                                data-region="${stock.region}"
+                                data-company="${stock.companyName || stock.symbol}"
+                                data-cost="${stock.investmentCost}"
+                                data-shares="${stock.shares}">
                             ${stock.companyName || stock.symbol}
                         </button>
                     </td>
@@ -882,7 +886,6 @@
                     <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${stock.investmentCost.toLocaleString()}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs" title="最後更新: ${lastUpdate}">
                         ${Math.abs(stock.currentPrice).toFixed(2)}
-                        <button onclick="updateStockPrice('${stock.id}', '${stock.symbol}', '${stock.region}')" class="ml-1 text-blue-400 hover:text-blue-300 text-xs">🔄</button>
                     </td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${calc.currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                     <td class="px-3 py-3 text-center font-mono font-semibold ${calc.returnRate >= 0 ? 'text-green-400' : 'text-red-400'}">
@@ -895,6 +898,18 @@
                     </td>
                 `;
                 tbody.appendChild(tr);
+            });
+            
+            // 綁定所有分析按鈕的點擊事件
+            document.querySelectorAll('.analysis-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const symbol = this.dataset.symbol;
+                    const region = this.dataset.region;
+                    const company = this.dataset.company;
+                    const cost = parseFloat(this.dataset.cost);
+                    const shares = parseFloat(this.dataset.shares);
+                    openAnalysisModal(symbol, region, company, cost, shares);
+                });
             });
         }
 
