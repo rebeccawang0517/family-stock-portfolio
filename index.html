@@ -321,10 +321,8 @@
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">平均成本價</th>
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">總投資成本</th>
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">現價</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">漲跌幅</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">總現值<br/><span class="text-xs text-slate-400">(原幣別)</span></th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">總現值<br/><span class="text-xs text-slate-400">(TWD)</span></th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">佔比 (依TWD現值)</th>
+                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">總現值</th>
+                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">佔比 (依現值)</th>
                                 </tr>
                             </thead>
                             <tbody id="summaryTableBody">
@@ -583,223 +581,9 @@
             }
         });
 
-        // === 修正版：獲取股票資訊（支援債券 ETF + 重試機制 + 漲跌幅）===
+        // === 修正版：獲取股票資訊（支援債券 ETF + 重試機制）===
         async function fetchStockInfo(symbol, region, retryCount = 0) {
             const maxRetries = 3;
-            
-            try {
-                let apiSymbol = symbol;
-                
-                if (region === '台股') {
-                    // 債券 ETF 使用 .TWO (櫃買中心)，一般台股使用 .TW (證交所)
-                    if (symbol.startsWith('00') && symbol.includes('B')) {
-                        apiSymbol = symbol + '.TWO';
-                    } else {
-                        apiSymbol = symbol + '.TW';
-                    }
-                }
-                
-                console.log(`嘗試獲取 ${symbol} 的資訊 (第 ${retryCount + 1} 次)，API 代號: ${apiSymbol}`);
-                
-                // 使用 CORS 代理來繞過瀏覽器限制
-                const corsProxy = 'https://api.allorigins.win/raw?url=';
-                const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
-                const url = corsProxy + encodeURIComponent(apiUrl);
-                
-                const response = await fetch(url, {
-                    method: 'GET',
-                    timeout: 10000 // 10秒超時
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                if (data.chart && data.chart.result && data.chart.result[0]) {
-                    const result = data.chart.result[0];
-                    const meta = result.meta;
-                    
-                    // 獲取價格（優先使用 regularMarketPrice，否則使用 previousClose）
-                    const price = meta.regularMarketPrice || meta.chartPreviousClose || meta.previousClose;
-                    
-                    // 獲取前一日收盤價
-                    const previousClose = meta.chartPreviousClose || meta.previousClose;
-                    
-                    // 計算漲跌幅
-                    let changePercent = 0;
-                    if (previousClose && price && previousClose !== 0) {
-                        changePercent = ((price - previousClose) / previousClose) * 100;
-                    }
-                    
-                    if (!price || price <= 0) {
-                        throw new Error(`${symbol} 價格無效: ${price}`);
-                    }
-                    
-                    // 獲取公司名稱 - 預設使用股票代號
-                    let companyName = symbol;
-                    
-                    // 台股常見公司名稱映射（修正 Yahoo Finance 資料不準確的問題）
-                    if (region === '台股') {
-                        const taiwanStocks = {
-                            // === ETF ===
-                            '0050': '元大台灣50',
-                            '0056': '元大高股息',
-                            '00679B': '元大美債20年',
-                            '00687B': '國泰20年美債',
-                            '00697B': '元大美債7-10',
-                            '00720B': '元大投資級公司債',
-                            
-                            // === 0050 & 0056 主要成分股 ===
-                            '2330': '台積電',
-                            '2317': '鴻海',
-                            '2454': '聯發科',
-                            '2412': '中華電',
-                            '2308': '台達電',
-                            '2882': '國泰金',
-                            '2881': '富邦金',
-                            '2891': '中信金',
-                            '2886': '兆豐金',
-                            '2884': '玉山金',
-                            '2885': '元大金',
-                            '2892': '第一金',
-                            '2887': '台新金',
-                            '2883': '開發金',
-                            '5880': '合庫金',
-                            '2880': '華南金',
-                            '2888': '新光金',
-                            '2890': '永豐金',
-                            '5876': '上海商銀',
-                            '2801': '彰銀',
-                            '2809': '京城銀',
-                            
-                            // === 電子股 ===
-                            '3711': '日月光投控',
-                            '2382': '廣達',
-                            '2303': '聯電',
-                            '2357': '華碩',
-                            '2301': '光寶科',
-                            '2395': '研華',
-                            '2408': '南亞科',
-                            '3008': '大立光',
-                            '2409': '友達',
-                            '2345': '智邦',
-                            '2327': '國巨',
-                            '3034': '聯詠',
-                            '6669': '緯穎',
-                            '6415': '矽力-KY',
-                            '3017': '奇鋐',
-                            '2376': '技嘉',
-                            '2474': '可成',
-                            '3045': '台灣大',
-                            '4904': '遠傳',
-                            '4938': '和碩',
-                            '2324': '仁寶',
-                            '2356': '英業達',
-                            '3231': '緯創',
-                            '6770': '力積電',
-                            '2371': '大同',
-                            '2353': '宏碁',
-                            '2377': '微星',
-                            '3443': '創意',
-                            '3661': '世芯-KY',
-                            '6781': 'AES-KY',
-                            '3529': '力旺',
-                            '6533': '晶心科',
-                            
-                            // === 傳產股 ===
-                            '1301': '台塑',
-                            '1303': '南亞',
-                            '1326': '台化',
-                            '6505': '台塑化',
-                            '1101': '台泥',
-                            '1102': '亞泥',
-                            '2002': '中鋼',
-                            '2207': '和泰車',
-                            '2105': '正新',
-                            '2912': '統一超',
-                            '1216': '統一',
-                            '9904': '寶成',
-                            '9910': '豐泰',
-                            '2615': '萬海',
-                            '2609': '陽明',
-                            '2603': '長榮',
-                            '5871': '中租-KY',
-                            '9921': '巨大',
-                            '2049': '上銀',
-                            '1590': '亞德客-KY',
-                            '2204': '中華',
-                            '1476': '儒鴻',
-                            '1477': '聚陽',
-                            '2201': '裕隆',
-                            '2227': '裕日車',
-                            '2542': '興富發',
-                            '5522': '遠雄',
-                            '2535': '達欣工',
-                            '9945': '潤泰新',
-                            '2547': '日勝生',
-                            
-                            // === 其他常見個股 ===
-                            '2344': '華邦電',
-                            '2337': '旺宏',
-                            '2352': '佳世達',
-                            '2354': '鴻準',
-                            '2360': '致茂',
-                            '2379': '瑞昱',
-                            '2439': '美律',
-                            '2449': '京元電子',
-                            '2458': '義隆',
-                            '6121': '新普',
-                            '6176': '瑞儀',
-                            '6239': '力成',
-                            '6271': '同欣電',
-                            '8046': '南電',
-                            '2347': '聯強',
-                            '2493': '揚博',
-                            '3702': '大聯大',
-                            '4943': '康控-KY',
-                            '6116': '彩晶',
-                            '6213': '聯茂',
-                            '8131': '福懋科'
-                        };
-                        
-                        // 如果在清單中找到，使用清單名稱；否則保持使用代號
-                        if (taiwanStocks[symbol]) {
-                            companyName = taiwanStocks[symbol];
-                        }
-                    } else {
-                        // 美股：優先使用 Yahoo 的名稱，如果沒有就用代號
-                        companyName = meta.longName || meta.shortName || symbol;
-                    }
-                    
-                    console.log(`✓ 成功獲取 ${symbol}: 價格=${price}, 名稱=${companyName}, 漲跌幅=${changePercent.toFixed(2)}%`);
-                    
-                    return {
-                        price: Math.abs(price), // 確保價格為正值
-                        companyName: companyName,
-                        changePercent: changePercent // 新增漲跌幅
-                    };
-                }
-                
-                throw new Error(`${symbol} 無法從 API 獲取數據`);
-                
-            } catch (error) {
-                console.error(`✗ 獲取 ${symbol} 資訊失敗 (第 ${retryCount + 1} 次):`, error.message);
-                
-                // 如果還有重試次數，等待後重試
-                if (retryCount < maxRetries) {
-                    const waitTime = (retryCount + 1) * 1000; // 遞增等待時間：1秒、2秒、3秒
-                    console.log(`⏳ 等待 ${waitTime/1000} 秒後重試...`);
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                    return fetchStockInfo(symbol, region, retryCount + 1);
-                }
-                
-                // 重試次數用盡，返回 null
-                console.error(`❌ ${symbol} 在重試 ${maxRetries} 次後仍然失敗`);
-                return null;
-            }
-        }
             
             try {
                 let apiSymbol = symbol;
@@ -1128,7 +912,6 @@
                 const stockRef = doc(db, 'stocks', stockId);
                 await updateDoc(stockRef, {
                     currentPrice: info.price,
-                    changePercent: info.changePercent || 0, // 同時更新漲跌幅
                     lastPriceUpdate: new Date().toISOString()
                 });
             }
@@ -1272,18 +1055,14 @@
                         companyName: stock.companyName,
                         totalShares: 0,
                         totalCost: 0,
-                        currentPrice: stock.currentPrice,
-                        changePercent: stock.changePercent || 0 // 新增漲跌幅
+                        currentPrice: stock.currentPrice
                     };
                 }
                 merged[key].totalShares += parseFloat(stock.shares) || 0;
                 merged[key].totalCost += parseFloat(stock.investmentCost) || 0;
-                // 更新最新價格和漲跌幅
+                // 更新最新價格
                 if (stock.currentPrice) {
                     merged[key].currentPrice = stock.currentPrice;
-                }
-                if (stock.changePercent !== undefined) {
-                    merged[key].changePercent = stock.changePercent;
                 }
             });
             
@@ -1297,16 +1076,16 @@
             
             const mergedStocks = getMergedStockStats();
             
-            // 計算總現值（用於計算佔比）- 改為以台幣計算
+            // 計算總現值（用於計算佔比）
             const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
-            let totalPortfolioValueTWD = 0;
+            let totalPortfolioValue = 0;
             mergedStocks.forEach(stock => {
                 const currentValue = (parseFloat(stock.currentPrice) || 0) * stock.totalShares;
                 const valueTWD = stock.region === '美股' ? currentValue * usdRate : currentValue;
-                totalPortfolioValueTWD += valueTWD;
+                totalPortfolioValue += valueTWD;
             });
             
-            // 按照台幣現值排序（由大到小）
+            // 按照現值排序（由大到小）
             mergedStocks.sort((a, b) => {
                 const aValue = (parseFloat(a.currentPrice) || 0) * a.totalShares;
                 const bValue = (parseFloat(b.currentPrice) || 0) * b.totalShares;
@@ -1318,34 +1097,12 @@
             mergedStocks.forEach(stock => {
                 const avgCost = stock.totalShares > 0 ? stock.totalCost / stock.totalShares : 0;
                 const currentPrice = Math.abs(parseFloat(stock.currentPrice) || 0);
-                const currentValue = currentPrice * stock.totalShares; // 原幣別現值
-                const valueTWD = stock.region === '美股' ? currentValue * usdRate : currentValue; // 台幣現值
-                const percentage = totalPortfolioValueTWD > 0 ? (valueTWD / totalPortfolioValueTWD * 100) : 0;
-                const changePercent = parseFloat(stock.changePercent) || 0;
-                
-                // 漲跌幅顏色和符號
-                let changeColor = 'text-slate-400';
-                let changeSymbol = '';
-                if (changePercent > 0) {
-                    changeColor = 'text-green-400';
-                    changeSymbol = '+';
-                } else if (changePercent < 0) {
-                    changeColor = 'text-red-400';
-                }
-                
-                // 現價顏色
-                let priceColor = 'text-slate-100';
-                if (changePercent > 0) {
-                    priceColor = 'text-green-400';
-                } else if (changePercent < 0) {
-                    priceColor = 'text-red-400';
-                }
+                const currentValue = currentPrice * stock.totalShares;
+                const valueTWD = stock.region === '美股' ? currentValue * usdRate : currentValue;
+                const percentage = totalPortfolioValue > 0 ? (valueTWD / totalPortfolioValue * 100) : 0;
                 
                 // 判斷是否為債券ETF（不能做夏普值分析）
                 const isBondETF = stock.symbol && stock.symbol.includes('B') && stock.symbol.startsWith('00');
-                
-                // 幣別符號
-                const currencySymbol = stock.region === '美股' ? 'USD' : 'TWD';
                 
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-slate-700 hover:bg-slate-800 transition-colors';
@@ -1366,18 +1123,10 @@
                         }
                     </td>
                     <td class="px-4 py-3 text-center text-slate-100 font-mono">${stock.totalShares.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">${avgCost.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">${stock.totalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                    <td class="px-4 py-3 text-center ${priceColor} font-mono font-semibold">${currentPrice.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-center ${changeColor} font-mono font-bold">
-                        ${changeSymbol}${changePercent.toFixed(2)}%
-                    </td>
-                    <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">
-                        <div>${currencySymbol} ${currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
-                    </td>
-                    <td class="px-4 py-3 text-center text-green-400 font-mono font-bold">
-                        TWD ${valueTWD.toLocaleString(undefined, {maximumFractionDigits: 0})}
-                    </td>
+                    <td class="px-4 py-3 text-center text-slate-100 font-mono">${avgCost.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-center text-slate-100 font-mono">${stock.totalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                    <td class="px-4 py-3 text-center text-green-400 font-mono font-semibold">${currentPrice.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-center text-green-400 font-mono font-bold">${currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                     <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center gap-2">
                             <div class="w-24 bg-slate-700 rounded-full h-2.5">
@@ -1557,8 +1306,7 @@
                     symbol, 
                     shares, 
                     investmentCost: finalInvestmentCost, 
-                    currentPrice: Math.abs(info.price),
-                    changePercent: info.changePercent || 0, // 儲存漲跌幅
+                    currentPrice: Math.abs(info.price), 
                     holder, 
                     platform,
                     createdAt: new Date().toISOString(),
@@ -1771,8 +1519,7 @@
                     symbol, 
                     shares, 
                     investmentCost: finalInvestmentCost, 
-                    currentPrice: Math.abs(info.price),
-                    changePercent: info.changePercent || 0, // 儲存漲跌幅
+                    currentPrice: Math.abs(info.price), 
                     holder, 
                     platform,
                     createdAt: new Date().toISOString(),
