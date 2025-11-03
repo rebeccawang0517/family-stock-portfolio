@@ -164,6 +164,13 @@
                 transform: scale(1);
             }
         }
+        
+        /* 合併統計行樣式 */
+        .merged-row {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            border-top: 2px solid #3b82f6;
+            border-bottom: 2px solid #3b82f6;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
@@ -279,11 +286,11 @@
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="bg-slate-900 border-b border-slate-700">
-                                <th class="px-3 py-3 text-center text-slate-300">地區</th>
+                                <th class="px-4 py-3 text-center text-slate-300" style="min-width: 60px;">地區</th>
                                 <th class="px-3 py-3 text-center text-slate-300">公司</th>
                                 <th class="px-3 py-3 text-center text-slate-300">代號</th>
-                                <th class="px-3 py-3 text-center text-slate-300">成本價</th>
                                 <th class="px-3 py-3 text-center text-slate-300">股數</th>
+                                <th class="px-3 py-3 text-center text-slate-300">成本價</th>
                                 <th class="px-3 py-3 text-center text-slate-300">投資成本</th>
                                 <th class="px-3 py-3 text-center text-slate-300">現價</th>
                                 <th class="px-3 py-3 text-center text-slate-300">現值</th>
@@ -295,7 +302,7 @@
                         </thead>
                         <tbody id="stockTableBody">
                             <tr class="desktop-add-row bg-blue-900 bg-opacity-20 border-b-2 border-blue-500 no-print">
-                                <td class="px-3 py-2">
+                                <td class="px-4 py-2">
                                     <select id="newRegion" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
                                         <option>台股</option>
                                         <option>美股</option>
@@ -308,10 +315,10 @@
                                     <input type="text" id="newSymbol" placeholder="代號" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm font-mono" style="text-transform: uppercase;" onchange="fetchCompanyName()" />
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="number" id="newCostPrice" placeholder="成本價" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" step="0.01" />
+                                    <input type="number" id="newShares" placeholder="股數" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" />
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="number" id="newShares" placeholder="股數" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" />
+                                    <input type="number" id="newCostPrice" placeholder="成本價" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" step="0.01" />
                                 </td>
                                 <td class="px-3 py-2">
                                     <input type="number" id="newCost" placeholder="成本" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" />
@@ -351,6 +358,7 @@
                     <li>系統會自動獲取最新股價（若未開盤則顯示前一收盤價）</li>
                     <li>點擊「一鍵全部更新」可同時更新匯率和所有股價</li>
                     <li>可使用篩選功能查看特定地區、持有人或平台的股票</li>
+                    <li><strong class="text-yellow-300">📊 相同股票會自動合併顯示，顯示總持股和平均成本</strong></li>
                 </ul>
             </div>
             
@@ -480,13 +488,18 @@
             }
         });
 
-        // 獲取股票資訊（價格和公司名稱）
+        // === 修正版：獲取股票資訊（支援債券 ETF）===
         async function fetchStockInfo(symbol, region) {
             try {
                 let apiSymbol = symbol;
                 
                 if (region === '台股') {
-                    apiSymbol = symbol + '.TW';
+                    // 債券 ETF 使用 .TWO (櫃買中心)，一般台股使用 .TW (證交所)
+                    if (symbol.startsWith('00') && symbol.includes('B')) {
+                        apiSymbol = symbol + '.TWO';
+                    } else {
+                        apiSymbol = symbol + '.TW';
+                    }
                 }
                 
                 // 使用 CORS 代理來繞過瀏覽器限制
@@ -514,6 +527,9 @@
                             '0050': '元大台灣50',
                             '0056': '元大高股息',
                             '00679B': '元大美債20年',
+                            '00687B': '國泰20年美債',
+                            '00697B': '元大美債7-10',
+                            '00720B': '元大投資級公司債',
                             
                             // === 0050 & 0056 主要成分股 ===
                             '2330': '台積電',
@@ -843,6 +859,37 @@
             });
         }
 
+        // === 新增：計算合併後的股票統計 ===
+        function getMergedStockStats() {
+            const displayStocks = filteredStocks.length > 0 || 
+                                  document.getElementById('filterRegion').value || 
+                                  document.getElementById('filterHolder').value || 
+                                  document.getElementById('filterPlatform').value 
+                                  ? filteredStocks : stocks;
+            
+            // 按照 symbol + region 合併
+            const merged = {};
+            displayStocks.forEach(stock => {
+                const key = `${stock.symbol}_${stock.region}`;
+                if (!merged[key]) {
+                    merged[key] = {
+                        symbol: stock.symbol,
+                        region: stock.region,
+                        companyName: stock.companyName,
+                        totalShares: 0,
+                        totalCost: 0,
+                        currentPrice: stock.currentPrice,
+                        stocks: []
+                    };
+                }
+                merged[key].totalShares += parseFloat(stock.shares) || 0;
+                merged[key].totalCost += parseFloat(stock.investmentCost) || 0;
+                merged[key].stocks.push(stock);
+            });
+            
+            return merged;
+        }
+
         function renderStocks() {
             const tbody = document.getElementById('stockTableBody');
             const addRow = tbody.querySelector('tr');
@@ -855,21 +902,83 @@
                                   document.getElementById('filterPlatform').value 
                                   ? filteredStocks : stocks;
 
+            // 計算總投資成本（用於計算佔比）
+            const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
+            let totalPortfolioCost = 0;
+            displayStocks.forEach(stock => {
+                const calc = calculateFields(stock);
+                totalPortfolioCost += calc.investmentCostTWD;
+            });
+
+            // 獲取合併統計
+            const mergedStats = getMergedStockStats();
+            
+            // 用來追蹤已經顯示過合併行的股票
+            const displayedMerged = new Set();
+
             displayStocks.forEach(stock => {
                 // 先驗證和轉換所有數值字段，並確保價格為正值
                 stock.shares = parseFloat(stock.shares) || 0;
                 stock.investmentCost = parseFloat(stock.investmentCost) || 0;
                 stock.currentPrice = Math.abs(parseFloat(stock.currentPrice) || 0);
                 stock.companyName = stock.companyName || '';
+                
+                const key = `${stock.symbol}_${stock.region}`;
+                const mergedData = mergedStats[key];
+                
+                // 如果這個股票有多筆持股且還沒顯示合併行，先顯示合併行
+                if (mergedData.stocks.length > 1 && !displayedMerged.has(key)) {
+                    const avgCost = mergedData.totalCost / mergedData.totalShares;
+                    const currentValue = mergedData.currentPrice * mergedData.totalShares;
+                    const returnRate = mergedData.totalCost > 0 ? ((currentValue - mergedData.totalCost) / mergedData.totalCost) * 100 : 0;
+                    
+                    // 計算佔比
+                    const costTWD = stock.region === '美股' ? mergedData.totalCost * usdRate : mergedData.totalCost;
+                    const percentage = totalPortfolioCost > 0 ? (costTWD / totalPortfolioCost * 100) : 0;
+                    
+                    const mergedTr = document.createElement('tr');
+                    mergedTr.className = 'merged-row border-b border-slate-700';
+                    mergedTr.innerHTML = `
+                        <td class="px-4 py-3 text-center text-white font-semibold">${stock.region || ''}</td>
+                        <td class="px-3 py-3 text-center">
+                            <button class="text-white hover:text-blue-200 hover:underline cursor-pointer font-bold analysis-btn"
+                                    data-symbol="${stock.symbol}"
+                                    data-region="${stock.region}"
+                                    data-company="${stock.companyName || stock.symbol}"
+                                    data-cost="${mergedData.totalCost}"
+                                    data-shares="${mergedData.totalShares}">
+                                📊 ${stock.companyName || stock.symbol}
+                            </button>
+                        </td>
+                        <td class="px-3 py-3 text-center text-white font-mono font-bold">${stock.symbol}</td>
+                        <td class="px-3 py-3 text-center text-white font-mono font-bold">${mergedData.totalShares.toLocaleString()}</td>
+                        <td class="px-3 py-3 text-center text-white font-mono text-xs">${avgCost.toFixed(2)}</td>
+                        <td class="px-3 py-3 text-center text-white font-mono text-xs">${mergedData.totalCost.toLocaleString()}</td>
+                        <td class="px-3 py-3 text-center text-white font-mono text-xs">${Math.abs(stock.currentPrice).toFixed(2)}</td>
+                        <td class="px-3 py-3 text-center text-white font-mono text-xs">${currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                        <td class="px-3 py-3 text-center font-mono font-bold ${returnRate >= 0 ? 'text-green-300' : 'text-red-300'}">
+                            ${returnRate >= 0 ? '+' : ''}${returnRate.toFixed(2)}%
+                        </td>
+                        <td class="px-3 py-3 text-center text-white font-semibold" colspan="2">
+                            合併 (${mergedData.stocks.length}筆) | 佔比 ${percentage.toFixed(1)}%
+                        </td>
+                        <td class="px-3 py-3 text-center no-print"></td>
+                    `;
+                    tbody.appendChild(mergedTr);
+                    displayedMerged.add(key);
+                }
                                 
                 const calc = calculateFields(stock);
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-slate-700 hover:bg-slate-750';
                 
+                // 如果有合併行，個別持股行要稍微縮排顯示
+                const indent = mergedData.stocks.length > 1 ? '　' : '';
+                
                 const lastUpdate = stock.lastPriceUpdate ? new Date(stock.lastPriceUpdate).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '未更新';
                 
                 tr.innerHTML = `
-                    <td class="px-3 py-3 text-center text-slate-300">${stock.region || ''}</td>
+                    <td class="px-4 py-3 text-center text-slate-300">${stock.region || ''}</td>
                     <td class="px-3 py-3 text-center">
                         <button class="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer font-medium analysis-btn"
                                 data-symbol="${stock.symbol}"
@@ -877,12 +986,12 @@
                                 data-company="${stock.companyName || stock.symbol}"
                                 data-cost="${stock.investmentCost}"
                                 data-shares="${stock.shares}">
-                            ${stock.companyName || stock.symbol}
+                            ${indent}${stock.companyName || stock.symbol}
                         </button>
                     </td>
                     <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${stock.symbol}</td>
-                    <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${calc.costPrice.toFixed(2)}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono">${stock.shares.toLocaleString()}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${calc.costPrice.toFixed(2)}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${stock.investmentCost.toLocaleString()}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs" title="最後更新: ${lastUpdate}">
                         ${Math.abs(stock.currentPrice).toFixed(2)}
@@ -1046,8 +1155,8 @@
                     地區: stock.region,
                     公司名稱: stock.companyName || stock.symbol,
                     股票代號: stock.symbol,
-                    成本股價: calc.costPrice.toFixed(2),
                     股數: stock.shares,
+                    成本股價: calc.costPrice.toFixed(2),
                     投資成本: stock.investmentCost,
                     現價: Math.abs(stock.currentPrice).toFixed(2),
                     現值: calc.currentValue.toFixed(2),
@@ -1280,7 +1389,12 @@
         async function fetchAnalysisData(symbol, region, range) {
             let apiSymbol = symbol;
             if (region === '台股') {
-                apiSymbol = symbol + '.TW';
+                // 債券 ETF 使用 .TWO，一般台股使用 .TW
+                if (symbol.startsWith('00') && symbol.includes('B')) {
+                    apiSymbol = symbol + '.TWO';
+                } else {
+                    apiSymbol = symbol + '.TW';
+                }
             }
             
             const corsProxy = 'https://api.allorigins.win/raw?url=';
