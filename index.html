@@ -27,11 +27,20 @@
         ];
 
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
 
-        window.firebaseApp = { auth, db, provider, allowedEmails };
+        window.firebaseApp = { auth, db, provider, allowedEmails };
+
+        // >>>>>>> 從這裡開始加入或檢查
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // 登入時，在瀏覽器的開發者工具 (Console) 中查看
+                console.log("當前登入使用者的 UID (重要！):", user.uid); 
+            }
+            // ... (後續的登入/登出畫面切換邏輯)
+        });
     </script>
 
     <style>
