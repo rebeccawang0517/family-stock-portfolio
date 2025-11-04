@@ -21,17 +21,14 @@
             appId: "1:335938745651:web:2c090e33a72db1a5adfa46"
         };
 
-        const allowedEmails = [
-            'rebeccawang0517@gmail.com',
-            'sclu.eric@gmail.com'
-        ];
+        
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        window.firebaseApp = { auth, db, provider, allowedEmails };
+       window.firebaseApp = { auth, db, provider };
 
         // >>>>>>> 從這裡開始加入或檢查
         onAuthStateChanged(auth, (user) => {
