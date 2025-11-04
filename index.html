@@ -252,10 +252,10 @@
             <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 mb-6 no-print">
                 <div class="flex gap-2">
                     <button onclick="switchTab('overview')" id="tabOverview" class="tab-button active flex-1 px-6 py-3 rounded-lg font-semibold text-lg transition-all">
-                        📊 總覽
+                        總覽
                     </button>
                     <button onclick="switchTab('detail')" id="tabDetail" class="tab-button flex-1 px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        📝 明細管理
+                        明細管理
                     </button>
                 </div>
             </div>
@@ -1315,7 +1315,14 @@
                     <td class="px-3 py-3 text-center text-slate-300">${stock.holder}</td>
                     <td class="px-3 py-3 text-center text-slate-300">${stock.platform}</td>
                     <td class="px-3 py-3 text-center no-print">
-                        <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300">🗑️</button>
+                        <div class="flex gap-2 justify-center">
+                            <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors" title="刪除（建檔錯誤）">
+                                🗑️ 刪除
+                            </button>
+                            <button onclick="openSellModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares})" class="text-green-400 hover:text-green-300 px-2 py-1 rounded hover:bg-green-900 hover:bg-opacity-20 transition-colors" title="賣出部分股數">
+                                💰 賣出
+                            </button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -1538,6 +1545,81 @@
             }
             
             renderStocks();
+        };
+
+        // === 賣出功能 ===
+        let currentSellStockId = null;
+        let currentSellMaxShares = 0;
+        
+        window.openSellModal = function(stockId, symbol, companyName, currentShares) {
+            currentSellStockId = stockId;
+            currentSellMaxShares = currentShares;
+            
+            document.getElementById('sellStockInfo').textContent = `${companyName} (${symbol})`;
+            document.getElementById('sellCurrentShares').textContent = `${currentShares.toLocaleString()} 股`;
+            document.getElementById('sellShares').value = '';
+            document.getElementById('sellShares').max = currentShares;
+            
+            document.getElementById('sellModal').style.display = 'flex';
+        };
+        
+        window.closeSellModal = function() {
+            document.getElementById('sellModal').style.display = 'none';
+            currentSellStockId = null;
+            currentSellMaxShares = 0;
+        };
+        
+        window.confirmSell = async function() {
+            const sellShares = parseFloat(document.getElementById('sellShares').value);
+            
+            if (!sellShares || sellShares <= 0) {
+                alert('❌ 請輸入有效的賣出股數');
+                return;
+            }
+            
+            if (sellShares > currentSellMaxShares) {
+                alert(`❌ 賣出股數不能超過持有股數 ${currentSellMaxShares}`);
+                return;
+            }
+            
+            if (!confirm(`確定要賣出 ${sellShares} 股嗎？`)) {
+                return;
+            }
+            
+            try {
+                // 找到該股票記錄
+                const stock = stocks.find(s => s.id === currentSellStockId);
+                if (!stock) {
+                    alert('❌ 找不到股票記錄');
+                    return;
+                }
+                
+                const newShares = stock.shares - sellShares;
+                
+                if (newShares <= 0) {
+                    // 全部賣出，直接刪除記錄
+                    await deleteDoc(doc(db, 'stocks', currentSellStockId));
+                    alert(`✅ 已全部賣出並刪除記錄`);
+                } else {
+                    // 部分賣出，更新記錄
+                    // 計算新的投資成本（按比例減少）
+                    const costPerShare = stock.investmentCost / stock.shares;
+                    const newInvestmentCost = costPerShare * newShares;
+                    
+                    const stockRef = doc(db, 'stocks', currentSellStockId);
+                    await updateDoc(stockRef, {
+                        shares: newShares,
+                        investmentCost: newInvestmentCost
+                    });
+                    
+                    alert(`✅ 賣出成功！\n\n剩餘股數: ${newShares.toLocaleString()}\n剩餘成本: ${newInvestmentCost.toLocaleString()}`);
+                }
+                
+                closeSellModal();
+            } catch (error) {
+                console.error('賣出失敗:', error);
+                alert('❌ 賣出失敗：' + error.message);
+            }
         };
 
         window.deleteStock = async (id) => {
@@ -2036,6 +2118,49 @@
     <div id="analysisModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='analysisModal') closeAnalysisModal()">
         <div id="analysisContent" class="analysis-content bg-slate-800 border-2 border-blue-500 rounded-lg max-w-5xl w-full mx-4" onclick="event.stopPropagation()">
             <!-- 內容會動態插入這裡 -->
+        </div>
+    </div>
+    
+    <!-- 賣出模態框 HTML -->
+    <div id="sellModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='sellModal') closeSellModal()">
+        <div class="bg-slate-800 border-2 border-green-500 rounded-lg max-w-md w-full mx-4 p-6" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-green-400">💰 賣出股票</h3>
+                <button onclick="closeSellModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">股票</label>
+                    <div id="sellStockInfo" class="text-lg font-semibold text-slate-100"></div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">目前持有股數</label>
+                    <div id="sellCurrentShares" class="text-lg font-bold text-blue-400"></div>
+                </div>
+                
+                <div>
+                    <label for="sellShares" class="block text-sm text-slate-300 mb-1">賣出股數</label>
+                    <input type="number" id="sellShares" min="1" 
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="輸入要賣出的股數" />
+                    <div class="text-xs text-slate-400 mt-1">
+                        💡 提示：賣出後系統會自動重新計算投資成本和其他欄位
+                    </div>
+                </div>
+                
+                <div class="flex gap-3 mt-6">
+                    <button onclick="confirmSell()" 
+                            class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        確認賣出
+                    </button>
+                    <button onclick="closeSellModal()" 
+                            class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        取消
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </body>
