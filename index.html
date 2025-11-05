@@ -7,38 +7,56 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+<script type="module">
+    // ⚠️ 注意：這裡多匯入了 getDoc
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    // ⚠️ 注意：這裡多匯入了 getDoc
+    import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, onSnapshot, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAt8QWDrmdYxnIsjEWX6DJ5tHXnDPDSwdM",
-            authDomain: "rebecca-financial-platform.firebaseapp.com",
-            projectId: "rebecca-financial-platform",
-            storageBucket: "rebecca-financial-platform.firebasestorage.app",
-            messagingSenderId: "335938745651",
-            appId: "1:335938745651:web:2c090e33a72db1a5adfa46"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyAt8QWDrmdYxnIsjEWX6DJ5tHXnDPDSwdM",
+        authDomain: "rebecca-financial-platform.firebaseapp.com",
+        projectId: "rebecca-financial-platform",
+        storageBucket: "rebecca-financial-platform.firebasestorage.app",
+        messagingSenderId: "335938745651",
+        appId: "1:335938745651:web:2c090e33a72db1a5adfa46"
+    };
 
-        
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
+    // 這裡移除了 allowedEmails，因為它現在藏在 Firestore 裡了
+    window.firebaseApp = { auth, db, provider };
 
-       window.firebaseApp = { auth, db, provider };
+    // =========================================================
+    // 🚀 安全性強化積木：檢查 Firestore 中的白名單
+    // =========================================================
+    onAuthStateChanged(auth, async (user) => { // ⚠️ 這裡多了 async
+        if (user) {
+            // 1. 從 Firestore 讀取允許登入的 Email 名單
+            const authDoc = await getDoc(doc(db, "config", "auth"));
+            // 使用 ?.allowedEmails 來安全地取得陣列，如果讀不到名單就當作空陣列 []
+            const allowedEmails = authDoc.data()?.allowedEmails || []; 
 
-        // >>>>>>> 從這裡開始加入或檢查
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // 登入時，在瀏覽器的開發者工具 (Console) 中查看
+            // 2. 檢查目前登入的 Email 是否在名單內
+            if (allowedEmails.includes(user.email)) {
+                
+                // ✅ 允許登入的邏輯 (原程式碼的內容)
                 console.log("當前登入使用者的 UID (重要！):", user.uid); 
+                // ... (在這裡放切換到主畫面的程式碼，例如顯示 mainApp 隱藏 loginScreen) ...
+
+            } else {
+                // ❌ 拒絕登入：不在名單內
+                alert('抱歉，您的 Email (' + user.email + ') 不在允許名單內，請使用允許的帳號登入。');
+                signOut(auth); // 強制登出
             }
-            // ... (後續的登入/登出畫面切換邏輯)
-        });
-    </script>
+        }
+        // ... (後續的登入/登出畫面切換邏輯)
+    });
+</script>
 
     <style>
         @media print {
