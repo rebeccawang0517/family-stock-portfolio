@@ -59,17 +59,17 @@
             console.log("Array.isArray(allowedEmails):", Array.isArray(allowedEmails));
             
             // 2. 檢查目前登入的 Email 是否在名單內
-            if (allowedEmails.includes(user.email)) {
+            //if (allowedEmails.includes(user.email)) {
                 
                 // ✅ 允許登入的邏輯 (原程式碼的內容)
                 console.log("當前登入使用者的 UID (重要！):", user.uid); 
                 // ... (在這裡放切換到主畫面的程式碼，例如顯示 mainApp 隱藏 loginScreen) ...
 
-            } else {
-                // ❌ 拒絕登入：不在名單內
-                alert('抱歉，您的 Email (' + user.email + ') 不在允許名單內，請使用允許的帳號登入。');
-                signOut(auth); // 強制登出
-            }
+            //} else {
+            //    // ❌ 拒絕登入：不在名單內
+            //    alert('抱歉，您的 Email (' + user.email + ') 不在允許名單內，請使用允許的帳號登入。');
+            //    signOut(auth); // 強制登出
+            //}
         }
         // ... (後續的登入/登出畫面切換邏輯)
     });
