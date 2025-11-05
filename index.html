@@ -39,7 +39,7 @@
             // 1. 從 Firestore 讀取允許登入的 Email 名單
             const authDoc = await getDoc(doc(db, "config", "auth"));
             // 使用 ?.allowedEmails 來安全地取得陣列，如果讀不到名單就當作空陣列 []
-            const allowedEmails = authDoc.data()?.allowedEmails || []; 
+            const allowedEmails = authDoc.data()?.allowedemail || []; 
 
             // 2. 檢查目前登入的 Email 是否在名單內
             if (allowedEmails.includes(user.email)) {
