@@ -53,6 +53,10 @@
             console.log("authDoc.data():", authDoc.data());
             console.log("authDoc.data().allowedemail:", authDoc.data().allowedemail);
             console.log("allowedEmails:", allowedEmails);
+
+            console.log("Array.isArray(allowedEmails):", Array.isArray(allowedEmails));
+            allowedEmails = allowedEmails.map(item => String(item));
+            console.log("Array.isArray(allowedEmails):", Array.isArray(allowedEmails));
             
             // 2. 檢查目前登入的 Email 是否在名單內
             if (allowedEmails.includes(user.email)) {
