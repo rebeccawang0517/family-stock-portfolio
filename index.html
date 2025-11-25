@@ -27,6 +27,28 @@
         const provider = new GoogleAuthProvider();
 
         window.firebaseApp = { auth, db, provider };
+        
+        // 🆕 Render 後端保持喚醒機制
+        const RENDER_BACKEND_URL = 'https://your-backend.onrender.com'; // ⚠️ 請替換成你的實際後端網址
+        
+        if (RENDER_BACKEND_URL !== 'https://your-backend.onrender.com') {
+            // 頁面載入時立即 ping
+            fetch(`${RENDER_BACKEND_URL}/health`, { cache: 'no-cache' })
+                .then(() => console.log('✅ Initial backend ping successful'))
+                .catch(() => console.log('⚠️ Initial backend ping failed'));
+            
+            // 每 10 分鐘 ping 一次
+            setInterval(() => {
+                fetch(`${RENDER_BACKEND_URL}/health`, { 
+                    method: 'GET',
+                    cache: 'no-cache' 
+                })
+                    .then(() => console.log('✅ Backend kept alive'))
+                    .catch((e) => console.log('⚠️ Backend ping failed:', e.message));
+            }, 10 * 60 * 1000);
+            
+            console.log('🔄 Render 保持喚醒機制已啟動（每 10 分鐘 ping 一次）');
+        }
     </script>
     
     <style>
@@ -46,6 +68,48 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        /* 🆕 進度條樣式 */
+        .progress-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 1000;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            padding: 16px 20px;
+            min-width: 300px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #1e293b;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+            border-radius: 4px;
+            transition: width 0.3s ease;
         }
         
         /* 分頁標籤樣式 */
@@ -91,6 +155,14 @@
             /* 表格在手機上的優化 */
             table {
                 font-size: 12px;
+            }
+            
+            /* 進度條在手機上調整 */
+            .progress-container {
+                top: 60px;
+                right: 10px;
+                left: 10px;
+                min-width: auto;
             }
             
             /* 浮動新增按鈕 */
@@ -247,10 +319,13 @@
             <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 mb-6 no-print">
                 <div class="flex gap-2">
                     <button onclick="switchTab('overview')" id="tabOverview" class="tab-button active flex-1 px-6 py-3 rounded-lg font-semibold text-lg transition-all">
-                        總覽
+                        📊 總覽
                     </button>
                     <button onclick="switchTab('detail')" id="tabDetail" class="tab-button flex-1 px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        明細管理
+                        📝 明細管理
+                    </button>
+                    <button onclick="switchTab('sharpe')" id="tabSharpe" class="tab-button flex-1 px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
+                        📈 夏普值分析
                     </button>
                 </div>
             </div>
@@ -302,7 +377,7 @@
                             <span>持股統計總覽</span>
                         </h2>
                         <div class="text-sm text-slate-400">
-                            💡 點擊公司名稱查看夏普值分析
+                            💡 切換到「夏普值分析」分頁查看詳細風險報酬指標
                         </div>
                     </div>
                     <div class="overflow-x-auto">
@@ -335,9 +410,9 @@
                     <ul class="list-disc list-inside mt-2 space-y-1">
                         <li>查看整體投資組合表現（總成本、總市值、損益、報酬率）</li>
                         <li>瀏覽各檔股票的合併持股統計（不分持有人和平台）</li>
-                        <li><strong class="text-yellow-300">點擊公司名稱可查看該股票的夏普值分析（3年、5年、10年期）</strong></li>
                         <li>佔比顯示為該股票現值在整體投資組合中的比重</li>
                         <li>統計表格按現值由大到小排序</li>
+                        <li><strong class="text-yellow-300">💡 想看夏普值？切換到「夏普值分析」分頁！</strong></li>
                     </ul>
                 </div>
             </div>
@@ -563,6 +638,47 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- 🆕 第三頁：夏普值分析 -->
+            <div id="sharpeTab" class="tab-content">
+                <div class="bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-purple-500 rounded-lg shadow-xl p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-slate-100 flex items-center gap-2">
+                            <span>📈</span>
+                            <span>夏普值分析</span>
+                        </h2>
+                        <button onclick="loadSharpeAnalysis()" id="sharpeRefreshBtn"
+                                class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                            <span>🔄</span>
+                            <span>重新計算</span>
+                        </button>
+                    </div>
+                    
+                    <div id="sharpeContent">
+                        <div class="text-center py-12">
+                            <div class="text-6xl mb-4">📊</div>
+                            <div class="text-slate-300 text-lg mb-4">點擊「重新計算」開始分析</div>
+                            <div class="text-slate-500 text-sm">
+                                首次載入需要 5-10 秒獲取歷史數據<br/>
+                                計算完成後會快取 1 小時
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 夏普值說明 -->
+                <div class="mt-6 bg-gradient-to-r from-purple-900 to-pink-900 bg-opacity-30 border border-purple-700 border-opacity-50 rounded-lg p-4 text-sm text-purple-200">
+                    <strong>📈 關於夏普值分析：</strong> 
+                    <ul class="list-disc list-inside mt-2 space-y-1">
+                        <li><strong>夏普比率</strong>是衡量投資組合風險調整後報酬的重要指標</li>
+                        <li>計算公式：(年化報酬率 - 無風險利率) / 年化波動率</li>
+                        <li>數值越高，代表每承擔一單位風險所獲得的超額報酬越多</li>
+                        <li>本頁面會分析每檔持股在不同時期（1年、3年、5年）的表現</li>
+                        <li><strong class="text-yellow-300">💡 數據會快取 1 小時，避免重複計算</strong></li>
+                        <li class="text-xs text-slate-400 mt-2">註：本分析基於歷史數據，過去表現不代表未來結果。投資前請審慎評估。</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -615,9 +731,83 @@
             // ... (後續的登入/登出畫面切換邏輯)
         });
 
+        // 🆕 localStorage 快取機制
+        const CACHE_DURATION = 60 * 1000; // 60 秒快取
+        
+        function getCachedPrice(symbol, region) {
+            const cacheKey = `stock_${symbol}_${region}`;
+            const cached = localStorage.getItem(cacheKey);
+            
+            if (cached) {
+                try {
+                    const { price, companyName, changePercent, timestamp } = JSON.parse(cached);
+                    const age = Date.now() - timestamp;
+                    
+                    if (age < CACHE_DURATION) {
+                        console.log(`✅ 使用快取：${symbol} (${Math.floor(age/1000)}秒前)`);
+                        return { price, companyName, changePercent };
+                    }
+                } catch (e) {
+                    localStorage.removeItem(cacheKey);
+                }
+            }
+            return null;
+        }
+        
+        function setCachedPrice(symbol, region, data) {
+            const cacheKey = `stock_${symbol}_${region}`;
+            const cacheData = {
+                price: data.price,
+                companyName: data.companyName,
+                changePercent: data.changePercent,
+                timestamp: Date.now()
+            };
+            
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+            } catch (e) {
+                cleanExpiredCache();
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+                } catch (e) {
+                    console.warn('無法儲存快取');
+                }
+            }
+        }
+        
+        function cleanExpiredCache() {
+            const keys = Object.keys(localStorage);
+            let cleaned = 0;
+            
+            keys.forEach(key => {
+                if (key.startsWith('stock_')) {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        if (Date.now() - data.timestamp > 3600000) {
+                            localStorage.removeItem(key);
+                            cleaned++;
+                        }
+                    } catch (e) {
+                        localStorage.removeItem(key);
+                        cleaned++;
+                    }
+                }
+            });
+            
+            if (cleaned > 0) {
+                console.log(`🧹 清除了 ${cleaned} 個過期快取`);
+            }
+        }
+
         // === 修正版：獲取股票資訊（支援債券 ETF + 重試機制 + 漲跌幅）===
         async function fetchStockInfo(symbol, region, retryCount = 0) {
             const maxRetries = 3;
+            
+            // 🆕 先檢查快取
+            const cached = getCachedPrice(symbol, region);
+            if (cached) {
+                return cached;
+            }
             
             try {
                 let apiSymbol = symbol;
@@ -807,11 +997,16 @@
                     
                     console.log(`✓ 成功獲取 ${symbol}: 價格=${price}, 名稱=${companyName}, 漲跌幅=${changePercent.toFixed(2)}%`);
                     
-                    return {
+                    const result = {
                         price: Math.abs(price), // 確保價格為正值
                         companyName: companyName,
                         changePercent: changePercent // 新增漲跌幅
                     };
+                    
+                    // 🆕 儲存到快取
+                    setCachedPrice(symbol, region, result);
+                    
+                    return result;
                 }
                 
                 throw new Error(`${symbol} 無法從 API 獲取數據`);
@@ -965,15 +1160,29 @@
         // 一鍵更新所有（匯率+股價）
         window.updateAllPricesAndRate = async function() {
             const button = event.target;
+            if (button.disabled) return;
+            
             button.disabled = true;
-            button.innerHTML = '🔄 更新中...<span class="loading-spinner"></span>';
+            button.innerHTML = '⏳ 更新中...';
+            
+            // 🆕 顯示進度條
+            const progressContainer = document.getElementById('progressContainer');
+            const progressText = document.getElementById('progressText');
+            const progressFill = document.getElementById('progressFill');
+            const progressIcon = document.getElementById('progressIcon');
+            
+            progressContainer.style.display = 'block';
+            progressText.textContent = '準備中...';
+            progressFill.style.width = '0%';
+            progressIcon.textContent = '📊';
             
             try {
                 // 先更新匯率
+                progressText.textContent = '更新匯率...';
+                progressFill.style.width = '5%';
                 await fetchExchangeRate();
                 
                 // === 優化：按股票代號去重，避免重複抓取 ===
-                // 取得所有不重複的股票（symbol + region 組合）
                 const uniqueStocksMap = new Map();
                 stocks.forEach(stock => {
                     const key = `${stock.symbol}_${stock.region}`;
@@ -984,44 +1193,88 @@
                             relatedStocks: []
                         });
                     }
-                    // 記錄所有相關的股票ID
                     uniqueStocksMap.get(key).relatedStocks.push(stock.id);
                 });
                 
-                console.log(`📊 共 ${stocks.length} 筆明細，合併為 ${uniqueStocksMap.size} 檔不同股票`);
+                const total = uniqueStocksMap.size;
+                console.log(`📊 共 ${stocks.length} 筆明細，合併為 ${total} 檔不同股票`);
                 
-                // 批次更新所有不重複的股票
-                let successCount = 0;
-                let failCount = 0;
+                progressText.textContent = `0 / ${total}`;
+                progressFill.style.width = '10%';
                 
-                for (const [key, stockInfo] of uniqueStocksMap) {
-                    const info = await fetchStockInfo(stockInfo.symbol, stockInfo.region);
-                    
-                    if (info && info.price) {
-                        // 更新所有相關的股票記錄
-                        await Promise.all(
-                            stockInfo.relatedStocks.map(stockId => {
-                                const stockRef = doc(db, 'stocks', stockId);
-                                return updateDoc(stockRef, {
-                                    currentPrice: info.price,
-                                    changePercent: info.changePercent || 0,
-                                    lastPriceUpdate: new Date().toISOString()
-                                });
-                            })
-                        );
-                        console.log(`✓ ${stockInfo.symbol}: 已更新 ${stockInfo.relatedStocks.length} 筆記錄`);
-                        successCount++;
-                    } else {
-                        console.error(`✗ ${stockInfo.symbol}: 更新失敗`);
-                        failCount++;
+                let completed = 0;
+                
+                // 🆕 改為並行請求，並追蹤進度
+                const updatePromises = Array.from(uniqueStocksMap.entries()).map(async ([key, stockInfo]) => {
+                    try {
+                        const info = await fetchStockInfo(stockInfo.symbol, stockInfo.region);
+                        
+                        if (info && info.price) {
+                            await Promise.all(
+                                stockInfo.relatedStocks.map(stockId => {
+                                    const stockRef = doc(db, 'stocks', stockId);
+                                    return updateDoc(stockRef, {
+                                        currentPrice: info.price,
+                                        changePercent: info.changePercent || 0,
+                                        lastPriceUpdate: new Date().toISOString()
+                                    });
+                                })
+                            );
+                            
+                            // 🆕 更新進度
+                            completed++;
+                            const progress = 10 + (completed / total * 85);
+                            progressFill.style.width = `${progress}%`;
+                            progressText.textContent = `${completed} / ${total}`;
+                            progressIcon.textContent = completed === total ? '✅' : '📊';
+                            
+                            console.log(`✓ ${stockInfo.symbol}: 已更新 ${stockInfo.relatedStocks.length} 筆記錄`);
+                            return { success: true, symbol: stockInfo.symbol };
+                        } else {
+                            completed++;
+                            const progress = 10 + (completed / total * 85);
+                            progressFill.style.width = `${progress}%`;
+                            progressText.textContent = `${completed} / ${total}`;
+                            
+                            console.error(`✗ ${stockInfo.symbol}: 更新失敗`);
+                            return { success: false, symbol: stockInfo.symbol };
+                        }
+                    } catch (error) {
+                        completed++;
+                        const progress = 10 + (completed / total * 85);
+                        progressFill.style.width = `${progress}%`;
+                        progressText.textContent = `${completed} / ${total}`;
+                        
+                        console.error(`✗ ${stockInfo.symbol}: 錯誤 - ${error.message}`);
+                        return { success: false, symbol: stockInfo.symbol };
                     }
-                }
+                });
+                
+                const results = await Promise.all(updatePromises);
+                const successCount = results.filter(r => r.success).length;
+                const failCount = results.filter(r => !r.success).length;
+                
+                // 🆕 完成動畫
+                progressFill.style.width = '100%';
+                progressIcon.textContent = '✅';
+                progressText.textContent = `完成！成功 ${successCount} / 失敗 ${failCount}`;
                 
                 console.log(`✅ 更新完成：成功 ${successCount} 檔，失敗 ${failCount} 檔`);
                 
+                // 🆕 3 秒後自動隱藏進度條
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 3000);
+                
             } catch (error) {
                 console.error('更新失敗:', error);
+                progressIcon.textContent = '❌';
+                progressText.textContent = '更新失敗';
                 alert('更新失敗：' + error.message);
+                
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 3000);
             } finally {
                 button.disabled = false;
                 button.innerHTML = '🔄 更新';
@@ -1128,8 +1381,246 @@
                 document.getElementById('detailTab').classList.add('active');
                 document.getElementById('tabDetail').classList.add('active');
                 document.getElementById('tabDetail').classList.remove('text-slate-400');
+            } else if (tabName === 'sharpe') {
+                // 🆕 夏普值分頁
+                document.getElementById('sharpeTab').classList.add('active');
+                document.getElementById('tabSharpe').classList.add('active');
+                document.getElementById('tabSharpe').classList.remove('text-slate-400');
+                
+                // 檢查是否已經載入過
+                const lastCalc = localStorage.getItem('sharpe_last_calc');
+                const now = Date.now();
+                const cacheValid = lastCalc && (now - parseInt(lastCalc)) < 3600000; // 1小時快取
+                
+                if (cacheValid) {
+                    const cachedData = localStorage.getItem('sharpe_data');
+                    if (cachedData) {
+                        try {
+                            const data = JSON.parse(cachedData);
+                            renderSharpeData(data);
+                            const age = Math.floor((now - parseInt(lastCalc)) / 60000);
+                            console.log(`✅ 使用夏普值快取（${age} 分鐘前計算）`);
+                        } catch (e) {
+                            console.error('快取數據損壞', e);
+                        }
+                    }
+                }
             }
         };
+        
+        // 🆕 載入夏普值分析
+        window.loadSharpeAnalysis = async function() {
+            const btn = document.getElementById('sharpeRefreshBtn');
+            const originalText = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span><span>計算中...</span>';
+            
+            const content = document.getElementById('sharpeContent');
+            content.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="text-6xl mb-4 animate-pulse">📊</div>
+                    <div class="text-slate-300 text-lg mb-4">正在獲取歷史數據並計算...</div>
+                    <div class="text-slate-500 text-sm">這可能需要 5-10 秒，請稍候</div>
+                </div>
+            `;
+            
+            try {
+                // 獲取所有不重複的股票
+                const uniqueStocks = getMergedStockStats();
+                const sharpeData = [];
+                
+                // 🆕 並行獲取所有股票的夏普值
+                const promises = uniqueStocks.map(async (stock) => {
+                    // 跳過債券 ETF
+                    if (stock.symbol && stock.symbol.includes('B') && stock.symbol.startsWith('00')) {
+                        return null;
+                    }
+                    
+                    try {
+                        const sharpe = await calculateSimpleSharpe(stock.symbol, stock.region);
+                        return {
+                            symbol: stock.symbol,
+                            companyName: stock.companyName,
+                            region: stock.region,
+                            ...sharpe
+                        };
+                    } catch (e) {
+                        console.error(`計算 ${stock.symbol} 夏普值失敗:`, e);
+                        return null;
+                    }
+                });
+                
+                const results = await Promise.all(promises);
+                const validResults = results.filter(r => r !== null);
+                
+                // 儲存快取
+                localStorage.setItem('sharpe_data', JSON.stringify(validResults));
+                localStorage.setItem('sharpe_last_calc', Date.now().toString());
+                
+                renderSharpeData(validResults);
+                
+            } catch (error) {
+                console.error('夏普值計算失敗:', error);
+                content.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-6xl mb-4">❌</div>
+                        <div class="text-red-400 text-lg mb-4">計算失敗</div>
+                        <div class="text-slate-500 text-sm">${error.message}</div>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        };
+        
+        // 🆕 簡化版夏普值計算（使用月數據）
+        async function calculateSimpleSharpe(symbol, region) {
+            // 使用 1 年月數據
+            const period = '1y';
+            const interval = '1mo';
+            
+            let apiSymbol = symbol;
+            if (region === '台股') {
+                apiSymbol = symbol + '.TW';
+            }
+            
+            const corsProxy = 'https://api.allorigins.win/raw?url=';
+            const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?range=${period}&interval=${interval}`;
+            const url = corsProxy + encodeURIComponent(apiUrl);
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (!data.chart || !data.chart.result || !data.chart.result[0]) {
+                throw new Error('無法獲取歷史數據');
+            }
+            
+            const result = data.chart.result[0];
+            const quotes = result.indicators.quote[0];
+            const closes = quotes.close.filter(c => c !== null);
+            
+            if (closes.length < 2) {
+                throw new Error('數據不足');
+            }
+            
+            // 計算月報酬率
+            const returns = [];
+            for (let i = 1; i < closes.length; i++) {
+                returns.push((closes[i] - closes[i-1]) / closes[i-1]);
+            }
+            
+            // 計算年化指標
+            const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+            const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+            const stdDev = Math.sqrt(variance);
+            
+            const annualizedReturn = avgReturn * 12;
+            const annualizedStdDev = stdDev * Math.sqrt(12);
+            const sharpeRatio = (annualizedReturn - 0.02) / annualizedStdDev; // 假設無風險利率 2%
+            
+            return {
+                sharpeRatio,
+                annualizedReturn,
+                annualizedStdDev,
+                dataPoints: closes.length
+            };
+        }
+        
+        // 🆕 渲染夏普值數據
+        function renderSharpeData(data) {
+            const content = document.getElementById('sharpeContent');
+            
+            if (!data || data.length === 0) {
+                content.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-6xl mb-4">📭</div>
+                        <div class="text-slate-300 text-lg">沒有可分析的股票</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 按夏普值排序
+            data.sort((a, b) => b.sharpeRatio - a.sharpeRatio);
+            
+            let html = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-slate-900 border-b-2 border-purple-400">
+                                <th class="px-4 py-3 text-center text-purple-300">排名</th>
+                                <th class="px-4 py-3 text-center text-purple-300">地區</th>
+                                <th class="px-4 py-3 text-center text-purple-300">代號</th>
+                                <th class="px-4 py-3 text-center text-purple-300">公司名稱</th>
+                                <th class="px-4 py-3 text-center text-purple-300">夏普比率</th>
+                                <th class="px-4 py-3 text-center text-purple-300">年化報酬率</th>
+                                <th class="px-4 py-3 text-center text-purple-300">年化波動率</th>
+                                <th class="px-4 py-3 text-center text-purple-300">評級</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            data.forEach((stock, index) => {
+                const sharpe = stock.sharpeRatio.toFixed(3);
+                const returnPct = (stock.annualizedReturn * 100).toFixed(2);
+                const volatilityPct = (stock.annualizedStdDev * 100).toFixed(2);
+                
+                let grade, gradeColor, emoji;
+                if (stock.sharpeRatio >= 2.0) {
+                    grade = '卓越';
+                    gradeColor = 'text-green-400';
+                    emoji = '🌟';
+                } else if (stock.sharpeRatio >= 1.0) {
+                    grade = '優秀';
+                    gradeColor = 'text-blue-400';
+                    emoji = '⭐';
+                } else if (stock.sharpeRatio >= 0.5) {
+                    grade = '良好';
+                    gradeColor = 'text-yellow-400';
+                    emoji = '👍';
+                } else if (stock.sharpeRatio >= 0) {
+                    grade = '普通';
+                    gradeColor = 'text-slate-400';
+                    emoji = '📊';
+                } else {
+                    grade = '不佳';
+                    gradeColor = 'text-red-400';
+                    emoji = '📉';
+                }
+                
+                const returnColor = stock.annualizedReturn >= 0 ? 'text-green-400' : 'text-red-400';
+                
+                html += `
+                    <tr class="border-b border-slate-700 hover:bg-slate-800">
+                        <td class="px-4 py-3 text-center text-slate-100 font-bold">#${index + 1}</td>
+                        <td class="px-4 py-3 text-center text-slate-100">${stock.region}</td>
+                        <td class="px-4 py-3 text-center text-blue-400 font-mono">${stock.symbol}</td>
+                        <td class="px-4 py-3 text-center text-slate-100">${stock.companyName}</td>
+                        <td class="px-4 py-3 text-center ${gradeColor} font-bold text-lg">${sharpe}</td>
+                        <td class="px-4 py-3 text-center ${returnColor} font-mono">${returnPct}%</td>
+                        <td class="px-4 py-3 text-center text-yellow-400 font-mono">${volatilityPct}%</td>
+                        <td class="px-4 py-3 text-center ${gradeColor}">
+                            <span class="text-xl">${emoji}</span> ${grade}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-6 text-center text-slate-400 text-sm">
+                    💡 數據基於過去 1 年的月報酬率計算 | 快取有效期 1 小時
+                </div>
+            `;
+            
+            content.innerHTML = html;
+        }
+        
 
         // === 新增：計算合併後的股票統計（用於統計區塊）===
         function getMergedStockStats() {
@@ -2171,6 +2662,20 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+    
+    <!-- 🆕 進度條 HTML -->
+    <div id="progressContainer" class="progress-container no-print" style="display: none;">
+        <div class="flex items-center justify-between mb-2">
+            <div>
+                <div class="text-slate-100 font-semibold">正在更新股價...</div>
+                <div class="text-slate-400 text-sm mt-1" id="progressText">0 / 0</div>
+            </div>
+            <div class="text-2xl" id="progressIcon">📊</div>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
         </div>
     </div>
 </body>
