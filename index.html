@@ -316,7 +316,7 @@
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">平均成本價</th>
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">總投資成本</th>
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">現價</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">漲跌幅</th>
+                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">報酬率</th>
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">總現值<br/><span class="text-xs text-slate-400">(原幣別)</span></th>
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">總現值<br/><span class="text-xs text-slate-400">(TWD)</span></th>
                                     <th class="px-4 py-3 text-center text-blue-300 font-semibold">佔比 (依TWD現值)</th>
@@ -1206,23 +1206,25 @@
                 const currentValue = currentPrice * stock.totalShares; // 原幣別現值
                 const valueTWD = stock.region === '美股' ? currentValue * usdRate : currentValue; // 台幣現值
                 const percentage = totalPortfolioValueTWD > 0 ? (valueTWD / totalPortfolioValueTWD * 100) : 0;
-                const changePercent = parseFloat(stock.changePercent) || 0;
                 
-                // 漲跌幅顏色和符號
-                let changeColor = 'text-slate-400';
-                let changeSymbol = '';
-                if (changePercent > 0) {
-                    changeColor = 'text-green-400';
-                    changeSymbol = '+';
-                } else if (changePercent < 0) {
-                    changeColor = 'text-red-400';
+                // 計算報酬率 = (現價 - 平均成本價) / 平均成本價 * 100
+                const returnRate = avgCost > 0 ? ((currentPrice - avgCost) / avgCost * 100) : 0;
+                
+                // 報酬率顏色和符號
+                let returnColor = 'text-slate-400';
+                let returnSymbol = '';
+                if (returnRate > 0) {
+                    returnColor = 'text-green-400';
+                    returnSymbol = '+';
+                } else if (returnRate < 0) {
+                    returnColor = 'text-red-400';
                 }
                 
                 // 現價顏色
                 let priceColor = 'text-slate-100';
-                if (changePercent > 0) {
+                if (returnRate > 0) {
                     priceColor = 'text-green-400';
-                } else if (changePercent < 0) {
+                } else if (returnRate < 0) {
                     priceColor = 'text-red-400';
                 }
                 
@@ -1254,8 +1256,8 @@
                     <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">${avgCost.toFixed(2)}</td>
                     <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">${stock.totalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                     <td class="px-4 py-3 text-center ${priceColor} font-mono font-semibold">${currentPrice.toFixed(2)}</td>
-                    <td class="px-4 py-3 text-center ${changeColor} font-mono font-bold">
-                        ${changeSymbol}${changePercent.toFixed(2)}%
+                    <td class="px-4 py-3 text-center ${returnColor} font-mono font-bold">
+                        ${returnSymbol}${returnRate.toFixed(2)}%
                     </td>
                     <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">
                         <div>${currencySymbol} ${currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
