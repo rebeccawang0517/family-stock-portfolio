@@ -542,11 +542,12 @@
                                     <th class="px-3 py-3 text-center text-slate-300">已實現損益</th>
                                     <th class="px-3 py-3 text-center text-slate-300">持有人</th>
                                     <th class="px-3 py-3 text-center text-slate-300">平台</th>
+                                    <th class="px-3 py-3 text-center text-slate-300 no-print">操作</th>
                                 </tr>
                             </thead>
                             <tbody id="transactionsTableBody">
                                 <tr>
-                                    <td colspan="12" class="px-4 py-8 text-center text-slate-500">
+                                    <td colspan="13" class="px-4 py-8 text-center text-slate-500">
                                         載入中...
                                     </td>
                                 </tr>
@@ -2572,7 +2573,7 @@
             document.getElementById('yearTransactions').textContent = `${yearTransactionCount} 筆`;
 
             if (filteredTransactions.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="12" class="px-4 py-8 text-center text-slate-500">暫無交易記錄</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="13" class="px-4 py-8 text-center text-slate-500">暫無交易記錄</td></tr>';
                 return;
             }
 
@@ -2608,6 +2609,20 @@
                     ${profitCell}
                     <td class="px-3 py-3 text-center text-slate-300">${tx.holder}</td>
                     <td class="px-3 py-3 text-center text-slate-300">${tx.platform}</td>
+                    <td class="px-3 py-3 text-center no-print">
+                        <div class="flex gap-2 justify-center flex-wrap">
+                            <button onclick="openEditTransactionModal('${tx.id}')" 
+                                    class="text-purple-400 hover:text-purple-300 px-2 py-1 rounded hover:bg-purple-900 hover:bg-opacity-20 transition-colors text-sm" 
+                                    title="編輯">
+                                ✏️
+                            </button>
+                            <button onclick="deleteTransaction('${tx.id}')" 
+                                    class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm" 
+                                    title="刪除">
+                                🗑️
+                            </button>
+                        </div>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -2724,6 +2739,139 @@
                 companyInput.value = info.companyName;
             } else {
                 companyInput.value = symbol; // 如果獲取失敗，就使用代號
+            }
+        };
+
+        // ========== 編輯交易記錄功能 ==========
+        window.openEditTransactionModal = function(txId) {
+            const tx = transactions.find(t => t.id === txId);
+            if (!tx) return;
+
+            // 填入資料
+            document.getElementById('editTxId').value = txId;
+            
+            // 日期轉換為 YYYY-MM-DD 格式
+            const date = new Date(tx.date);
+            const dateStr = date.toISOString().split('T')[0];
+            document.getElementById('editTxDate').value = dateStr;
+            
+            document.getElementById('editTxType').value = tx.type;
+            document.getElementById('editTxRegion').value = tx.region;
+            document.getElementById('editTxSymbol').value = tx.symbol;
+            document.getElementById('editTxCompany').value = tx.companyName || tx.symbol;
+            document.getElementById('editTxShares').value = tx.shares;
+            document.getElementById('editTxPrice').value = tx.price;
+            document.getElementById('editTxFee').value = tx.fee || 0;
+            document.getElementById('editTxTax').value = tx.tax || 0;
+            document.getElementById('editTxHolder').value = tx.holder;
+            document.getElementById('editTxPlatform').value = tx.platform;
+            
+            if (tx.type === '賣出' && tx.realizedProfit !== undefined) {
+                document.getElementById('editTxProfit').value = tx.realizedProfit;
+            }
+
+            // 顯示/隱藏交易稅和損益欄位
+            updateEditTypeFields();
+
+            document.getElementById('editTransactionModal').style.display = 'flex';
+        };
+
+        window.closeEditTransactionModal = function() {
+            document.getElementById('editTransactionModal').style.display = 'none';
+        };
+
+        window.updateEditTypeFields = function() {
+            const type = document.getElementById('editTxType').value;
+            const taxField = document.getElementById('editTxTaxField');
+            const profitField = document.getElementById('editTxProfitField');
+
+            if (type === '賣出') {
+                taxField.classList.remove('hidden');
+                profitField.classList.remove('hidden');
+            } else {
+                taxField.classList.add('hidden');
+                profitField.classList.add('hidden');
+            }
+        };
+
+        window.saveEditTransaction = async function() {
+            const txId = document.getElementById('editTxId').value;
+            const date = document.getElementById('editTxDate').value;
+            const type = document.getElementById('editTxType').value;
+            const shares = parseFloat(document.getElementById('editTxShares').value);
+            const price = parseFloat(document.getElementById('editTxPrice').value);
+            const fee = parseFloat(document.getElementById('editTxFee').value) || 0;
+            const tax = parseFloat(document.getElementById('editTxTax').value) || 0;
+            const holder = document.getElementById('editTxHolder').value;
+            const platform = document.getElementById('editTxPlatform').value;
+
+            if (!date || !shares || !price || !holder || !platform) {
+                alert('請填寫所有必填欄位');
+                return;
+            }
+
+            try {
+                const amount = type === '買入' 
+                    ? shares * price + fee 
+                    : shares * price - fee - tax;
+
+                const updateData = {
+                    date: new Date(date + 'T12:00:00').toISOString(),
+                    type: type,
+                    shares: shares,
+                    price: price,
+                    fee: fee,
+                    tax: tax,
+                    amount: amount,
+                    holder: holder,
+                    platform: platform,
+                    modifiedAt: new Date().toISOString(),
+                    modifiedBy: currentUser.email
+                };
+
+                // 如果是賣出，更新已實現損益
+                if (type === '賣出') {
+                    const profitInput = document.getElementById('editTxProfit').value;
+                    if (profitInput) {
+                        updateData.realizedProfit = parseFloat(profitInput);
+                    }
+                } else {
+                    // 買入則移除已實現損益欄位
+                    updateData.realizedProfit = null;
+                }
+
+                await updateDoc(doc(db, 'transactions', txId), updateData);
+
+                alert('✅ 交易記錄已更新！');
+                closeEditTransactionModal();
+                await loadTransactions();
+            } catch (error) {
+                console.error('更新失敗:', error);
+                alert('❌ 更新失敗：' + error.message);
+            }
+        };
+
+        // ========== 刪除交易記錄功能 ==========
+        window.deleteTransaction = async function(txId) {
+            const tx = transactions.find(t => t.id === txId);
+            if (!tx) return;
+
+            const confirmMsg = `確定要刪除這筆交易記錄嗎？\n\n` +
+                `日期：${new Date(tx.date).toLocaleDateString('zh-TW')}\n` +
+                `類型：${tx.type}\n` +
+                `股票：${tx.symbol} - ${tx.companyName || tx.symbol}\n` +
+                `股數：${tx.shares}\n` +
+                `價格：${tx.price}`;
+
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                await deleteDoc(doc(db, 'transactions', txId));
+                alert('✅ 交易記錄已刪除！');
+                await loadTransactions();
+            } catch (error) {
+                console.error('刪除失敗:', error);
+                alert('❌ 刪除失敗：' + error.message);
             }
         };
     </script>
@@ -2873,6 +3021,124 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 編輯交易模態框 HTML -->
+    <div id="editTransactionModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='editTransactionModal') closeEditTransactionModal()">
+        <div class="bg-slate-800 border-2 border-purple-500 rounded-lg max-w-2xl w-full mx-4 p-6" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-purple-400">✏️ 編輯交易記錄</h3>
+                <button onclick="closeEditTransactionModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <form id="editTransactionForm" class="space-y-4">
+                <input type="hidden" id="editTxId">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">交易日期 *</label>
+                        <input type="date" id="editTxDate" required
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">交易類型 *</label>
+                        <select id="editTxType" required onchange="updateEditTypeFields()"
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none">
+                            <option value="買入">買入</option>
+                            <option value="賣出">賣出</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">地區 *</label>
+                        <input type="text" id="editTxRegion" readonly
+                               class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">股票代號 *</label>
+                        <input type="text" id="editTxSymbol" readonly
+                               class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm text-slate-300 mb-2">公司名稱</label>
+                    <input type="text" id="editTxCompany" readonly
+                           class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">股數 *</label>
+                        <input type="number" id="editTxShares" required min="1" step="1"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">價格 *</label>
+                        <input type="number" id="editTxPrice" required min="0" step="0.01"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">手續費</label>
+                        <input type="number" id="editTxFee" min="0" step="0.01"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                    </div>
+
+                    <div id="editTxTaxField">
+                        <label class="block text-sm text-slate-300 mb-2">交易稅</label>
+                        <input type="number" id="editTxTax" min="0" step="0.01"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                    </div>
+                </div>
+
+                <div id="editTxProfitField">
+                    <label class="block text-sm text-slate-300 mb-2">已實現損益（選填）</label>
+                    <input type="number" id="editTxProfit" step="0.01"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">持有人 *</label>
+                        <select id="editTxHolder" required
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none">
+                            <option value="Rebecca">Rebecca</option>
+                            <option value="Eric">Eric</option>
+                            <option value="Ian">Ian</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">交易平台 *</label>
+                        <select id="editTxPlatform" required
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none">
+                            <option value="複委託">複委託</option>
+                            <option value="證券">證券</option>
+                            <option value="信託">信託</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="saveEditTransaction()" 
+                            class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        ✓ 儲存變更
+                    </button>
+                    <button type="button" onclick="closeEditTransactionModal()" 
+                            class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        取消
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </body>
