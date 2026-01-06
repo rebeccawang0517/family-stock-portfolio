@@ -252,6 +252,9 @@
                     <button onclick="switchTab('detail')" id="tabDetail" class="tab-button flex-1 px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
                         明細管理
                     </button>
+                    <button onclick="switchTab('transactions')" id="tabTransactions" class="tab-button flex-1 px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
+                        交易記錄
+                    </button>
                 </div>
             </div>
 
@@ -267,7 +270,7 @@
                         <div class="flex items-center gap-2">
                             <label class="flex items-center gap-2 text-slate-300">
                                 <input type="checkbox" id="autoRefresh" class="rounded" checked onchange="toggleAutoRefresh(this.checked)">
-                                <span>自動更新 (每5分鐘)</span>
+                                <span>自動更新 (每小時整點)</span>
                             </label>
                             <span id="lastUpdate" class="text-slate-500 text-sm"></span>
                         </div>
@@ -471,6 +474,82 @@
                         <li>可使用上方篩選功能查看特定地區、持有人或平台的股票</li>
                         <li><strong class="text-yellow-300">💡 切換到「總覽」頁面查看整體統計和夏普值分析</strong></li>
                     </ul>
+                </div>
+            </div>
+
+            <!-- 第三頁：交易記錄 -->
+            <div id="transactionsTab" class="tab-content">
+                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-slate-100 mb-2">📋 交易記錄</h2>
+                    <p class="text-slate-400">記錄所有買賣交易，並自動計算損益</p>
+                </div>
+
+                <!-- 篩選區 -->
+                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-6">
+                    <div class="flex items-center gap-4 flex-wrap">
+                        <div class="flex items-center gap-2">
+                            <label class="text-slate-300 font-medium">年度：</label>
+                            <select id="filterYear" onchange="applyTransactionFilters()" 
+                                    class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
+                                <option value="">全部年度</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-slate-300 font-medium">類型：</label>
+                            <select id="filterTransactionType" onchange="applyTransactionFilters()" 
+                                    class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
+                                <option value="">全部類型</option>
+                                <option value="買入">買入</option>
+                                <option value="賣出">賣出</option>
+                            </select>
+                        </div>
+                        <button onclick="clearTransactionFilters()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            清除篩選
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 年度統計 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                        <div class="text-slate-400 text-sm mb-1">本年度已實現損益</div>
+                        <div id="yearProfit" class="text-2xl font-bold">TWD 0</div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                        <div class="text-slate-400 text-sm mb-1">本年度交易次數</div>
+                        <div id="yearTransactions" class="text-2xl font-bold text-slate-100">0 筆</div>
+                    </div>
+                </div>
+
+                <!-- 交易記錄表格 -->
+                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gradient-to-r from-slate-700 to-slate-800">
+                                <tr>
+                                    <th class="px-3 py-3 text-center text-slate-300">日期</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">類型</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">代號</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">公司名稱</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">股數</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">價格</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">手續費</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">交易稅</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">成交金額</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">已實現損益</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">持有人</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">平台</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsTableBody">
+                                <tr>
+                                    <td colspan="12" class="px-4 py-8 text-center text-slate-500">
+                                        載入中...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
             
@@ -1039,9 +1118,22 @@
         // 自動刷新功能
         window.toggleAutoRefresh = function(enabled) {
             if (enabled) {
-                autoRefreshInterval = setInterval(() => {
+                // 計算到下一個整點的毫秒數
+                const now = new Date();
+                const nextHour = new Date(now);
+                nextHour.setHours(now.getHours() + 1, 0, 0, 0);
+                const msUntilNextHour = nextHour - now;
+                
+                // 先設定到下個整點時執行
+                setTimeout(() => {
                     updateAllPricesAndRate();
-                }, 5 * 60 * 1000);
+                    // 之後每小時執行一次
+                    autoRefreshInterval = setInterval(() => {
+                        updateAllPricesAndRate();
+                    }, 3600000); // 1小時 = 3600000毫秒
+                }, msUntilNextHour);
+                
+                console.log(`自動更新已啟動，將在 ${Math.round(msUntilNextHour/1000)} 秒後（${nextHour.toLocaleTimeString()}）首次更新`);
             } else {
                 if (autoRefreshInterval) {
                     clearInterval(autoRefreshInterval);
@@ -1135,6 +1227,11 @@
                 document.getElementById('detailTab').classList.add('active');
                 document.getElementById('tabDetail').classList.add('active');
                 document.getElementById('tabDetail').classList.remove('text-slate-400');
+            } else if (tabName === 'transactions') {
+                document.getElementById('transactionsTab').classList.add('active');
+                document.getElementById('tabTransactions').classList.add('active');
+                document.getElementById('tabTransactions').classList.remove('text-slate-400');
+                loadTransactions(); // 載入交易記錄
             }
         };
 
@@ -1334,12 +1431,15 @@
                     <td class="px-3 py-3 text-center text-slate-300">${stock.holder}</td>
                     <td class="px-3 py-3 text-center text-slate-300">${stock.platform}</td>
                     <td class="px-3 py-3 text-center no-print">
-                        <div class="flex gap-2 justify-center">
-                            <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors" title="刪除（建檔錯誤）">
-                                🗑️ 刪除
+                        <div class="flex gap-2 justify-center flex-wrap">
+                            <button onclick="openBuyModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares}, ${calc.costPrice})" class="text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-blue-900 hover:bg-opacity-20 transition-colors text-sm" title="買入股票">
+                                🛒 買入
                             </button>
-                            <button onclick="openSellModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares})" class="text-green-400 hover:text-green-300 px-2 py-1 rounded hover:bg-green-900 hover:bg-opacity-20 transition-colors" title="賣出部分股數">
+                            <button onclick="openSellModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares})" class="text-green-400 hover:text-green-300 px-2 py-1 rounded hover:bg-green-900 hover:bg-opacity-20 transition-colors text-sm" title="賣出部分股數">
                                 💰 賣出
+                            </button>
+                            <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm" title="刪除（建檔錯誤）">
+                                🗑️ 刪除
                             </button>
                         </div>
                     </td>
@@ -2131,12 +2231,391 @@
                 </div>
             `;
         }
+
+        // ========== 新增：買入/賣出功能 ==========
+        let currentBuyStockId = null;
+        let currentSellStockId = null;
+        let transactions = [];
+
+        // 買入Modal
+        window.openBuyModal = function(stockId, symbol, companyName, currentShares, currentCostPrice) {
+            currentBuyStockId = stockId;
+            document.getElementById('buyStockInfo').textContent = `${symbol} - ${companyName}`;
+            document.getElementById('buyCurrentShares').textContent = currentShares.toLocaleString();
+            document.getElementById('buyCurrentCost').textContent = currentCostPrice.toFixed(2);
+            document.getElementById('buyShares').value = '';
+            document.getElementById('buyPrice').value = '';
+            document.getElementById('buyFee').value = '0';
+            document.getElementById('buyModal').style.display = 'flex';
+        };
+
+        window.closeBuyModal = function() {
+            document.getElementById('buyModal').style.display = 'none';
+            currentBuyStockId = null;
+        };
+
+        window.confirmBuy = async function() {
+            if (!currentBuyStockId) return;
+
+            const buyShares = parseFloat(document.getElementById('buyShares').value);
+            const buyPrice = parseFloat(document.getElementById('buyPrice').value);
+            const buyFee = parseFloat(document.getElementById('buyFee').value) || 0;
+
+            if (!buyShares || buyShares <= 0) {
+                alert('請輸入有效的買入股數');
+                return;
+            }
+
+            if (!buyPrice || buyPrice <= 0) {
+                alert('請輸入有效的買入價格');
+                return;
+            }
+
+            try {
+                const stock = stocks.find(s => s.id === currentBuyStockId);
+                if (!stock) {
+                    alert('找不到該股票');
+                    return;
+                }
+
+                // 計算新的平均成本
+                const oldShares = parseFloat(stock.shares) || 0;
+                const oldTotalCost = parseFloat(stock.investmentCost) || 0;
+                const newTotalShares = oldShares + buyShares;
+                const buyAmount = buyShares * buyPrice + buyFee;
+                const newTotalCost = oldTotalCost + buyAmount;
+
+                // 更新股票資料
+                await updateDoc(doc(db, 'stocks', currentBuyStockId), {
+                    shares: newTotalShares,
+                    investmentCost: newTotalCost,
+                    lastModified: new Date().toISOString(),
+                    modifiedBy: currentUser.email
+                });
+
+                // 記錄交易
+                await addDoc(collection(db, 'transactions'), {
+                    date: new Date().toISOString(),
+                    type: '買入',
+                    symbol: stock.symbol,
+                    companyName: stock.companyName,
+                    shares: buyShares,
+                    price: buyPrice,
+                    fee: buyFee,
+                    tax: 0,
+                    amount: buyAmount,
+                    holder: stock.holder,
+                    platform: stock.platform,
+                    region: stock.region,
+                    createdBy: currentUser.email
+                });
+
+                alert(`買入成功！\n股數：${buyShares}\n價格：${buyPrice}\n手續費：${buyFee}\n總金額：${buyAmount.toFixed(2)}`);
+                closeBuyModal();
+                await loadStocks();
+            } catch (error) {
+                console.error('買入失敗:', error);
+                alert('買入失敗：' + error.message);
+            }
+        };
+
+        // 賣出Modal
+        window.openSellModal = function(stockId, symbol, companyName, currentShares) {
+            currentSellStockId = stockId;
+            document.getElementById('sellStockInfo').textContent = `${symbol} - ${companyName}`;
+            document.getElementById('sellCurrentShares').textContent = currentShares.toLocaleString();
+            document.getElementById('sellShares').value = '';
+            document.getElementById('sellPrice').value = '';
+            document.getElementById('sellFee').value = '0';
+            document.getElementById('sellTax').value = '0';
+            document.getElementById('sellModal').style.display = 'flex';
+        };
+
+        window.closeSellModal = function() {
+            document.getElementById('sellModal').style.display = 'none';
+            currentSellStockId = null;
+        };
+
+        window.confirmSell = async function() {
+            if (!currentSellStockId) return;
+
+            const sellShares = parseFloat(document.getElementById('sellShares').value);
+            const sellPrice = parseFloat(document.getElementById('sellPrice').value);
+            const sellFee = parseFloat(document.getElementById('sellFee').value) || 0;
+            const sellTax = parseFloat(document.getElementById('sellTax').value) || 0;
+
+            if (!sellShares || sellShares <= 0) {
+                alert('請輸入有效的賣出股數');
+                return;
+            }
+
+            if (!sellPrice || sellPrice <= 0) {
+                alert('請輸入有效的賣出價格');
+                return;
+            }
+
+            try {
+                const stock = stocks.find(s => s.id === currentSellStockId);
+                if (!stock) {
+                    alert('找不到該股票');
+                    return;
+                }
+
+                const currentShares = parseFloat(stock.shares) || 0;
+                if (sellShares > currentShares) {
+                    alert(`賣出股數不能超過持有股數 (${currentShares.toLocaleString()})`);
+                    return;
+                }
+
+                // 計算已實現損益
+                const avgCost = currentShares > 0 ? stock.investmentCost / currentShares : 0;
+                const sellAmount = sellShares * sellPrice - sellFee - sellTax;
+                const costBasis = sellShares * avgCost;
+                const realizedProfit = sellAmount - costBasis;
+
+                // 更新股票資料
+                const remainingShares = currentShares - sellShares;
+                const remainingCost = remainingShares * avgCost;
+
+                if (remainingShares > 0) {
+                    await updateDoc(doc(db, 'stocks', currentSellStockId), {
+                        shares: remainingShares,
+                        investmentCost: remainingCost,
+                        lastModified: new Date().toISOString(),
+                        modifiedBy: currentUser.email
+                    });
+                } else {
+                    // 如果全部賣出，刪除該筆資料
+                    await deleteDoc(doc(db, 'stocks', currentSellStockId));
+                }
+
+                // 記錄交易
+                await addDoc(collection(db, 'transactions'), {
+                    date: new Date().toISOString(),
+                    type: '賣出',
+                    symbol: stock.symbol,
+                    companyName: stock.companyName,
+                    shares: sellShares,
+                    price: sellPrice,
+                    fee: sellFee,
+                    tax: sellTax,
+                    amount: sellAmount,
+                    realizedProfit: realizedProfit,
+                    holder: stock.holder,
+                    platform: stock.platform,
+                    region: stock.region,
+                    createdBy: currentUser.email
+                });
+
+                const profitText = realizedProfit >= 0 ? `+${realizedProfit.toFixed(2)}` : realizedProfit.toFixed(2);
+                alert(`賣出成功！\n股數：${sellShares}\n價格：${sellPrice}\n手續費：${sellFee}\n交易稅：${sellTax}\n成交金額：${sellAmount.toFixed(2)}\n已實現損益：${profitText}`);
+                closeSellModal();
+                await loadStocks();
+            } catch (error) {
+                console.error('賣出失敗:', error);
+                alert('賣出失敗：' + error.message);
+            }
+        };
+
+        // ========== 交易記錄功能 ==========
+        async function loadTransactions() {
+            try {
+                const querySnapshot = await getDocs(collection(db, 'transactions'));
+                transactions = [];
+                querySnapshot.forEach((doc) => {
+                    transactions.push({ id: doc.id, ...doc.data() });
+                });
+
+                // 按日期排序（最新的在前）
+                transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                // 填充年度篩選
+                populateYearFilter();
+
+                // 渲染交易記錄
+                renderTransactions();
+            } catch (error) {
+                console.error('載入交易記錄失敗:', error);
+            }
+        }
+
+        function populateYearFilter() {
+            const years = new Set();
+            transactions.forEach(tx => {
+                const year = new Date(tx.date).getFullYear();
+                years.add(year);
+            });
+
+            const yearFilter = document.getElementById('filterYear');
+            yearFilter.innerHTML = '<option value="">全部年度</option>';
+            Array.from(years).sort((a, b) => b - a).forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = `${year} 年`;
+                yearFilter.appendChild(option);
+            });
+        }
+
+        function renderTransactions() {
+            const tbody = document.getElementById('transactionsTableBody');
+            tbody.innerHTML = '';
+
+            const yearFilter = document.getElementById('filterYear').value;
+            const typeFilter = document.getElementById('filterTransactionType').value;
+
+            const filteredTransactions = transactions.filter(tx => {
+                if (yearFilter) {
+                    const txYear = new Date(tx.date).getFullYear().toString();
+                    if (txYear !== yearFilter) return false;
+                }
+                if (typeFilter && tx.type !== typeFilter) return false;
+                return true;
+            });
+
+            // 計算本年度統計
+            const currentYear = new Date().getFullYear();
+            let yearProfit = 0;
+            let yearTransactionCount = 0;
+
+            transactions.forEach(tx => {
+                const txYear = new Date(tx.date).getFullYear();
+                if (txYear === currentYear) {
+                    yearTransactionCount++;
+                    if (tx.type === '賣出' && tx.realizedProfit) {
+                        yearProfit += tx.realizedProfit;
+                    }
+                }
+            });
+
+            document.getElementById('yearProfit').textContent = `TWD ${yearProfit.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+            document.getElementById('yearProfit').className = `text-2xl font-bold ${yearProfit >= 0 ? 'text-green-400' : 'text-red-400'}`;
+            document.getElementById('yearTransactions').textContent = `${yearTransactionCount} 筆`;
+
+            if (filteredTransactions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" class="px-4 py-8 text-center text-slate-500">暫無交易記錄</td></tr>';
+                return;
+            }
+
+            filteredTransactions.forEach(tx => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-700 hover:bg-slate-800 transition-colors';
+
+                const date = new Date(tx.date).toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const typeColor = tx.type === '買入' ? 'text-blue-400' : 'text-green-400';
+                const profitCell = tx.type === '賣出' && tx.realizedProfit !== undefined
+                    ? `<td class="px-3 py-3 text-center font-mono font-bold ${tx.realizedProfit >= 0 ? 'text-green-400' : 'text-red-400'}">
+                         ${tx.realizedProfit >= 0 ? '+' : ''}${tx.realizedProfit.toLocaleString(undefined, {maximumFractionDigits: 2})}
+                       </td>`
+                    : '<td class="px-3 py-3 text-center text-slate-500">-</td>';
+
+                tr.innerHTML = `
+                    <td class="px-3 py-3 text-center text-slate-300 text-xs">${date}</td>
+                    <td class="px-3 py-3 text-center ${typeColor} font-bold">${tx.type}</td>
+                    <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${tx.symbol}</td>
+                    <td class="px-3 py-3 text-center text-slate-300">${tx.companyName || tx.symbol}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${tx.shares.toLocaleString()}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${tx.price.toFixed(2)}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${(tx.fee || 0).toFixed(2)}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${(tx.tax || 0).toFixed(2)}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono font-semibold">${tx.amount.toFixed(2)}</td>
+                    ${profitCell}
+                    <td class="px-3 py-3 text-center text-slate-300">${tx.holder}</td>
+                    <td class="px-3 py-3 text-center text-slate-300">${tx.platform}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.applyTransactionFilters = function() {
+            renderTransactions();
+        };
+
+        window.clearTransactionFilters = function() {
+            document.getElementById('filterYear').value = '';
+            document.getElementById('filterTransactionType').value = '';
+            renderTransactions();
+        };
     </script>
     
     <!-- 分析模態框 HTML -->
     <div id="analysisModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='analysisModal') closeAnalysisModal()">
         <div id="analysisContent" class="analysis-content bg-slate-800 border-2 border-blue-500 rounded-lg max-w-5xl w-full mx-4" onclick="event.stopPropagation()">
             <!-- 內容會動態插入這裡 -->
+        </div>
+    </div>
+    
+    <!-- 買入模態框 HTML -->
+    <div id="buyModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='buyModal') closeBuyModal()">
+        <div class="bg-slate-800 border-2 border-blue-500 rounded-lg max-w-md w-full mx-4 p-6" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-blue-400">🛒 買入股票</h3>
+                <button onclick="closeBuyModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">股票</label>
+                    <div id="buyStockInfo" class="text-lg font-semibold text-slate-100"></div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">目前持有股數</label>
+                    <div id="buyCurrentShares" class="text-lg font-bold text-blue-400"></div>
+                </div>
+
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">目前平均成本價</label>
+                    <div id="buyCurrentCost" class="text-lg font-bold text-yellow-400"></div>
+                </div>
+                
+                <div>
+                    <label for="buyShares" class="block text-sm text-slate-300 mb-1">買入股數 *</label>
+                    <input type="number" id="buyShares" min="1" 
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="輸入要買入的股數" />
+                </div>
+
+                <div>
+                    <label for="buyPrice" class="block text-sm text-slate-300 mb-1">買入價格 *</label>
+                    <input type="number" id="buyPrice" min="0" step="0.01"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="輸入買入價格" />
+                </div>
+
+                <div>
+                    <label for="buyFee" class="block text-sm text-slate-300 mb-1">手續費</label>
+                    <input type="number" id="buyFee" min="0" step="0.01" value="0"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="手續費（台股約0.1425%，美股約$1-$10）" />
+                    <div class="text-xs text-slate-400 mt-1">
+                        台股約 0.1425%，美股約 $1-$10
+                    </div>
+                </div>
+                
+                <div class="bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-3">
+                    <div class="text-xs text-blue-300">
+                        💡 提示：買入後系統會自動重新計算平均成本價
+                    </div>
+                </div>
+                
+                <div class="flex gap-3 mt-6">
+                    <button onclick="confirmBuy()" 
+                            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        確認買入
+                    </button>
+                    <button onclick="closeBuyModal()" 
+                            class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        取消
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -2160,12 +2639,42 @@
                 </div>
                 
                 <div>
-                    <label for="sellShares" class="block text-sm text-slate-300 mb-1">賣出股數</label>
+                    <label for="sellShares" class="block text-sm text-slate-300 mb-1">賣出股數 *</label>
                     <input type="number" id="sellShares" min="1" 
                            class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
                            placeholder="輸入要賣出的股數" />
+                </div>
+
+                <div>
+                    <label for="sellPrice" class="block text-sm text-slate-300 mb-1">賣出價格 *</label>
+                    <input type="number" id="sellPrice" min="0" step="0.01"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="輸入賣出價格" />
+                </div>
+
+                <div>
+                    <label for="sellFee" class="block text-sm text-slate-300 mb-1">手續費</label>
+                    <input type="number" id="sellFee" min="0" step="0.01" value="0"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="手續費" />
                     <div class="text-xs text-slate-400 mt-1">
-                        💡 提示：賣出後系統會自動重新計算投資成本和其他欄位
+                        台股約 0.1425%，美股約 $1-$10
+                    </div>
+                </div>
+
+                <div>
+                    <label for="sellTax" class="block text-sm text-slate-300 mb-1">交易稅</label>
+                    <input type="number" id="sellTax" min="0" step="0.01" value="0"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="交易稅" />
+                    <div class="text-xs text-slate-400 mt-1">
+                        台股約 0.3%，美股無交易稅
+                    </div>
+                </div>
+                
+                <div class="bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded-lg p-3">
+                    <div class="text-xs text-yellow-300">
+                        💡 提示：賣出後系統會自動計算已實現損益並記錄交易
                     </div>
                 </div>
                 
