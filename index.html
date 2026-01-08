@@ -419,47 +419,10 @@
                             </thead>
                             <tbody id="stockTableBody">
                                 <tr class="desktop-add-row bg-blue-900 bg-opacity-20 border-b-2 border-blue-500 no-print">
-                                    <td class="px-4 py-2">
-                                        <select id="newRegion" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
-                                            <option>台股</option>
-                                            <option>美股</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <input type="text" id="newCompany" placeholder="公司名稱" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm" readonly />
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <input type="text" id="newSymbol" placeholder="代號" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm font-mono" style="text-transform: uppercase;" onchange="fetchCompanyName()" />
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <input type="number" id="newShares" placeholder="股數" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" />
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <input type="number" id="newCostPrice" placeholder="成本價" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" step="0.01" />
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <input type="number" id="newCost" placeholder="成本" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" />
-                                    </td>
-                                    <td class="px-3 py-2 text-slate-500 text-right text-xs">自動獲取</td>
-                                    <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
-                                    <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
-                                    <td class="px-3 py-2">
-                                        <select id="newHolder" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
-                                            <option value="">選擇</option>
-                                            <option>Rebecca</option>
-                                            <option>Eric</option>
-                                            <option>Ian</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <select id="newPlatform" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
-                                            <option>複委託</option>
-                                            <option>證券</option>
-                                            <option>信託</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-3 py-2 text-center">
-                                        <button onclick="addStock()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded">新增</button>
+                                    <td colspan="12" class="px-4 py-3 text-center">
+                                        <button onclick="openAddStockModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
+                                            ➕ 新增股票
+                                        </button>
                                     </td>
                                 </tr>
                             </tbody>
@@ -704,7 +667,7 @@
             </div>
             
             <!-- 手機端浮動新增按鈕 -->
-            <button class="mobile-fab no-print" onclick="openMobileForm()">
+            <button class="mobile-fab no-print" onclick="openAddStockModal()">
                 +
             </button>
             
@@ -1030,8 +993,155 @@
                             companyName = taiwanStocks[symbol];
                         }
                     } else {
-                        // 美股：優先使用 Yahoo 的名稱，如果沒有就用代號
-                        companyName = meta.longName || meta.shortName || symbol;
+                        // 美股：先檢查常見股票清單
+                        const usStocks = {
+                            // 科技股
+                            'AAPL': 'Apple',
+                            'MSFT': 'Microsoft',
+                            'GOOGL': 'Alphabet (Google)',
+                            'GOOG': 'Alphabet (Google)',
+                            'AMZN': 'Amazon',
+                            'META': 'Meta (Facebook)',
+                            'NVDA': 'NVIDIA',
+                            'TSM': '台積電 ADR',
+                            'TSLA': 'Tesla',
+                            'NFLX': 'Netflix',
+                            'AMD': 'AMD',
+                            'INTC': 'Intel',
+                            'CRM': 'Salesforce',
+                            'ORCL': 'Oracle',
+                            'ADBE': 'Adobe',
+                            'AVGO': 'Broadcom',
+                            'QCOM': 'Qualcomm',
+                            'TXN': 'Texas Instruments',
+                            'AMAT': 'Applied Materials',
+                            'ASML': 'ASML',
+                            'MU': 'Micron',
+                            'LRCX': 'Lam Research',
+                            'KLAC': 'KLA',
+                            'SNPS': 'Synopsys',
+                            'CDNS': 'Cadence',
+                            'MRVL': 'Marvell',
+                            'NXPI': 'NXP',
+                            'ADI': 'Analog Devices',
+                            
+                            // 金融股
+                            'JPM': 'JPMorgan Chase',
+                            'BAC': 'Bank of America',
+                            'WFC': 'Wells Fargo',
+                            'C': 'Citigroup',
+                            'GS': 'Goldman Sachs',
+                            'MS': 'Morgan Stanley',
+                            'BLK': 'BlackRock',
+                            'SCHW': 'Charles Schwab',
+                            'AXP': 'American Express',
+                            'V': 'Visa',
+                            'MA': 'Mastercard',
+                            'PYPL': 'PayPal',
+                            'SQ': 'Block (Square)',
+                            
+                            // 醫療保健
+                            'JNJ': 'Johnson & Johnson',
+                            'UNH': 'UnitedHealth',
+                            'PFE': 'Pfizer',
+                            'ABBV': 'AbbVie',
+                            'TMO': 'Thermo Fisher',
+                            'ABT': 'Abbott',
+                            'MRK': 'Merck',
+                            'LLY': 'Eli Lilly',
+                            'DHR': 'Danaher',
+                            'AMGN': 'Amgen',
+                            'GILD': 'Gilead',
+                            'BMY': 'Bristol Myers',
+                            'ISRG': 'Intuitive Surgical',
+                            'REGN': 'Regeneron',
+                            
+                            // 工業與能源
+                            'BA': 'Boeing',
+                            'CAT': 'Caterpillar',
+                            'GE': 'General Electric',
+                            'MMM': '3M',
+                            'HON': 'Honeywell',
+                            'UPS': 'UPS',
+                            'LMT': 'Lockheed Martin',
+                            'RTX': 'Raytheon',
+                            'DE': 'Deere',
+                            'XOM': 'Exxon Mobil',
+                            'CVX': 'Chevron',
+                            'COP': 'ConocoPhillips',
+                            'SLB': 'Schlumberger',
+                            'EOG': 'EOG Resources',
+                            'PSX': 'Phillips 66',
+                            'MPC': 'Marathon Petroleum',
+                            'VLO': 'Valero',
+                            'VST': 'Vistra',
+                            'CEG': 'Constellation Energy',
+                            'NEE': 'NextEra Energy',
+                            'DUK': 'Duke Energy',
+                            'SO': 'Southern Company',
+                            'D': 'Dominion Energy',
+                            'AEP': 'American Electric',
+                            'EXC': 'Exelon',
+                            
+                            // 消費品
+                            'WMT': 'Walmart',
+                            'HD': 'Home Depot',
+                            'COST': 'Costco',
+                            'MCD': "McDonald's",
+                            'NKE': 'Nike',
+                            'SBUX': 'Starbucks',
+                            'TGT': 'Target',
+                            'LOW': "Lowe's",
+                            'PG': 'Procter & Gamble',
+                            'KO': 'Coca-Cola',
+                            'PEP': 'PepsiCo',
+                            'PM': 'Philip Morris',
+                            'MO': 'Altria',
+                            'CL': 'Colgate-Palmolive',
+                            
+                            // 電信與媒體
+                            'T': 'AT&T',
+                            'VZ': 'Verizon',
+                            'TMUS': 'T-Mobile',
+                            'DIS': 'Disney',
+                            'CMCSA': 'Comcast',
+                            'CHTR': 'Charter',
+                            
+                            // ETF
+                            'SPY': 'SPDR S&P 500 ETF',
+                            'QQQ': 'Nasdaq 100 ETF',
+                            'VOO': 'Vanguard S&P 500',
+                            'VTI': 'Vanguard Total Market',
+                            'IVV': 'iShares S&P 500',
+                            'VTV': 'Vanguard Value',
+                            'VUG': 'Vanguard Growth',
+                            'VO': 'Vanguard Mid-Cap',
+                            'VB': 'Vanguard Small-Cap',
+                            'SCHD': 'Schwab US Dividend',
+                            'JEPI': 'JPMorgan Equity Premium',
+                            'JEPQ': 'JPMorgan Nasdaq Premium',
+                            'GLD': 'SPDR Gold Shares',
+                            'SLV': 'iShares Silver',
+                            'TLT': 'iShares 20+ Year Treasury',
+                            'AGG': 'iShares Core Aggregate Bond',
+                            'BND': 'Vanguard Total Bond',
+                            'VNQ': 'Vanguard Real Estate',
+                            'EEM': 'iShares MSCI Emerging',
+                            'VWO': 'Vanguard FTSE Emerging',
+                            
+                            // 其他
+                            'BRK.B': 'Berkshire Hathaway',
+                            'ONDS': 'Ondas Holdings',
+                            'PLTR': 'Palantir Technologies'
+                        };
+                        
+                        // 如果在清單中找到，使用清單名稱
+                        if (usStocks[symbol]) {
+                            companyName = usStocks[symbol];
+                        } else {
+                            // 否則使用 Yahoo 的名稱，如果沒有就用代號
+                            companyName = meta.longName || meta.shortName || symbol;
+                        }
                     }
                     
                     console.log(`✓ 成功獲取 ${symbol}: 價格=${price}, 名稱=${companyName}, 漲跌幅=${changePercent.toFixed(2)}%`);
@@ -2318,6 +2428,161 @@
         let currentSellStockId = null;
         let transactions = [];
 
+        // ========== 新增股票Modal功能 ==========
+        window.openAddStockModal = function() {
+            // 設定預設日期為今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('newDate').value = today;
+            
+            // 清空表單
+            document.getElementById('addStockForm').reset();
+            document.getElementById('newDate').value = today;
+            document.getElementById('newCompany').value = '';
+            document.getElementById('newTotalCost').value = '';
+            
+            document.getElementById('addStockModal').style.display = 'flex';
+        };
+
+        window.closeAddStockModal = function() {
+            document.getElementById('addStockModal').style.display = 'none';
+        };
+
+        window.calculateNewCost = function() {
+            const shares = parseFloat(document.getElementById('newShares').value) || 0;
+            const price = parseFloat(document.getElementById('newCostPrice').value) || 0;
+            const fee = parseFloat(document.getElementById('newFee').value) || 0;
+            
+            const totalCost = shares * price + fee;
+            document.getElementById('newTotalCost').value = totalCost.toFixed(2);
+        };
+
+        window.fetchNewCompanyName = async function() {
+            const symbolInput = document.getElementById('newSymbol');
+            const regionSelect = document.getElementById('newRegion');
+            const companyInput = document.getElementById('newCompany');
+            
+            let symbol = symbolInput.value.toUpperCase().trim();
+            
+            if (!symbol) return;
+            
+            const region = regionSelect.value;
+            
+            companyInput.value = '載入中...';
+            
+            const info = await fetchStockInfo(symbol, region);
+            
+            if (info && info.companyName) {
+                companyInput.value = info.companyName;
+            } else {
+                companyInput.value = symbol;
+            }
+        };
+
+        window.confirmAddStock = async function() {
+            const date = document.getElementById('newDate').value;
+            const region = document.getElementById('newRegion').value;
+            const symbol = document.getElementById('newSymbol').value.toUpperCase().trim();
+            const companyName = document.getElementById('newCompany').value.trim() || symbol;
+            const shares = parseFloat(document.getElementById('newShares').value);
+            const costPrice = parseFloat(document.getElementById('newCostPrice').value);
+            const fee = parseFloat(document.getElementById('newFee').value) || 0;
+            const holder = document.getElementById('newHolder').value;
+            const platform = document.getElementById('newPlatform').value;
+            
+            if (!date || !region || !symbol || !shares || !costPrice || !holder || !platform) {
+                alert('請填寫所有必填欄位（標記 * 的欄位）');
+                return;
+            }
+
+            try {
+                const totalCost = shares * costPrice + fee;
+                
+                // 顯示載入提示
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '⏳ 處理中...';
+
+                // 獲取當前股價
+                const info = await fetchStockInfo(symbol, region);
+                if (!info || !info.price) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    alert(`❌ 無法獲取 ${symbol} 的股價，請稍後再試`);
+                    return;
+                }
+
+                // 1. 先記錄交易明細
+                await addDoc(collection(db, 'transactions'), {
+                    date: new Date(date + 'T12:00:00').toISOString(),
+                    type: '買入',
+                    symbol: symbol,
+                    companyName: companyName,
+                    shares: shares,
+                    price: costPrice,
+                    fee: fee,
+                    tax: 0,
+                    amount: totalCost,
+                    holder: holder,
+                    platform: platform,
+                    region: region,
+                    createdBy: currentUser.email,
+                    createdAt: new Date().toISOString()
+                });
+
+                // 2. 檢查是否已有相同股票（相同代號、持有人、平台）
+                const existingStock = stocks.find(s => 
+                    s.symbol === symbol && 
+                    s.holder === holder && 
+                    s.platform === platform &&
+                    s.region === region
+                );
+
+                if (existingStock) {
+                    // 合併到現有股票：重新計算平均成本
+                    const oldShares = parseFloat(existingStock.shares);
+                    const oldCost = parseFloat(existingStock.investmentCost);
+                    const newTotalShares = oldShares + shares;
+                    const newTotalCost = oldCost + totalCost;
+
+                    await updateDoc(doc(db, 'stocks', existingStock.id), {
+                        shares: newTotalShares,
+                        investmentCost: newTotalCost,
+                        currentPrice: Math.abs(info.price),
+                        changePercent: info.changePercent || 0,
+                        lastModified: new Date().toISOString(),
+                        modifiedBy: currentUser.email,
+                        lastPriceUpdate: new Date().toISOString()
+                    });
+                } else {
+                    // 新增股票記錄
+                    await addDoc(collection(db, 'stocks'), {
+                        region: region,
+                        companyName: companyName,
+                        symbol: symbol,
+                        shares: shares,
+                        investmentCost: totalCost,
+                        currentPrice: Math.abs(info.price),
+                        changePercent: info.changePercent || 0,
+                        holder: holder,
+                        platform: platform,
+                        createdAt: new Date().toISOString(),
+                        createdBy: currentUser.email,
+                        lastPriceUpdate: new Date().toISOString()
+                    });
+                }
+
+                alert(`✅ 新增成功！\n\n股票：${symbol} - ${companyName}\n股數：${shares}\n價格：${costPrice}\n手續費：${fee}\n總成本：${totalCost.toFixed(2)}\n\n已自動記錄到交易明細`);
+                
+                closeAddStockModal();
+                await loadStocks();
+                
+            } catch (error) {
+                console.error('新增失敗:', error);
+                alert('❌ 新增失敗：' + error.message);
+            }
+        };
+
         // 買入Modal
         window.openBuyModal = function(stockId, symbol, companyName, currentShares, currentCostPrice) {
             currentBuyStockId = stockId;
@@ -3021,6 +3286,124 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 新增股票模態框 HTML -->
+    <div id="addStockModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='addStockModal') closeAddStockModal()">
+        <div class="bg-slate-800 border-2 border-green-500 rounded-lg max-w-2xl w-full mx-4 p-6" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-green-400">➕ 新增股票</h3>
+                <button onclick="closeAddStockModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <form id="addStockForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">購買日期 *</label>
+                        <input type="date" id="newDate" required
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">地區 *</label>
+                        <select id="newRegion" required
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none">
+                            <option value="台股">台股</option>
+                            <option value="美股">美股</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">股票代號 *</label>
+                        <input type="text" id="newSymbol" required placeholder="例如：2330, TSLA"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none" 
+                               style="text-transform: uppercase;"
+                               onchange="fetchNewCompanyName()" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">公司名稱</label>
+                        <input type="text" id="newCompany" placeholder="輸入代號後自動帶出" readonly
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">股數 *</label>
+                        <input type="number" id="newShares" required min="1" step="1" placeholder="1000"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none"
+                               oninput="calculateNewCost()" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">購買價格 *</label>
+                        <input type="number" id="newCostPrice" required min="0" step="0.01" placeholder="150.50"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none"
+                               oninput="calculateNewCost()" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">手續費</label>
+                        <input type="number" id="newFee" min="0" step="0.01" value="0" placeholder="28.50"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none"
+                               oninput="calculateNewCost()" />
+                        <div class="text-xs text-slate-500 mt-1">台股約 0.1425%，美股約 $1-$10</div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">總投資成本</label>
+                        <input type="number" id="newTotalCost" readonly
+                               class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" />
+                        <div class="text-xs text-slate-500 mt-1">自動計算 = 股數 × 價格 + 手續費</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">持有人 *</label>
+                        <select id="newHolder" required
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none">
+                            <option value="">選擇持有人</option>
+                            <option value="Rebecca">Rebecca</option>
+                            <option value="Eric">Eric</option>
+                            <option value="Ian">Ian</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">交易平台 *</label>
+                        <select id="newPlatform" required
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none">
+                            <option value="複委託">複委託</option>
+                            <option value="證券">證券</option>
+                            <option value="信託">信託</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-3">
+                    <div class="text-xs text-blue-300">
+                        💡 新增後會自動記錄到交易明細，並更新持股
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="confirmAddStock()" 
+                            class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        ✓ 確認新增
+                    </button>
+                    <button type="button" onclick="closeAddStockModal()" 
+                            class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        取消
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
