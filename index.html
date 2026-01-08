@@ -1224,6 +1224,279 @@
             }
         }
 
+        // === 快速獲取公司名稱（僅從內建對照表獲取，不調用API）===
+        function getCompanyNameQuick(symbol, region) {
+            if (region === '台股') {
+                const taiwanStocks = {
+                    // ETF
+                    '0050': '元大台灣50',
+                    '0056': '元大高股息',
+                    '00679B': '元大美債20年',
+                    '00687B': '國泰20年美債',
+                    '00697B': '元大美債7-10',
+                    '00720B': '元大投資級公司債',
+                    
+                    // 0050 & 0056 主要成分股
+                    '2330': '台積電',
+                    '2317': '鴻海',
+                    '2454': '聯發科',
+                    '2412': '中華電',
+                    '2308': '台達電',
+                    '2882': '國泰金',
+                    '2881': '富邦金',
+                    '2891': '中信金',
+                    '2886': '兆豐金',
+                    '2884': '玉山金',
+                    '2885': '元大金',
+                    '2892': '第一金',
+                    '2887': '台新金',
+                    '2883': '開發金',
+                    '5880': '合庫金',
+                    '2880': '華南金',
+                    '2888': '新光金',
+                    '2890': '永豐金',
+                    '5876': '上海商銀',
+                    '2801': '彰銀',
+                    '2809': '京城銀',
+                    
+                    // 電子股
+                    '3711': '日月光投控',
+                    '2382': '廣達',
+                    '2303': '聯電',
+                    '2357': '華碩',
+                    '2301': '光寶科',
+                    '2395': '研華',
+                    '2408': '南亞科',
+                    '3008': '大立光',
+                    '2409': '友達',
+                    '2345': '智邦',
+                    '2327': '國巨',
+                    '3034': '聯詠',
+                    '6669': '緯穎',
+                    '6415': '矽力-KY',
+                    '3017': '奇鋐',
+                    '2376': '技嘉',
+                    '2474': '可成',
+                    '3045': '台灣大',
+                    '4904': '遠傳',
+                    '4938': '和碩',
+                    '2324': '仁寶',
+                    '2356': '英業達',
+                    '3231': '緯創',
+                    '6770': '力積電',
+                    '2371': '大同',
+                    '2353': '宏碁',
+                    '2377': '微星',
+                    '3443': '創意',
+                    '3661': '世芯-KY',
+                    '6781': 'AES-KY',
+                    '3529': '力旺',
+                    '6533': '晶心科',
+                    
+                    // 傳產股
+                    '1301': '台塑',
+                    '1303': '南亞',
+                    '1326': '台化',
+                    '6505': '台塑化',
+                    '1101': '台泥',
+                    '1102': '亞泥',
+                    '2002': '中鋼',
+                    '2207': '和泰車',
+                    '2105': '正新',
+                    '2912': '統一超',
+                    '1216': '統一',
+                    '9904': '寶成',
+                    '9910': '豐泰',
+                    '2615': '萬海',
+                    '2609': '陽明',
+                    '2603': '長榮',
+                    '5871': '中租-KY',
+                    '9921': '巨大',
+                    '2049': '上銀',
+                    '1590': '亞德客-KY',
+                    '2204': '中華',
+                    '1476': '儒鴻',
+                    '1477': '聚陽',
+                    '2201': '裕隆',
+                    '2227': '裕日車',
+                    '2542': '興富發',
+                    '5522': '遠雄',
+                    '2535': '達欣工',
+                    '9945': '潤泰新',
+                    '2547': '日勝生',
+                    
+                    // 其他常見個股
+                    '2344': '華邦電',
+                    '2337': '旺宏',
+                    '2352': '佳世達',
+                    '2354': '鴻準',
+                    '2360': '致茂',
+                    '2379': '瑞昱',
+                    '2439': '美律',
+                    '2449': '京元電子',
+                    '2458': '義隆',
+                    '6121': '新普',
+                    '6176': '瑞儀',
+                    '6239': '力成',
+                    '6271': '同欣電',
+                    '8046': '南電',
+                    '2347': '聯強',
+                    '2493': '揚博',
+                    '3702': '大聯大',
+                    '4943': '康控-KY',
+                    '6116': '彩晶',
+                    '6213': '聯茂',
+                    '8131': '福懋科'
+                };
+                
+                return taiwanStocks[symbol] || symbol;
+            } else {
+                // 美股對照表
+                const usStocks = {
+                    // 科技股
+                    'AAPL': 'Apple',
+                    'MSFT': 'Microsoft',
+                    'GOOGL': 'Alphabet (Google)',
+                    'GOOG': 'Alphabet (Google)',
+                    'AMZN': 'Amazon',
+                    'META': 'Meta (Facebook)',
+                    'NVDA': 'NVIDIA',
+                    'TSM': '台積電 ADR',
+                    'TSLA': 'Tesla',
+                    'NFLX': 'Netflix',
+                    'AMD': 'AMD',
+                    'INTC': 'Intel',
+                    'CRM': 'Salesforce',
+                    'ORCL': 'Oracle',
+                    'ADBE': 'Adobe',
+                    'AVGO': 'Broadcom',
+                    'QCOM': 'Qualcomm',
+                    'TXN': 'Texas Instruments',
+                    'AMAT': 'Applied Materials',
+                    'ASML': 'ASML',
+                    'MU': 'Micron',
+                    'LRCX': 'Lam Research',
+                    'KLAC': 'KLA',
+                    'SNPS': 'Synopsys',
+                    'CDNS': 'Cadence',
+                    'MRVL': 'Marvell',
+                    'NXPI': 'NXP',
+                    'ADI': 'Analog Devices',
+                    
+                    // 金融股
+                    'JPM': 'JPMorgan Chase',
+                    'BAC': 'Bank of America',
+                    'WFC': 'Wells Fargo',
+                    'C': 'Citigroup',
+                    'GS': 'Goldman Sachs',
+                    'MS': 'Morgan Stanley',
+                    'BLK': 'BlackRock',
+                    'SCHW': 'Charles Schwab',
+                    'AXP': 'American Express',
+                    'V': 'Visa',
+                    'MA': 'Mastercard',
+                    'PYPL': 'PayPal',
+                    'SQ': 'Block (Square)',
+                    
+                    // 醫療保健
+                    'JNJ': 'Johnson & Johnson',
+                    'UNH': 'UnitedHealth',
+                    'PFE': 'Pfizer',
+                    'ABBV': 'AbbVie',
+                    'TMO': 'Thermo Fisher',
+                    'ABT': 'Abbott',
+                    'MRK': 'Merck',
+                    'LLY': 'Eli Lilly',
+                    'DHR': 'Danaher',
+                    'AMGN': 'Amgen',
+                    'GILD': 'Gilead',
+                    'BMY': 'Bristol Myers',
+                    'ISRG': 'Intuitive Surgical',
+                    'REGN': 'Regeneron',
+                    
+                    // 工業與能源
+                    'BA': 'Boeing',
+                    'CAT': 'Caterpillar',
+                    'GE': 'General Electric',
+                    'MMM': '3M',
+                    'HON': 'Honeywell',
+                    'UPS': 'UPS',
+                    'LMT': 'Lockheed Martin',
+                    'RTX': 'Raytheon',
+                    'DE': 'Deere',
+                    'XOM': 'Exxon Mobil',
+                    'CVX': 'Chevron',
+                    'COP': 'ConocoPhillips',
+                    'SLB': 'Schlumberger',
+                    'EOG': 'EOG Resources',
+                    'PSX': 'Phillips 66',
+                    'MPC': 'Marathon Petroleum',
+                    'VLO': 'Valero',
+                    'VST': 'Vistra',
+                    'CEG': 'Constellation Energy',
+                    'NEE': 'NextEra Energy',
+                    'DUK': 'Duke Energy',
+                    'SO': 'Southern Company',
+                    'D': 'Dominion Energy',
+                    'AEP': 'American Electric',
+                    'EXC': 'Exelon',
+                    
+                    // 消費品
+                    'WMT': 'Walmart',
+                    'HD': 'Home Depot',
+                    'COST': 'Costco',
+                    'MCD': "McDonald's",
+                    'NKE': 'Nike',
+                    'SBUX': 'Starbucks',
+                    'TGT': 'Target',
+                    'LOW': "Lowe's",
+                    'PG': 'Procter & Gamble',
+                    'KO': 'Coca-Cola',
+                    'PEP': 'PepsiCo',
+                    'PM': 'Philip Morris',
+                    'MO': 'Altria',
+                    'CL': 'Colgate-Palmolive',
+                    
+                    // 電信與媒體
+                    'T': 'AT&T',
+                    'VZ': 'Verizon',
+                    'TMUS': 'T-Mobile',
+                    'DIS': 'Disney',
+                    'CMCSA': 'Comcast',
+                    'CHTR': 'Charter',
+                    
+                    // ETF
+                    'SPY': 'SPDR S&P 500 ETF',
+                    'QQQ': 'Nasdaq 100 ETF',
+                    'VOO': 'Vanguard S&P 500',
+                    'VTI': 'Vanguard Total Market',
+                    'IVV': 'iShares S&P 500',
+                    'VTV': 'Vanguard Value',
+                    'VUG': 'Vanguard Growth',
+                    'VO': 'Vanguard Mid-Cap',
+                    'VB': 'Vanguard Small-Cap',
+                    'SCHD': 'Schwab US Dividend',
+                    'JEPI': 'JPMorgan Equity Premium',
+                    'JEPQ': 'JPMorgan Nasdaq Premium',
+                    'GLD': 'SPDR Gold Shares',
+                    'SLV': 'iShares Silver',
+                    'TLT': 'iShares 20+ Year Treasury',
+                    'AGG': 'iShares Core Aggregate Bond',
+                    'BND': 'Vanguard Total Bond',
+                    'VNQ': 'Vanguard Real Estate',
+                    'EEM': 'iShares MSCI Emerging',
+                    'VWO': 'Vanguard FTSE Emerging',
+                    
+                    // 其他
+                    'BRK.B': 'Berkshire Hathaway',
+                    'ONDS': 'Ondas Holdings',
+                    'PLTR': 'Palantir Technologies'
+                };
+                
+                return usStocks[symbol] || symbol;
+            }
+        }
+
         // 獲取公司名稱（在輸入代號時）
         window.fetchCompanyName = async function() {
             const symbolInput = document.getElementById('newSymbol');
@@ -2467,14 +2740,28 @@
             
             const region = regionSelect.value;
             
-            companyInput.value = '載入中...';
+            // 先嘗試從快速對照表獲取
+            const quickName = getCompanyNameQuick(symbol, region);
             
-            const info = await fetchStockInfo(symbol, region);
-            
-            if (info && info.companyName) {
-                companyInput.value = info.companyName;
+            if (quickName !== symbol) {
+                // 在對照表中找到了，立即顯示
+                companyInput.value = quickName;
             } else {
-                companyInput.value = symbol;
+                // 對照表中沒有，顯示載入中並調用 API
+                companyInput.value = '查詢中...';
+                
+                try {
+                    const info = await fetchStockInfo(symbol, region);
+                    
+                    if (info && info.companyName) {
+                        companyInput.value = info.companyName;
+                    } else {
+                        companyInput.value = symbol;
+                    }
+                } catch (error) {
+                    console.error('獲取公司名稱失敗:', error);
+                    companyInput.value = symbol;
+                }
             }
         };
 
@@ -2994,16 +3281,28 @@
             
             const region = regionSelect.value;
             
-            // 顯示載入中
-            companyInput.value = '載入中...';
+            // 先嘗試從快速對照表獲取
+            const quickName = getCompanyNameQuick(symbol, region);
             
-            // 使用現有的 fetchStockInfo 函數
-            const info = await fetchStockInfo(symbol, region);
-            
-            if (info && info.companyName) {
-                companyInput.value = info.companyName;
+            if (quickName !== symbol) {
+                // 在對照表中找到了，立即顯示
+                companyInput.value = quickName;
             } else {
-                companyInput.value = symbol; // 如果獲取失敗，就使用代號
+                // 對照表中沒有，顯示載入中並調用 API
+                companyInput.value = '查詢中...';
+                
+                try {
+                    const info = await fetchStockInfo(symbol, region);
+                    
+                    if (info && info.companyName) {
+                        companyInput.value = info.companyName;
+                    } else {
+                        companyInput.value = symbol;
+                    }
+                } catch (error) {
+                    console.error('獲取公司名稱失敗:', error);
+                    companyInput.value = symbol;
+                }
             }
         };
 
