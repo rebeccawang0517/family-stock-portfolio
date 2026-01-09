@@ -1090,14 +1090,26 @@
                 console.log(`嘗試獲取 ${symbol} 的資訊 (第 ${retryCount + 1} 次)，API 代號: ${apiSymbol}`);
                 
                 // 使用 CORS 代理來繞過瀏覽器限制
-                const corsProxy = 'https://api.allorigins.win/raw?url=';
+                // 備用代理列表
+                const corsProxies = [
+                    'https://api.allorigins.win/raw?url=',
+                    'https://corsproxy.io/?'
+                ];
+                const corsProxy = corsProxies[retryCount % corsProxies.length];
                 const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
                 const url = corsProxy + encodeURIComponent(apiUrl);
                 
-                const response = await fetch(url, {
-                    method: 'GET',
-                    timeout: 10000 // 10秒超時
-                });
+                // 創建一個帶超時的 fetch
+                const fetchWithTimeout = (url, timeout = 15000) => {
+                    return Promise.race([
+                        fetch(url, { method: 'GET' }),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Request timeout')), timeout)
+                        )
+                    ]);
+                };
+                
+                const response = await fetchWithTimeout(url, 15000); // 15秒超時
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -1160,7 +1172,7 @@
                 
                 // 如果還有重試次數，等待後重試
                 if (retryCount < maxRetries) {
-                    const waitTime = (retryCount + 1) * 1000; // 遞增等待時間：1秒、2秒、3秒
+                    const waitTime = (retryCount + 1) * 2000; // 遞增等待時間：2秒、4秒、6秒
                     console.log(`⏳ 等待 ${waitTime/1000} 秒後重試...`);
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                     return fetchStockInfo(symbol, region, retryCount + 1);
@@ -2540,22 +2552,28 @@
                 return;
             }
 
+            // 顯示載入提示
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '⏳ 處理中...';
+
             try {
                 const totalCost = shares * costPrice + fee;
                 
-                // 顯示載入提示
-                const btn = event.target;
-                const originalText = btn.innerHTML;
-                btn.disabled = true;
-                btn.innerHTML = '⏳ 處理中...';
-
-                // 獲取當前股價
-                const info = await fetchStockInfo(symbol, region);
-                if (!info || !info.price) {
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                    alert(`❌ 無法獲取 ${symbol} 的股價，請稍後再試`);
-                    return;
+                // 嘗試獲取當前股價（但不強制要求成功）
+                let currentPrice = costPrice;  // 預設使用成本價
+                let changePercent = 0;
+                
+                try {
+                    const info = await fetchStockInfo(symbol, region);
+                    if (info && info.price) {
+                        currentPrice = Math.abs(info.price);
+                        changePercent = info.changePercent || 0;
+                    }
+                } catch (priceError) {
+                    console.warn(`無法獲取 ${symbol} 的即時股價，使用成本價代替:`, priceError.message);
+                    // 繼續執行，不中斷新增流程
                 }
 
                 // 1. 先記錄交易明細
@@ -2594,8 +2612,8 @@
                     await updateDoc(doc(db, 'stocks', existingStock.id), {
                         shares: newTotalShares,
                         investmentCost: newTotalCost,
-                        currentPrice: Math.abs(info.price),
-                        changePercent: info.changePercent || 0,
+                        currentPrice: currentPrice,
+                        changePercent: changePercent,
                         lastModified: new Date().toISOString(),
                         modifiedBy: currentUser.email,
                         lastPriceUpdate: new Date().toISOString()
@@ -2608,6 +2626,32 @@
                         symbol: symbol,
                         shares: shares,
                         investmentCost: totalCost,
+                        currentPrice: currentPrice,
+                        changePercent: changePercent,
+                        holder: holder,
+                        platform: platform,
+                        createdAt: new Date().toISOString(),
+                        createdBy: currentUser.email,
+                        lastPriceUpdate: new Date().toISOString()
+                    });
+                }
+
+                alert(`✅ 新增成功！\n\n股票：${symbol} - ${companyName}\n股數：${shares}\n價格：${costPrice}\n手續費：${fee}\n總成本：${totalCost.toFixed(2)}\n\n已自動記錄到交易明細`);
+                
+                closeAddStockModal();
+                await loadStocks();
+                
+            } catch (error) {
+                console.error('新增失敗:', error);
+                
+                // 恢復按鈕狀態
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                
+                alert('❌ 新增失敗：' + error.message + '\n\n請檢查網路連線或稍後再試');
+                // 不要關閉 Modal，讓用戶可以重試
+            }
+        };
                         currentPrice: Math.abs(info.price),
                         changePercent: info.changePercent || 0,
                         holder: holder,
@@ -2625,7 +2669,13 @@
                 
             } catch (error) {
                 console.error('新增失敗:', error);
-                alert('❌ 新增失敗：' + error.message);
+                
+                // 恢復按鈕狀態
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                
+                alert('❌ 新增失敗：' + error.message + '\n\n請檢查網路連線或稍後再試');
+                // 不要關閉 Modal，讓用戶可以重試
             }
         };
 
