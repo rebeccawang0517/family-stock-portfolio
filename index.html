@@ -26,6 +26,15 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
+        // 定義 loginWithGoogle 讓 HTML 按鈕可以調用
+        window.loginWithGoogle = async () => {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                alert('登入失敗：' + error.message);
+            }
+        };
+
         window.firebaseApp = { auth, db, provider };
     </script>
     
@@ -2628,32 +2637,6 @@
                         investmentCost: totalCost,
                         currentPrice: currentPrice,
                         changePercent: changePercent,
-                        holder: holder,
-                        platform: platform,
-                        createdAt: new Date().toISOString(),
-                        createdBy: currentUser.email,
-                        lastPriceUpdate: new Date().toISOString()
-                    });
-                }
-
-                alert(`✅ 新增成功！\n\n股票：${symbol} - ${companyName}\n股數：${shares}\n價格：${costPrice}\n手續費：${fee}\n總成本：${totalCost.toFixed(2)}\n\n已自動記錄到交易明細`);
-                
-                closeAddStockModal();
-                await loadStocks();
-                
-            } catch (error) {
-                console.error('新增失敗:', error);
-                
-                // 恢復按鈕狀態
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-                
-                alert('❌ 新增失敗：' + error.message + '\n\n請檢查網路連線或稍後再試');
-                // 不要關閉 Modal，讓用戶可以重試
-            }
-        };
-                        currentPrice: Math.abs(info.price),
-                        changePercent: info.changePercent || 0,
                         holder: holder,
                         platform: platform,
                         createdAt: new Date().toISOString(),
