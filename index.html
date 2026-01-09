@@ -2545,7 +2545,7 @@
             }
         };
 
-        window.confirmAddStock = async function() {
+        window.confirmAddStock = async function(event) {
             const date = document.getElementById('newDate').value;
             const region = document.getElementById('newRegion').value;
             const symbol = document.getElementById('newSymbol').value.toUpperCase().trim();
@@ -2562,7 +2562,7 @@
             }
 
             // 顯示載入提示
-            const btn = event.target;
+            const btn = event ? event.target : document.querySelector('#addStockModal button[type="button"]');
             const originalText = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '⏳ 處理中...';
@@ -2575,7 +2575,15 @@
                 let changePercent = 0;
                 
                 try {
-                    const info = await fetchStockInfo(symbol, region);
+                    // 設定20秒總超時
+                    const fetchWithOverallTimeout = Promise.race([
+                        fetchStockInfo(symbol, region),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Overall timeout')), 20000)
+                        )
+                    ]);
+                    
+                    const info = await fetchWithOverallTimeout;
                     if (info && info.price) {
                         currentPrice = Math.abs(info.price);
                         changePercent = info.changePercent || 0;
@@ -3487,7 +3495,7 @@
                 </div>
 
                 <div class="flex gap-3 mt-6">
-                    <button type="button" onclick="confirmAddStock()" 
+                    <button type="button" onclick="confirmAddStock(event)" 
                             class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
                         ✓ 確認新增
                     </button>
