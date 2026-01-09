@@ -759,7 +759,7 @@
     </div>
 
     <script type="module">
-        const { auth, db, provider, allowedEmails } = window.firebaseApp;
+        const { auth, db, provider } = window.firebaseApp;
         let currentUser = null;
         let stocks = [];
         let transactions = [];
@@ -1139,9 +1139,6 @@
                             companyName = US_STOCKS[symbol];
                         } else {
                             // 否則使用 Yahoo 的名稱，如果沒有就用代號
-                            companyName = meta.longName || meta.shortName || symbol;
-                        }
-                    }
                             companyName = meta.longName || meta.shortName || symbol;
                         }
                     }
