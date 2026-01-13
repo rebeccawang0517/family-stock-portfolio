@@ -1099,12 +1099,14 @@
                 console.log(`嘗試獲取 ${symbol} 的資訊 (第 ${retryCount + 1} 次)，API 代號: ${apiSymbol}`);
                 
                 // 使用 CORS 代理來繞過瀏覽器限制
-                // 備用代理列表
+                // 備用代理列表（多個選項提高成功率）
                 const corsProxies = [
+                    'https://corsproxy.io/?',
                     'https://api.allorigins.win/raw?url=',
-                    'https://corsproxy.io/?'
+                    'https://api.codetabs.com/v1/proxy?quest='
                 ];
                 const corsProxy = corsProxies[retryCount % corsProxies.length];
+                console.log(`使用代理: ${corsProxy}`);
                 const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
                 const url = corsProxy + encodeURIComponent(apiUrl);
                 
@@ -2546,6 +2548,7 @@
         };
 
         window.confirmAddStock = async function(event) {
+            console.log('=== 開始新增股票 ===');
             const date = document.getElementById('newDate').value;
             const region = document.getElementById('newRegion').value;
             const symbol = document.getElementById('newSymbol').value.toUpperCase().trim();
@@ -2556,19 +2559,33 @@
             const holder = document.getElementById('newHolder').value;
             const platform = document.getElementById('newPlatform').value;
             
+            console.log('輸入資料:', { symbol, region, shares, costPrice, holder, platform });
+            
             if (!date || !region || !symbol || !shares || !costPrice || !holder || !platform) {
                 alert('請填寫所有必填欄位（標記 * 的欄位）');
                 return;
             }
 
             // 顯示載入提示
-            const btn = event ? event.target : document.querySelector('#addStockModal button[type="button"]');
+            const btn = event ? event.target : document.querySelector('button[onclick*="confirmAddStock"]');
+            if (!btn) {
+                console.error('找不到按鈕元素！');
+                return;
+            }
             const originalText = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '⏳ 處理中...';
+            console.log('按鈕已設置為處理中');
 
-            try {
-                const totalCost = shares * costPrice + fee;
+            // 設置30秒總超時
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('操作超時（30秒）')), 30000);
+            });
+
+            const addStockPromise = (async () => {
+                try {
+                    const totalCost = shares * costPrice + fee;
+                    console.log('總成本:', totalCost);
                 
                 // 嘗試獲取當前股價（但不強制要求成功）
                 let currentPrice = costPrice;  // 預設使用成本價
@@ -2593,7 +2610,9 @@
                     // 繼續執行，不中斷新增流程
                 }
 
+                console.log('準備寫入 Firebase...');
                 // 1. 先記錄交易明細
+                console.log('步驟 1: 新增交易記錄');
                 await addDoc(collection(db, 'transactions'), {
                     date: new Date(date + 'T12:00:00').toISOString(),
                     type: '買入',
@@ -2610,17 +2629,21 @@
                     createdBy: currentUser.email,
                     createdAt: new Date().toISOString()
                 });
+                console.log('交易記錄新增完成');
 
                 // 2. 檢查是否已有相同股票（相同代號、持有人、平台）
+                console.log('步驟 2: 檢查是否已有股票');
                 const existingStock = stocks.find(s => 
                     s.symbol === symbol && 
                     s.holder === holder && 
                     s.platform === platform &&
                     s.region === region
                 );
+                console.log('已存在的股票:', existingStock ? `${existingStock.symbol} (${existingStock.id})` : '無');
 
                 if (existingStock) {
                     // 合併到現有股票：重新計算平均成本
+                    console.log('步驟 3: 更新現有股票');
                     const oldShares = parseFloat(existingStock.shares);
                     const oldCost = parseFloat(existingStock.investmentCost);
                     const newTotalShares = oldShares + shares;
@@ -2635,8 +2658,10 @@
                         modifiedBy: currentUser.email,
                         lastPriceUpdate: new Date().toISOString()
                     });
+                    console.log('現有股票更新完成');
                 } else {
                     // 新增股票記錄
+                    console.log('步驟 3: 新增新股票記錄');
                     await addDoc(collection(db, 'stocks'), {
                         region: region,
                         companyName: companyName,
@@ -2651,12 +2676,25 @@
                         createdBy: currentUser.email,
                         lastPriceUpdate: new Date().toISOString()
                     });
+                    console.log('新股票記錄新增完成');
                 }
 
+                console.log('=== 新增股票完成 ===');
                 alert(`✅ 新增成功！\n\n股票：${symbol} - ${companyName}\n股數：${shares}\n價格：${costPrice}\n手續費：${fee}\n總成本：${totalCost.toFixed(2)}\n\n已自動記錄到交易明細`);
                 
                 closeAddStockModal();
                 await loadStocks();
+                return true; // 成功
+                
+            } catch (innerError) {
+                console.error('內部錯誤:', innerError);
+                throw innerError;
+            }
+            })();
+
+            try {
+                // 使用 Promise.race 實現總體超時
+                await Promise.race([addStockPromise, timeoutPromise]);
                 
             } catch (error) {
                 console.error('新增失敗:', error);
