@@ -2700,12 +2700,15 @@
                 console.error('新增失敗:', error);
                 
                 // 恢復按鈕狀態
-                btn.disabled = false;
-                btn.innerHTML = originalText;
+                //btn.disabled = false;
+                //btn.innerHTML = originalText;
                 
                 alert('❌ 新增失敗：' + error.message + '\n\n請檢查網路連線或稍後再試');
                 // 不要關閉 Modal，讓用戶可以重試
             }
+            // 恢復按鈕狀態
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         };
 
         // 買入Modal
