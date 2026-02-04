@@ -26,6 +26,15 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
+        // 定義 loginWithGoogle 讓 HTML 按鈕可以調用
+        window.loginWithGoogle = async () => {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                alert('登入失敗：' + error.message);
+            }
+        };
+
         window.firebaseApp = { auth, db, provider };
     </script>
     
@@ -252,6 +261,12 @@
                     <button onclick="switchTab('detail')" id="tabDetail" class="tab-button flex-1 px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
                         明細管理
                     </button>
+                    <button onclick="switchTab('transactions')" id="tabTransactions" class="tab-button flex-1 px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
+                        交易記錄
+                    </button>
+                    <button onclick="switchTab('import')" id="tabImport" class="tab-button flex-1 px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
+                        補登交易
+                    </button>
                 </div>
             </div>
 
@@ -267,7 +282,7 @@
                         <div class="flex items-center gap-2">
                             <label class="flex items-center gap-2 text-slate-300">
                                 <input type="checkbox" id="autoRefresh" class="rounded" checked onchange="toggleAutoRefresh(this.checked)">
-                                <span>自動更新 (每5分鐘)</span>
+                                <span>自動更新 (每小時整點)</span>
                             </label>
                             <span id="lastUpdate" class="text-slate-500 text-sm"></span>
                         </div>
@@ -413,47 +428,10 @@
                             </thead>
                             <tbody id="stockTableBody">
                                 <tr class="desktop-add-row bg-blue-900 bg-opacity-20 border-b-2 border-blue-500 no-print">
-                                    <td class="px-4 py-2">
-                                        <select id="newRegion" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
-                                            <option>台股</option>
-                                            <option>美股</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <input type="text" id="newCompany" placeholder="公司名稱" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm" readonly />
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <input type="text" id="newSymbol" placeholder="代號" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm font-mono" style="text-transform: uppercase;" onchange="fetchCompanyName()" />
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <input type="number" id="newShares" placeholder="股數" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" />
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <input type="number" id="newCostPrice" placeholder="成本價" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" step="0.01" />
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <input type="number" id="newCost" placeholder="成本" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm text-center" oninput="calculateFromFields()" />
-                                    </td>
-                                    <td class="px-3 py-2 text-slate-500 text-right text-xs">自動獲取</td>
-                                    <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
-                                    <td class="px-3 py-2 text-slate-500 text-right text-xs">自動</td>
-                                    <td class="px-3 py-2">
-                                        <select id="newHolder" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
-                                            <option value="">選擇</option>
-                                            <option>Rebecca</option>
-                                            <option>Eric</option>
-                                            <option>Ian</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <select id="newPlatform" class="w-full bg-slate-700 text-slate-100 px-2 py-1.5 rounded border border-slate-600 text-sm">
-                                            <option>複委託</option>
-                                            <option>證券</option>
-                                            <option>信託</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-3 py-2 text-center">
-                                        <button onclick="addStock()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded">新增</button>
+                                    <td colspan="12" class="px-4 py-3 text-center">
+                                        <button onclick="openAddStockModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
+                                            ➕ 新增股票
+                                        </button>
                                     </td>
                                 </tr>
                             </tbody>
@@ -473,9 +451,232 @@
                     </ul>
                 </div>
             </div>
+
+            <!-- 第三頁：交易記錄 -->
+            <div id="transactionsTab" class="tab-content">
+                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-slate-100 mb-2">📋 交易記錄</h2>
+                    <p class="text-slate-400">記錄所有買賣交易，並自動計算損益</p>
+                </div>
+
+                <!-- 篩選區 -->
+                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-6">
+                    <div class="flex items-center gap-4 flex-wrap">
+                        <div class="flex items-center gap-2">
+                            <label class="text-slate-300 font-medium">年度：</label>
+                            <select id="filterYear" onchange="applyTransactionFilters()" 
+                                    class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
+                                <option value="">全部年度</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-slate-300 font-medium">類型：</label>
+                            <select id="filterTransactionType" onchange="applyTransactionFilters()" 
+                                    class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
+                                <option value="">全部類型</option>
+                                <option value="買入">買入</option>
+                                <option value="賣出">賣出</option>
+                            </select>
+                        </div>
+                        <button onclick="clearTransactionFilters()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            清除篩選
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 年度統計 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                        <div class="text-slate-400 text-sm mb-1">本年度已實現損益</div>
+                        <div id="yearProfit" class="text-2xl font-bold">TWD 0</div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                        <div class="text-slate-400 text-sm mb-1">本年度交易次數</div>
+                        <div id="yearTransactions" class="text-2xl font-bold text-slate-100">0 筆</div>
+                    </div>
+                </div>
+
+                <!-- 交易記錄表格 -->
+                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gradient-to-r from-slate-700 to-slate-800">
+                                <tr>
+                                    <th class="px-3 py-3 text-center text-slate-300">日期</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">類型</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">代號</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">公司名稱</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">股數</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">價格</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">手續費</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">交易稅</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">成交金額</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">已實現損益</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">持有人</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">平台</th>
+                                    <th class="px-3 py-3 text-center text-slate-300 no-print">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsTableBody">
+                                <tr>
+                                    <td colspan="13" class="px-4 py-8 text-center text-slate-500">
+                                        載入中...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第四頁：補登交易 -->
+            <div id="importTab" class="tab-content">
+                <div class="bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded-lg p-6 mb-6">
+                    <div class="flex items-start gap-3">
+                        <span class="text-3xl">⚠️</span>
+                        <div class="text-yellow-200">
+                            <h3 class="text-xl font-bold mb-3">重要提醒</h3>
+                            <ul class="list-disc list-inside space-y-2">
+                                <li>此功能僅用於補登<strong>歷史交易記錄</strong></li>
+                                <li>補登的交易<strong>不會</strong>自動更新「明細管理」中的持股數量和成本</li>
+                                <li>請確保「明細管理」中的持股數量是<strong>目前實際持有的股數</strong></li>
+                                <li>如果需要調整目前持股，請使用「明細管理」頁面的「買入/賣出」功能</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6">
+                    <h2 class="text-2xl font-bold text-slate-100 mb-6">補登歷史交易</h2>
+                    
+                    <form id="importForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-slate-300 mb-2">交易日期 *</label>
+                                <input type="date" id="importDate" required
+                                       class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
+                            </div>
+
+                            <div>
+                                <label class="block text-sm text-slate-300 mb-2">交易類型 *</label>
+                                <select id="importType" required onchange="updateImportTypeFields()"
+                                        class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
+                                    <option value="買入">買入</option>
+                                    <option value="賣出">賣出</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-slate-300 mb-2">地區 *</label>
+                                <select id="importRegion" required
+                                        class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
+                                    <option value="台股">台股</option>
+                                    <option value="美股">美股</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm text-slate-300 mb-2">股票代號 *</label>
+                                <input type="text" id="importSymbol" required placeholder="例如：2330, TSLA"
+                                       class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" 
+                                       style="text-transform: uppercase;"
+                                       onchange="fetchImportCompanyName()" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm text-slate-300 mb-2">公司名稱</label>
+                            <input type="text" id="importCompany" placeholder="輸入代號後自動帶出" readonly
+                                   class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
+                            <div class="text-xs text-slate-500 mt-1">輸入股票代號後會自動帶出公司名稱</div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-slate-300 mb-2">股數 *</label>
+                                <input type="number" id="importShares" required min="1" step="1" placeholder="1000"
+                                       class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
+                            </div>
+
+                            <div>
+                                <label class="block text-sm text-slate-300 mb-2">價格 *</label>
+                                <input type="number" id="importPrice" required min="0" step="0.01" placeholder="150.50"
+                                       class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-slate-300 mb-2">手續費</label>
+                                <input type="number" id="importFee" min="0" step="0.01" value="0" placeholder="28.50"
+                                       class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
+                                <div class="text-xs text-slate-500 mt-1">台股約 0.1425%，美股約 $1-$10</div>
+                            </div>
+
+                            <div id="importTaxField" class="hidden">
+                                <label class="block text-sm text-slate-300 mb-2">交易稅</label>
+                                <input type="number" id="importTax" min="0" step="0.01" value="0" placeholder="45.00"
+                                       class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
+                                <div class="text-xs text-slate-500 mt-1">台股約 0.3%，美股無交易稅</div>
+                            </div>
+                        </div>
+
+                        <div id="importProfitField" class="hidden">
+                            <label class="block text-sm text-slate-300 mb-2">已實現損益（選填）</label>
+                            <input type="number" id="importProfit" step="0.01" placeholder="1250.00"
+                                   class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
+                            <div class="text-xs text-slate-500 mt-1">如果知道確切的損益金額可以填寫</div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-slate-300 mb-2">持有人 *</label>
+                                <select id="importHolder" required
+                                        class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
+                                    <option value="">選擇持有人</option>
+                                    <option value="Rebecca">Rebecca</option>
+                                    <option value="Eric">Eric</option>
+                                    <option value="Ian">Ian</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm text-slate-300 mb-2">交易平台 *</label>
+                                <select id="importPlatform" required
+                                        class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
+                                    <option value="複委託">複委託</option>
+                                    <option value="證券">證券</option>
+                                    <option value="信託">信託</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="pt-4">
+                            <button type="button" onclick="importTransaction()" 
+                                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">
+                                ✓ 新增交易記錄
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-6 mt-6">
+                    <h3 class="font-bold text-blue-300 mb-3 text-lg">💡 使用說明</h3>
+                    <ul class="list-disc list-inside text-sm text-blue-200 space-y-2">
+                        <li>填寫所有必填欄位（標記 * 的欄位）</li>
+                        <li>交易日期可以選擇過去的任何時間</li>
+                        <li>賣出交易會自動顯示「交易稅」和「已實現損益」欄位</li>
+                        <li>如果不確定手續費和交易稅，可以留空或填 0</li>
+                        <li>補登完成後，請切換到「交易記錄」頁面查看</li>
+                        <li><strong>補登的交易不會影響「明細管理」中的持股數量</strong></li>
+                    </ul>
+                </div>
+            </div>
             
             <!-- 手機端浮動新增按鈕 -->
-            <button class="mobile-fab no-print" onclick="openMobileForm()">
+            <button class="mobile-fab no-print" onclick="openAddStockModal()">
                 +
             </button>
             
@@ -567,14 +768,292 @@
     </div>
 
     <script type="module">
-        const { auth, db, provider, allowedEmails } = window.firebaseApp;
-        let currentUser = null;
-        let stocks = [];
-        let filteredStocks = [];
-        let autoRefreshInterval = null;
-
+        // Import Firebase functions
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, onSnapshot, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        
+        const { auth, db, provider } = window.firebaseApp;
+        let currentUser = null;
+        let stocks = [];
+        let transactions = [];
+
+        // === 台股/美股公司名稱對照表（全域常數）===
+        const TAIWAN_STOCKS = {
+            // ETF
+            '0050': '元大台灣50',
+            '0056': '元大高股息',
+            '00679B': '元大美債20年',
+            '00687B': '國泰20年美債',
+            '00697B': '元大美債7-10',
+            '00720B': '元大投資級公司債',
+            
+            // 金融股
+            '2882': '國泰金',
+            '2881': '富邦金',
+            '2891': '中信金',
+            '2886': '兆豐金',
+            '2884': '玉山金',
+            '2885': '元大金',
+            '2892': '第一金',
+            '2887': '台新金',
+            '2883': '開發金',
+            '5880': '合庫金',
+            '2880': '華南金',
+            '2888': '新光金',
+            '2890': '永豐金',
+            '5876': '上海商銀',
+            '2801': '彰銀',
+            '2809': '京城銀',
+            
+            // 電子股
+            '2330': '台積電',
+            '2317': '鴻海',
+            '2454': '聯發科',
+            '2308': '台達電',
+            '3711': '日月光投控',
+            '2382': '廣達',
+            '2303': '聯電',
+            '2357': '華碩',
+            '2301': '光寶科',
+            '2395': '研華',
+            '2408': '南亞科',
+            '3008': '大立光',
+            '2409': '友達',
+            '2345': '智邦',
+            '2327': '國巨',
+            '3034': '聯詠',
+            '6669': '緯穎',
+            '6415': '矽力-KY',
+            '3017': '奇鋐',
+            '2376': '技嘉',
+            '2474': '可成',
+            '4904': '遠傳',
+            '4938': '和碩',
+            '2324': '仁寶',
+            '2356': '英業達',
+            '3231': '緯創',
+            '6770': '力積電',
+            '2371': '大同',
+            '2353': '宏碁',
+            '2377': '微星',
+            '3443': '創意',
+            '3661': '世芯-KY',
+            '6781': 'AES-KY',
+            '3529': '力旺',
+            '6533': '晶心科',
+            '2344': '華邦電',
+            '2337': '旺宏',
+            '2352': '佳世達',
+            '2354': '鴻準',
+            '2360': '致茂',
+            '2379': '瑞昱',
+            '2439': '美律',
+            '2449': '京元電子',
+            '2458': '義隆',
+            '6121': '新普',
+            '6176': '瑞儀',
+            '6239': '力成',
+            '6271': '同欣電',
+            '8046': '南電',
+            '2347': '聯強',
+            '2493': '揚博',
+            '3702': '大聯大',
+            '4943': '康控-KY',
+            '6116': '彩晶',
+            '6213': '聯茂',
+            '8131': '福懋科',
+            
+            // 傳產股
+            '2412': '中華電',
+            '3045': '台灣大',
+            '1301': '台塑',
+            '1303': '南亞',
+            '1326': '台化',
+            '6505': '台塑化',
+            '1101': '台泥',
+            '1102': '亞泥',
+            '2002': '中鋼',
+            '2207': '和泰車',
+            '2105': '正新',
+            '2912': '統一超',
+            '1216': '統一',
+            '9904': '寶成',
+            '9910': '豐泰',
+            '2615': '萬海',
+            '2609': '陽明',
+            '2603': '長榮',
+            '5871': '中租-KY',
+            '9921': '巨大',
+            '2049': '上銀',
+            '1590': '亞德客-KY',
+            '2204': '中華',
+            '1476': '儒鴻',
+            '1477': '聚陽',
+            '2201': '裕隆',
+            '2227': '裕日車',
+            '2542': '興富發',
+            '5522': '遠雄',
+            '2535': '達欣工',
+            '9945': '潤泰新',
+            '2547': '日勝生',
+            
+            // 電機類股
+            '1519': '華城',
+            '1503': '士電',
+            '1504': '東元',
+            '1513': '中興電',
+            '1516': '川飛',
+            '1537': '廣隆',
+            '2101': '南港',
+            '2102': '泰豐',
+            '1528': '恩德',
+            '1532': '勤美',
+            '1527': '鑽全',
+            '1538': '正峰新'
+        };
+
+        const US_STOCKS = {
+            // 科技股
+            'AAPL': 'Apple',
+            'MSFT': 'Microsoft',
+            'GOOGL': 'Alphabet (Google)',
+            'GOOG': 'Alphabet (Google)',
+            'AMZN': 'Amazon',
+            'META': 'Meta (Facebook)',
+            'NVDA': 'NVIDIA',
+            'TSM': '台積電 ADR',
+            'TSLA': 'Tesla',
+            'NFLX': 'Netflix',
+            'AMD': 'AMD',
+            'INTC': 'Intel',
+            'CRM': 'Salesforce',
+            'ORCL': 'Oracle',
+            'ADBE': 'Adobe',
+            'AVGO': 'Broadcom',
+            'QCOM': 'Qualcomm',
+            'TXN': 'Texas Instruments',
+            'AMAT': 'Applied Materials',
+            'ASML': 'ASML',
+            'MU': 'Micron',
+            'LRCX': 'Lam Research',
+            'KLAC': 'KLA',
+            'SNPS': 'Synopsys',
+            'CDNS': 'Cadence',
+            'MRVL': 'Marvell',
+            'NXPI': 'NXP',
+            'ADI': 'Analog Devices',
+            
+            // 金融股
+            'JPM': 'JPMorgan Chase',
+            'BAC': 'Bank of America',
+            'WFC': 'Wells Fargo',
+            'C': 'Citigroup',
+            'GS': 'Goldman Sachs',
+            'MS': 'Morgan Stanley',
+            'BLK': 'BlackRock',
+            'SCHW': 'Charles Schwab',
+            'AXP': 'American Express',
+            'V': 'Visa',
+            'MA': 'Mastercard',
+            'PYPL': 'PayPal',
+            'SQ': 'Block (Square)',
+            
+            // 醫療保健
+            'JNJ': 'Johnson & Johnson',
+            'UNH': 'UnitedHealth',
+            'PFE': 'Pfizer',
+            'ABBV': 'AbbVie',
+            'TMO': 'Thermo Fisher',
+            'ABT': 'Abbott',
+            'MRK': 'Merck',
+            'LLY': 'Eli Lilly',
+            'DHR': 'Danaher',
+            'AMGN': 'Amgen',
+            'GILD': 'Gilead',
+            'BMY': 'Bristol Myers',
+            'ISRG': 'Intuitive Surgical',
+            'REGN': 'Regeneron',
+            
+            // 工業與能源
+            'BA': 'Boeing',
+            'CAT': 'Caterpillar',
+            'GE': 'General Electric',
+            'MMM': '3M',
+            'HON': 'Honeywell',
+            'UPS': 'UPS',
+            'LMT': 'Lockheed Martin',
+            'RTX': 'Raytheon',
+            'DE': 'Deere',
+            'XOM': 'Exxon Mobil',
+            'CVX': 'Chevron',
+            'COP': 'ConocoPhillips',
+            'SLB': 'Schlumberger',
+            'EOG': 'EOG Resources',
+            'PSX': 'Phillips 66',
+            'MPC': 'Marathon Petroleum',
+            'VLO': 'Valero',
+            'VST': 'Vistra',
+            'CEG': 'Constellation Energy',
+            'NEE': 'NextEra Energy',
+            'DUK': 'Duke Energy',
+            'SO': 'Southern Company',
+            'D': 'Dominion Energy',
+            'AEP': 'American Electric',
+            'EXC': 'Exelon',
+            
+            // 消費品
+            'WMT': 'Walmart',
+            'HD': 'Home Depot',
+            'COST': 'Costco',
+            'MCD': "McDonald's",
+            'NKE': 'Nike',
+            'SBUX': 'Starbucks',
+            'TGT': 'Target',
+            'LOW': "Lowe's",
+            'PG': 'Procter & Gamble',
+            'KO': 'Coca-Cola',
+            'PEP': 'PepsiCo',
+            'PM': 'Philip Morris',
+            'MO': 'Altria',
+            'CL': 'Colgate-Palmolive',
+            
+            // 電信與媒體
+            'T': 'AT&T',
+            'VZ': 'Verizon',
+            'TMUS': 'T-Mobile',
+            'DIS': 'Disney',
+            'CMCSA': 'Comcast',
+            'CHTR': 'Charter',
+            
+            // ETF
+            'SPY': 'SPDR S&P 500 ETF',
+            'QQQ': 'Nasdaq 100 ETF',
+            'VOO': 'Vanguard S&P 500',
+            'VTI': 'Vanguard Total Market',
+            'IVV': 'iShares S&P 500',
+            'VTV': 'Vanguard Value',
+            'VUG': 'Vanguard Growth',
+            'VO': 'Vanguard Mid-Cap',
+            'VB': 'Vanguard Small-Cap',
+            'SCHD': 'Schwab US Dividend',
+            'JEPI': 'JPMorgan Equity Premium',
+            'JEPQ': 'JPMorgan Nasdaq Premium',
+            'GLD': 'SPDR Gold Shares',
+            'SLV': 'iShares Silver',
+            'TLT': 'iShares 20+ Year Treasury',
+            'AGG': 'iShares Core Aggregate Bond',
+            'BND': 'Vanguard Total Bond',
+            'VNQ': 'Vanguard Real Estate',
+            'EEM': 'iShares MSCI Emerging',
+            'VWO': 'Vanguard FTSE Emerging',
+            
+            // 其他
+            'BRK.B': 'Berkshire Hathaway',
+            'ONDS': 'Ondas Holdings',
+            'PLTR': 'Palantir Technologies'
+        };
+        let filteredStocks = [];
+        let autoRefreshInterval = null;
 
         onAuthStateChanged(auth, async (user) => { // ⚠️ 這裡多了 async
             if (user) {
@@ -634,14 +1113,28 @@
                 console.log(`嘗試獲取 ${symbol} 的資訊 (第 ${retryCount + 1} 次)，API 代號: ${apiSymbol}`);
                 
                 // 使用 CORS 代理來繞過瀏覽器限制
-                const corsProxy = 'https://api.allorigins.win/raw?url=';
+                // 備用代理列表（多個選項提高成功率）
+                const corsProxies = [
+                    'https://corsproxy.io/?',
+                    'https://api.allorigins.win/raw?url=',
+                    'https://api.codetabs.com/v1/proxy?quest='
+                ];
+                const corsProxy = corsProxies[retryCount % corsProxies.length];
+                console.log(`使用代理: ${corsProxy}`);
                 const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
                 const url = corsProxy + encodeURIComponent(apiUrl);
                 
-                const response = await fetch(url, {
-                    method: 'GET',
-                    timeout: 10000 // 10秒超時
-                });
+                // 創建一個帶超時的 fetch
+                const fetchWithTimeout = (url, timeout = 15000) => {
+                    return Promise.race([
+                        fetch(url, { method: 'GET' }),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Request timeout')), timeout)
+                        )
+                    ]);
+                };
+                
+                const response = await fetchWithTimeout(url, 15000); // 15秒超時
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -672,137 +1165,20 @@
                     // 獲取公司名稱 - 預設使用股票代號
                     let companyName = symbol;
                     
-                    // 台股常見公司名稱映射（修正 Yahoo Finance 資料不準確的問題）
+                    // 使用全域對照表
                     if (region === '台股') {
-                        const taiwanStocks = {
-                            // === ETF ===
-                            '0050': '元大台灣50',
-                            '0056': '元大高股息',
-                            '00679B': '元大美債20年',
-                            '00687B': '國泰20年美債',
-                            '00697B': '元大美債7-10',
-                            '00720B': '元大投資級公司債',
-                            
-                            // === 0050 & 0056 主要成分股 ===
-                            '2330': '台積電',
-                            '2317': '鴻海',
-                            '2454': '聯發科',
-                            '2412': '中華電',
-                            '2308': '台達電',
-                            '2882': '國泰金',
-                            '2881': '富邦金',
-                            '2891': '中信金',
-                            '2886': '兆豐金',
-                            '2884': '玉山金',
-                            '2885': '元大金',
-                            '2892': '第一金',
-                            '2887': '台新金',
-                            '2883': '開發金',
-                            '5880': '合庫金',
-                            '2880': '華南金',
-                            '2888': '新光金',
-                            '2890': '永豐金',
-                            '5876': '上海商銀',
-                            '2801': '彰銀',
-                            '2809': '京城銀',
-                            
-                            // === 電子股 ===
-                            '3711': '日月光投控',
-                            '2382': '廣達',
-                            '2303': '聯電',
-                            '2357': '華碩',
-                            '2301': '光寶科',
-                            '2395': '研華',
-                            '2408': '南亞科',
-                            '3008': '大立光',
-                            '2409': '友達',
-                            '2345': '智邦',
-                            '2327': '國巨',
-                            '3034': '聯詠',
-                            '6669': '緯穎',
-                            '6415': '矽力-KY',
-                            '3017': '奇鋐',
-                            '2376': '技嘉',
-                            '2474': '可成',
-                            '3045': '台灣大',
-                            '4904': '遠傳',
-                            '4938': '和碩',
-                            '2324': '仁寶',
-                            '2356': '英業達',
-                            '3231': '緯創',
-                            '6770': '力積電',
-                            '2371': '大同',
-                            '2353': '宏碁',
-                            '2377': '微星',
-                            '3443': '創意',
-                            '3661': '世芯-KY',
-                            '6781': 'AES-KY',
-                            '3529': '力旺',
-                            '6533': '晶心科',
-                            
-                            // === 傳產股 ===
-                            '1301': '台塑',
-                            '1303': '南亞',
-                            '1326': '台化',
-                            '6505': '台塑化',
-                            '1101': '台泥',
-                            '1102': '亞泥',
-                            '2002': '中鋼',
-                            '2207': '和泰車',
-                            '2105': '正新',
-                            '2912': '統一超',
-                            '1216': '統一',
-                            '9904': '寶成',
-                            '9910': '豐泰',
-                            '2615': '萬海',
-                            '2609': '陽明',
-                            '2603': '長榮',
-                            '5871': '中租-KY',
-                            '9921': '巨大',
-                            '2049': '上銀',
-                            '1590': '亞德客-KY',
-                            '2204': '中華',
-                            '1476': '儒鴻',
-                            '1477': '聚陽',
-                            '2201': '裕隆',
-                            '2227': '裕日車',
-                            '2542': '興富發',
-                            '5522': '遠雄',
-                            '2535': '達欣工',
-                            '9945': '潤泰新',
-                            '2547': '日勝生',
-                            
-                            // === 其他常見個股 ===
-                            '2344': '華邦電',
-                            '2337': '旺宏',
-                            '2352': '佳世達',
-                            '2354': '鴻準',
-                            '2360': '致茂',
-                            '2379': '瑞昱',
-                            '2439': '美律',
-                            '2449': '京元電子',
-                            '2458': '義隆',
-                            '6121': '新普',
-                            '6176': '瑞儀',
-                            '6239': '力成',
-                            '6271': '同欣電',
-                            '8046': '南電',
-                            '2347': '聯強',
-                            '2493': '揚博',
-                            '3702': '大聯大',
-                            '4943': '康控-KY',
-                            '6116': '彩晶',
-                            '6213': '聯茂',
-                            '8131': '福懋科'
-                        };
-                        
-                        // 如果在清單中找到，使用清單名稱；否則保持使用代號
-                        if (taiwanStocks[symbol]) {
-                            companyName = taiwanStocks[symbol];
+                        // 如果在清單中找到，使用清單名稱
+                        if (TAIWAN_STOCKS[symbol]) {
+                            companyName = TAIWAN_STOCKS[symbol];
                         }
                     } else {
-                        // 美股：優先使用 Yahoo 的名稱，如果沒有就用代號
-                        companyName = meta.longName || meta.shortName || symbol;
+                        // 美股：如果在清單中找到，使用清單名稱
+                        if (US_STOCKS[symbol]) {
+                            companyName = US_STOCKS[symbol];
+                        } else {
+                            // 否則使用 Yahoo 的名稱，如果沒有就用代號
+                            companyName = meta.longName || meta.shortName || symbol;
+                        }
                     }
                     
                     console.log(`✓ 成功獲取 ${symbol}: 價格=${price}, 名稱=${companyName}, 漲跌幅=${changePercent.toFixed(2)}%`);
@@ -821,7 +1197,7 @@
                 
                 // 如果還有重試次數，等待後重試
                 if (retryCount < maxRetries) {
-                    const waitTime = (retryCount + 1) * 1000; // 遞增等待時間：1秒、2秒、3秒
+                    const waitTime = (retryCount + 1) * 2000; // 遞增等待時間：2秒、4秒、6秒
                     console.log(`⏳ 等待 ${waitTime/1000} 秒後重試...`);
                     await new Promise(resolve => setTimeout(resolve, waitTime));
                     return fetchStockInfo(symbol, region, retryCount + 1);
@@ -882,6 +1258,15 @@
                 // 重試次數用盡
                 console.error(`❌ 匯率在重試 ${maxRetries} 次後仍然失敗，使用預設值`);
                 return false;
+            }
+        }
+
+        // === 快速獲取公司名稱（從全域對照表獲取）===
+        function getCompanyNameQuick(symbol, region) {
+            if (region === '台股') {
+                return TAIWAN_STOCKS[symbol] || symbol;
+            } else {
+                return US_STOCKS[symbol] || symbol;
             }
         }
 
@@ -1039,9 +1424,22 @@
         // 自動刷新功能
         window.toggleAutoRefresh = function(enabled) {
             if (enabled) {
-                autoRefreshInterval = setInterval(() => {
+                // 計算到下一個整點的毫秒數
+                const now = new Date();
+                const nextHour = new Date(now);
+                nextHour.setHours(now.getHours() + 1, 0, 0, 0);
+                const msUntilNextHour = nextHour - now;
+                
+                // 先設定到下個整點時執行
+                setTimeout(() => {
                     updateAllPricesAndRate();
-                }, 5 * 60 * 1000);
+                    // 之後每小時執行一次
+                    autoRefreshInterval = setInterval(() => {
+                        updateAllPricesAndRate();
+                    }, 3600000); // 1小時 = 3600000毫秒
+                }, msUntilNextHour);
+                
+                console.log(`自動更新已啟動，將在 ${Math.round(msUntilNextHour/1000)} 秒後（${nextHour.toLocaleTimeString()}）首次更新`);
             } else {
                 if (autoRefreshInterval) {
                     clearInterval(autoRefreshInterval);
@@ -1063,12 +1461,34 @@
             const holderFilter = document.getElementById('filterHolder').value;
             const platformFilter = document.getElementById('filterPlatform').value;
             
+            console.log('=== 篩選條件 ===');
+            console.log('地區:', regionFilter);
+            console.log('持有人:', holderFilter);
+            console.log('平台:', platformFilter);
+            
             filteredStocks = stocks.filter(stock => {
-                if (regionFilter && stock.region !== regionFilter) return false;
-                if (holderFilter && stock.holder !== holderFilter) return false;
-                if (platformFilter && stock.platform !== platformFilter) return false;
+                // Trim 所有字串以避免空格問題
+                const stockRegion = (stock.region || '').trim();
+                const stockHolder = (stock.holder || '').trim();
+                const stockPlatform = (stock.platform || '').trim();
+                
+                if (regionFilter && stockRegion !== regionFilter) {
+                    console.log(`❌ ${stock.symbol} 地區不符: "${stockRegion}" !== "${regionFilter}"`);
+                    return false;
+                }
+                if (holderFilter && stockHolder !== holderFilter) {
+                    console.log(`❌ ${stock.symbol} 持有人不符: "${stockHolder}" !== "${holderFilter}"`);
+                    return false;
+                }
+                if (platformFilter && stockPlatform !== platformFilter) {
+                    console.log(`❌ ${stock.symbol} 平台不符: "${stockPlatform}" !== "${platformFilter}"`);
+                    return false;
+                }
+                console.log(`✓ ${stock.symbol} 通過篩選`);
                 return true;
             });
+            
+            console.log(`篩選結果: ${filteredStocks.length}/${stocks.length} 筆`);
             
             renderStocks();
             updateStats();
@@ -1135,6 +1555,15 @@
                 document.getElementById('detailTab').classList.add('active');
                 document.getElementById('tabDetail').classList.add('active');
                 document.getElementById('tabDetail').classList.remove('text-slate-400');
+            } else if (tabName === 'transactions') {
+                document.getElementById('transactionsTab').classList.add('active');
+                document.getElementById('tabTransactions').classList.add('active');
+                document.getElementById('tabTransactions').classList.remove('text-slate-400');
+                loadTransactions(); // 載入交易記錄
+            } else if (tabName === 'import') {
+                document.getElementById('importTab').classList.add('active');
+                document.getElementById('tabImport').classList.add('active');
+                document.getElementById('tabImport').classList.remove('text-slate-400');
             }
         };
 
@@ -1334,12 +1763,15 @@
                     <td class="px-3 py-3 text-center text-slate-300">${stock.holder}</td>
                     <td class="px-3 py-3 text-center text-slate-300">${stock.platform}</td>
                     <td class="px-3 py-3 text-center no-print">
-                        <div class="flex gap-2 justify-center">
-                            <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors" title="刪除（建檔錯誤）">
-                                🗑️ 刪除
+                        <div class="flex gap-2 justify-center flex-wrap">
+                            <button onclick="openBuyModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares}, ${calc.costPrice})" class="text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-blue-900 hover:bg-opacity-20 transition-colors text-sm" title="買入股票">
+                                🛒 買入
                             </button>
-                            <button onclick="openSellModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares})" class="text-green-400 hover:text-green-300 px-2 py-1 rounded hover:bg-green-900 hover:bg-opacity-20 transition-colors" title="賣出部分股數">
+                            <button onclick="openSellModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares})" class="text-green-400 hover:text-green-300 px-2 py-1 rounded hover:bg-green-900 hover:bg-opacity-20 transition-colors text-sm" title="賣出部分股數">
                                 💰 賣出
+                            </button>
+                            <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm" title="刪除（建檔錯誤）">
+                                🗑️ 刪除
                             </button>
                         </div>
                     </td>
@@ -1566,91 +1998,7 @@
             renderStocks();
         };
 
-        // === 賣出功能 ===
-        let currentSellStockId = null;
-        let currentSellMaxShares = 0;
-        
-        window.openSellModal = function(stockId, symbol, companyName, currentShares) {
-            currentSellStockId = stockId;
-            currentSellMaxShares = currentShares;
-            
-            // 設定預設日期為今天
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('sellDate').value = today;
-            
-            document.getElementById('sellStockInfo').textContent = `${companyName} (${symbol})`;
-            document.getElementById('sellCurrentShares').textContent = `${currentShares.toLocaleString()} 股`;
-            document.getElementById('sellShares').value = '';
-            document.getElementById('sellShares').max = currentShares;
-            
-            document.getElementById('sellModal').style.display = 'flex';
-        };
-        
-        window.closeSellModal = function() {
-            document.getElementById('sellModal').style.display = 'none';
-            currentSellStockId = null;
-            currentSellMaxShares = 0;
-        };
-        
-        window.confirmSell = async function() {
-            const sellDate = document.getElementById('sellDate').value;
-            const sellShares = parseFloat(document.getElementById('sellShares').value);
-            
-            if (!sellDate) {
-                alert('❌ 請選擇賣出日期');
-                return;
-            }
-            
-            if (!sellShares || sellShares <= 0) {
-                alert('❌ 請輸入有效的賣出股數');
-                return;
-            }
-            
-            if (sellShares > currentSellMaxShares) {
-                alert(`❌ 賣出股數不能超過持有股數 ${currentSellMaxShares}`);
-                return;
-            }
-            
-            if (!confirm(`確定要賣出 ${sellShares} 股嗎？\n日期：${sellDate}`)) {
-                return;
-            }
-            
-            try {
-                // 找到該股票記錄
-                const stock = stocks.find(s => s.id === currentSellStockId);
-                if (!stock) {
-                    alert('❌ 找不到股票記錄');
-                    return;
-                }
-                
-                const newShares = stock.shares - sellShares;
-                
-                if (newShares <= 0) {
-                    // 全部賣出，直接刪除記錄
-                    await deleteDoc(doc(db, 'stocks', currentSellStockId));
-                    alert(`✅ 已全部賣出並刪除記錄`);
-                } else {
-                    // 部分賣出，更新記錄
-                    // 計算新的投資成本（按比例減少）
-                    const costPerShare = stock.investmentCost / stock.shares;
-                    const newInvestmentCost = costPerShare * newShares;
-                    
-                    const stockRef = doc(db, 'stocks', currentSellStockId);
-                    await updateDoc(stockRef, {
-                        shares: newShares,
-                        investmentCost: newInvestmentCost,
-                        lastSellDate: sellDate  // 記錄最後賣出日期
-                    });
-                    
-                    alert(`✅ 賣出成功！\n\n日期：${sellDate}\n剩餘股數: ${newShares.toLocaleString()}\n剩餘成本: ${newInvestmentCost.toLocaleString()}`);
-                }
-                
-                closeSellModal();
-            } catch (error) {
-                console.error('賣出失敗:', error);
-                alert('❌ 賣出失敗：' + error.message);
-            }
-        };
+        // === 賣出功能已移至後面的買入/賣出區塊統一處理 ===
 
         window.deleteStock = async (id) => {
             if (!confirm('確定要刪除嗎？')) return;
@@ -2142,12 +2490,913 @@
                 </div>
             `;
         }
+
+        // ========== 新增：買入/賣出功能 ==========
+        let currentBuyStockId = null;
+        let currentSellStockId = null;
+
+        // ========== 新增股票Modal功能 ==========
+        window.openAddStockModal = function() {
+            // 設定預設日期為今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('newDate').value = today;
+            
+            // 清空表單
+            document.getElementById('addStockForm').reset();
+            document.getElementById('newDate').value = today;
+            document.getElementById('newCompany').value = '';
+            document.getElementById('newTotalCost').value = '';
+            
+            document.getElementById('addStockModal').style.display = 'flex';
+        };
+
+        window.closeAddStockModal = function() {
+            document.getElementById('addStockModal').style.display = 'none';
+        };
+
+        window.calculateNewCost = function() {
+            const shares = parseFloat(document.getElementById('newShares').value) || 0;
+            const price = parseFloat(document.getElementById('newCostPrice').value) || 0;
+            const fee = parseFloat(document.getElementById('newFee').value) || 0;
+            
+            const totalCost = shares * price + fee;
+            document.getElementById('newTotalCost').value = totalCost.toFixed(2);
+        };
+
+        window.fetchNewCompanyName = async function() {
+            const symbolInput = document.getElementById('newSymbol');
+            const regionSelect = document.getElementById('newRegion');
+            const companyInput = document.getElementById('newCompany');
+            
+            let symbol = symbolInput.value.toUpperCase().trim();
+            
+            if (!symbol) return;
+            
+            const region = regionSelect.value;
+            
+            // 策略：先快速顯示內建名稱，再用 API 更新
+            const quickName = getCompanyNameQuick(symbol, region);
+            
+            // 1. 先立即顯示內建名稱（如果有的話）
+            if (quickName !== symbol) {
+                companyInput.value = quickName;
+            } else {
+                companyInput.value = '查詢中...';
+            }
+            
+            // 2. 同時在背景調用 API 獲取最新名稱
+            try {
+                const info = await fetchStockInfo(symbol, region);
+                
+                if (info && info.companyName && info.companyName !== symbol) {
+                    // 如果 API 返回了有效的公司名稱，就更新
+                    companyInput.value = info.companyName;
+                }
+            } catch (error) {
+                // API 失敗也沒關係，保持內建名稱
+                console.log('使用內建名稱:', quickName);
+                if (companyInput.value === '查詢中...') {
+                    companyInput.value = quickName;
+                }
+            }
+        };
+
+        window.confirmAddStock = async function(event) {
+            console.log('=== 開始新增股票 ===');
+            const date = document.getElementById('newDate').value;
+            const region = document.getElementById('newRegion').value;
+            const symbol = document.getElementById('newSymbol').value.toUpperCase().trim();
+            const companyName = document.getElementById('newCompany').value.trim() || symbol;
+            const shares = parseFloat(document.getElementById('newShares').value);
+            const costPrice = parseFloat(document.getElementById('newCostPrice').value);
+            const fee = parseFloat(document.getElementById('newFee').value) || 0;
+            const holder = document.getElementById('newHolder').value;
+            const platform = document.getElementById('newPlatform').value;
+            
+            console.log('輸入資料:', { symbol, region, shares, costPrice, holder, platform });
+            
+            if (!date || !region || !symbol || !shares || !costPrice || !holder || !platform) {
+                alert('請填寫所有必填欄位（標記 * 的欄位）');
+                return;
+            }
+
+            // 顯示載入提示
+            const btn = event ? event.target : document.querySelector('button[onclick*="confirmAddStock"]');
+            if (!btn) {
+                console.error('找不到按鈕元素！');
+                return;
+            }
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '⏳ 處理中...';
+            console.log('按鈕已設置為處理中');
+
+            // 設置30秒總超時
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('操作超時（30秒）')), 30000);
+            });
+
+            const addStockPromise = (async () => {
+                try {
+                    const totalCost = shares * costPrice + fee;
+                    console.log('總成本:', totalCost);
+                
+                // 嘗試獲取當前股價（但不強制要求成功）
+                let currentPrice = costPrice;  // 預設使用成本價
+                let changePercent = 0;
+                
+                try {
+                    // 設定20秒總超時
+                    const fetchWithOverallTimeout = Promise.race([
+                        fetchStockInfo(symbol, region),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Overall timeout')), 20000)
+                        )
+                    ]);
+                    
+                    const info = await fetchWithOverallTimeout;
+                    if (info && info.price) {
+                        currentPrice = Math.abs(info.price);
+                        changePercent = info.changePercent || 0;
+                    }
+                } catch (priceError) {
+                    console.warn(`無法獲取 ${symbol} 的即時股價，使用成本價代替:`, priceError.message);
+                    // 繼續執行，不中斷新增流程
+                }
+
+                console.log('準備寫入 Firebase...');
+                // 1. 先記錄交易明細
+                console.log('步驟 1: 新增交易記錄');
+                await addDoc(collection(db, 'transactions'), {
+                    date: new Date(date + 'T12:00:00').toISOString(),
+                    type: '買入',
+                    symbol: symbol,
+                    companyName: companyName,
+                    shares: shares,
+                    price: costPrice,
+                    fee: fee,
+                    tax: 0,
+                    amount: totalCost,
+                    holder: holder,
+                    platform: platform,
+                    region: region,
+                    createdBy: currentUser.email,
+                    createdAt: new Date().toISOString()
+                });
+                console.log('交易記錄新增完成');
+
+                // 2. 檢查是否已有相同股票（相同代號、持有人、平台）
+                console.log('步驟 2: 檢查是否已有股票');
+                const existingStock = stocks.find(s => 
+                    s.symbol === symbol && 
+                    s.holder === holder && 
+                    s.platform === platform &&
+                    s.region === region
+                );
+                console.log('已存在的股票:', existingStock ? `${existingStock.symbol} (${existingStock.id})` : '無');
+
+                if (existingStock) {
+                    // 合併到現有股票：重新計算平均成本
+                    console.log('步驟 3: 更新現有股票');
+                    const oldShares = parseFloat(existingStock.shares);
+                    const oldCost = parseFloat(existingStock.investmentCost);
+                    const newTotalShares = oldShares + shares;
+                    const newTotalCost = oldCost + totalCost;
+
+                    await updateDoc(doc(db, 'stocks', existingStock.id), {
+                        shares: newTotalShares,
+                        investmentCost: newTotalCost,
+                        currentPrice: currentPrice,
+                        changePercent: changePercent,
+                        lastModified: new Date().toISOString(),
+                        modifiedBy: currentUser.email,
+                        lastPriceUpdate: new Date().toISOString()
+                    });
+                    console.log('現有股票更新完成');
+                } else {
+                    // 新增股票記錄
+                    console.log('步驟 3: 新增新股票記錄');
+                    await addDoc(collection(db, 'stocks'), {
+                        region: region,
+                        companyName: companyName,
+                        symbol: symbol,
+                        shares: shares,
+                        investmentCost: totalCost,
+                        currentPrice: currentPrice,
+                        changePercent: changePercent,
+                        holder: holder,
+                        platform: platform,
+                        createdAt: new Date().toISOString(),
+                        createdBy: currentUser.email,
+                        lastPriceUpdate: new Date().toISOString()
+                    });
+                    console.log('新股票記錄新增完成');
+                }
+
+                console.log('=== 新增股票完成 ===');
+                alert(`✅ 新增成功！\n\n股票：${symbol} - ${companyName}\n股數：${shares}\n價格：${costPrice}\n手續費：${fee}\n總成本：${totalCost.toFixed(2)}\n\n已自動記錄到交易明細`);
+                
+                closeAddStockModal();
+                await loadStocks();
+                return true; // 成功
+                
+            } catch (innerError) {
+                console.error('內部錯誤:', innerError);
+                throw innerError;
+            }
+            })();
+
+            try {
+                // 使用 Promise.race 實現總體超時
+                await Promise.race([addStockPromise, timeoutPromise]);
+                
+            } catch (error) {
+                console.error('新增失敗:', error);
+                
+                // 恢復按鈕狀態
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                
+                alert('❌ 新增失敗：' + error.message + '\n\n請檢查網路連線或稍後再試');
+                // 不要關閉 Modal，讓用戶可以重試
+            }
+        };
+
+        // 買入Modal
+        window.openBuyModal = function(stockId, symbol, companyName, currentShares, currentCostPrice) {
+            currentBuyStockId = stockId;
+            
+            // 設定預設日期為今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('buyDate').value = today;
+            
+            document.getElementById('buyStockInfo').textContent = `${symbol} - ${companyName}`;
+            document.getElementById('buyCurrentShares').textContent = currentShares.toLocaleString();
+            document.getElementById('buyCurrentCost').textContent = currentCostPrice.toFixed(2);
+            document.getElementById('buyShares').value = '';
+            document.getElementById('buyPrice').value = '';
+            document.getElementById('buyFee').value = '0';
+            document.getElementById('buyModal').style.display = 'flex';
+        };
+
+        window.closeBuyModal = function() {
+            document.getElementById('buyModal').style.display = 'none';
+            currentBuyStockId = null;
+        };
+
+        window.confirmBuy = async function() {
+            if (!currentBuyStockId) return;
+
+            const buyDate = document.getElementById('buyDate').value;
+            const buyShares = parseFloat(document.getElementById('buyShares').value);
+            const buyPrice = parseFloat(document.getElementById('buyPrice').value);
+            const buyFee = parseFloat(document.getElementById('buyFee').value) || 0;
+
+            if (!buyDate) {
+                alert('請選擇買入日期');
+                return;
+            }
+
+            if (!buyShares || buyShares <= 0) {
+                alert('請輸入有效的買入股數');
+                return;
+            }
+
+            if (!buyPrice || buyPrice <= 0) {
+                alert('請輸入有效的買入價格');
+                return;
+            }
+
+            try {
+                const stock = stocks.find(s => s.id === currentBuyStockId);
+                if (!stock) {
+                    alert('找不到該股票');
+                    return;
+                }
+
+                // 計算新的平均成本
+                const oldShares = parseFloat(stock.shares) || 0;
+                const oldTotalCost = parseFloat(stock.investmentCost) || 0;
+                const newTotalShares = oldShares + buyShares;
+                const buyAmount = buyShares * buyPrice + buyFee;
+                const newTotalCost = oldTotalCost + buyAmount;
+
+                // 更新股票資料
+                await updateDoc(doc(db, 'stocks', currentBuyStockId), {
+                    shares: newTotalShares,
+                    investmentCost: newTotalCost,
+                    lastModified: new Date().toISOString(),
+                    modifiedBy: currentUser.email
+                });
+
+                // 記錄交易（使用用戶選擇的日期）
+                await addDoc(collection(db, 'transactions'), {
+                    date: new Date(buyDate + 'T12:00:00').toISOString(),
+                    type: '買入',
+                    symbol: stock.symbol,
+                    companyName: stock.companyName,
+                    shares: buyShares,
+                    price: buyPrice,
+                    fee: buyFee,
+                    tax: 0,
+                    amount: buyAmount,
+                    holder: stock.holder,
+                    platform: stock.platform,
+                    region: stock.region,
+                    createdBy: currentUser.email,
+                    createdAt: new Date().toISOString()
+                });
+
+                alert(`買入成功！\n股數：${buyShares}\n價格：${buyPrice}\n手續費：${buyFee}\n總金額：${buyAmount.toFixed(2)}`);
+                closeBuyModal();
+                await loadStocks();
+            } catch (error) {
+                console.error('買入失敗:', error);
+                alert('買入失敗：' + error.message);
+            }
+        };
+
+        // 賣出Modal
+        window.openSellModal = function(stockId, symbol, companyName, currentShares) {
+            currentSellStockId = stockId;
+            
+            // 設定預設日期為今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('sellDate').value = today;
+            
+            document.getElementById('sellStockInfo').textContent = `${symbol} - ${companyName}`;
+            document.getElementById('sellCurrentShares').textContent = currentShares.toLocaleString();
+            document.getElementById('sellShares').value = '';
+            document.getElementById('sellPrice').value = '';
+            document.getElementById('sellFee').value = '0';
+            document.getElementById('sellTax').value = '0';
+            document.getElementById('sellModal').style.display = 'flex';
+        };
+
+        window.closeSellModal = function() {
+            document.getElementById('sellModal').style.display = 'none';
+            currentSellStockId = null;
+        };
+
+        window.confirmSell = async function() {
+            if (!currentSellStockId) return;
+
+            const sellDate = document.getElementById('sellDate').value;
+            const sellShares = parseFloat(document.getElementById('sellShares').value);
+            const sellPrice = parseFloat(document.getElementById('sellPrice').value);
+            const sellFee = parseFloat(document.getElementById('sellFee').value) || 0;
+            const sellTax = parseFloat(document.getElementById('sellTax').value) || 0;
+
+            if (!sellDate) {
+                alert('請選擇賣出日期');
+                return;
+            }
+
+            if (!sellShares || sellShares <= 0) {
+                alert('請輸入有效的賣出股數');
+                return;
+            }
+
+            if (!sellPrice || sellPrice <= 0) {
+                alert('請輸入有效的賣出價格');
+                return;
+            }
+
+            try {
+                const stock = stocks.find(s => s.id === currentSellStockId);
+                if (!stock) {
+                    alert('找不到該股票');
+                    return;
+                }
+
+                const currentShares = parseFloat(stock.shares) || 0;
+                if (sellShares > currentShares) {
+                    alert(`賣出股數不能超過持有股數 (${currentShares.toLocaleString()})`);
+                    return;
+                }
+
+                // 計算已實現損益
+                const avgCost = currentShares > 0 ? stock.investmentCost / currentShares : 0;
+                const sellAmount = sellShares * sellPrice - sellFee - sellTax;
+                const costBasis = sellShares * avgCost;
+                const realizedProfit = sellAmount - costBasis;
+
+                // 更新股票資料
+                const remainingShares = currentShares - sellShares;
+                const remainingCost = remainingShares * avgCost;
+
+                if (remainingShares > 0) {
+                    await updateDoc(doc(db, 'stocks', currentSellStockId), {
+                        shares: remainingShares,
+                        investmentCost: remainingCost,
+                        lastModified: new Date().toISOString(),
+                        modifiedBy: currentUser.email
+                    });
+                } else {
+                    // 如果全部賣出，刪除該筆資料
+                    await deleteDoc(doc(db, 'stocks', currentSellStockId));
+                }
+
+                // 記錄交易（使用用戶選擇的日期）
+                await addDoc(collection(db, 'transactions'), {
+                    date: new Date(sellDate + 'T12:00:00').toISOString(),
+                    type: '賣出',
+                    symbol: stock.symbol,
+                    companyName: stock.companyName,
+                    shares: sellShares,
+                    price: sellPrice,
+                    fee: sellFee,
+                    tax: sellTax,
+                    amount: sellAmount,
+                    realizedProfit: realizedProfit,
+                    holder: stock.holder,
+                    platform: stock.platform,
+                    region: stock.region,
+                    createdBy: currentUser.email,
+                    createdAt: new Date().toISOString()
+                });
+
+                const profitText = realizedProfit >= 0 ? `+${realizedProfit.toFixed(2)}` : realizedProfit.toFixed(2);
+                alert(`賣出成功！\n股數：${sellShares}\n價格：${sellPrice}\n手續費：${sellFee}\n交易稅：${sellTax}\n成交金額：${sellAmount.toFixed(2)}\n已實現損益：${profitText}`);
+                closeSellModal();
+                await loadStocks();
+            } catch (error) {
+                console.error('賣出失敗:', error);
+                alert('賣出失敗：' + error.message);
+            }
+        };
+
+        // ========== 交易記錄功能 ==========
+        async function loadTransactions() {
+            try {
+                const querySnapshot = await getDocs(collection(db, 'transactions'));
+                transactions = [];
+                querySnapshot.forEach((doc) => {
+                    transactions.push({ id: doc.id, ...doc.data() });
+                });
+
+                // 按日期排序（最新的在前）
+                transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                // 填充年度篩選
+                populateYearFilter();
+
+                // 渲染交易記錄
+                renderTransactions();
+            } catch (error) {
+                console.error('載入交易記錄失敗:', error);
+            }
+        }
+
+        function populateYearFilter() {
+            const years = new Set();
+            transactions.forEach(tx => {
+                const year = new Date(tx.date).getFullYear();
+                years.add(year);
+            });
+
+            const yearFilter = document.getElementById('filterYear');
+            yearFilter.innerHTML = '<option value="">全部年度</option>';
+            Array.from(years).sort((a, b) => b - a).forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = `${year} 年`;
+                yearFilter.appendChild(option);
+            });
+        }
+
+        function renderTransactions() {
+            const tbody = document.getElementById('transactionsTableBody');
+            tbody.innerHTML = '';
+
+            const yearFilter = document.getElementById('filterYear').value;
+            const typeFilter = document.getElementById('filterTransactionType').value;
+
+            const filteredTransactions = transactions.filter(tx => {
+                if (yearFilter) {
+                    const txYear = new Date(tx.date).getFullYear().toString();
+                    if (txYear !== yearFilter) return false;
+                }
+                if (typeFilter && tx.type !== typeFilter) return false;
+                return true;
+            });
+
+            // 計算本年度統計
+            const currentYear = new Date().getFullYear();
+            let yearProfit = 0;
+            let yearTransactionCount = 0;
+
+            transactions.forEach(tx => {
+                const txYear = new Date(tx.date).getFullYear();
+                if (txYear === currentYear) {
+                    yearTransactionCount++;
+                    if (tx.type === '賣出' && tx.realizedProfit) {
+                        yearProfit += tx.realizedProfit;
+                    }
+                }
+            });
+
+            document.getElementById('yearProfit').textContent = `TWD ${yearProfit.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+            document.getElementById('yearProfit').className = `text-2xl font-bold ${yearProfit >= 0 ? 'text-green-400' : 'text-red-400'}`;
+            document.getElementById('yearTransactions').textContent = `${yearTransactionCount} 筆`;
+
+            if (filteredTransactions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="13" class="px-4 py-8 text-center text-slate-500">暫無交易記錄</td></tr>';
+                return;
+            }
+
+            filteredTransactions.forEach(tx => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-700 hover:bg-slate-800 transition-colors';
+
+                const date = new Date(tx.date).toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const typeColor = tx.type === '買入' ? 'text-blue-400' : 'text-green-400';
+                const profitCell = tx.type === '賣出' && tx.realizedProfit !== undefined
+                    ? `<td class="px-3 py-3 text-center font-mono font-bold ${tx.realizedProfit >= 0 ? 'text-green-400' : 'text-red-400'}">
+                         ${tx.realizedProfit >= 0 ? '+' : ''}${tx.realizedProfit.toLocaleString(undefined, {maximumFractionDigits: 2})}
+                       </td>`
+                    : '<td class="px-3 py-3 text-center text-slate-500">-</td>';
+
+                tr.innerHTML = `
+                    <td class="px-3 py-3 text-center text-slate-300 text-xs">${date}</td>
+                    <td class="px-3 py-3 text-center ${typeColor} font-bold">${tx.type}</td>
+                    <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${tx.symbol}</td>
+                    <td class="px-3 py-3 text-center text-slate-300">${tx.companyName || tx.symbol}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${tx.shares.toLocaleString()}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${tx.price.toFixed(2)}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${(tx.fee || 0).toFixed(2)}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${(tx.tax || 0).toFixed(2)}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono font-semibold">${tx.amount.toFixed(2)}</td>
+                    ${profitCell}
+                    <td class="px-3 py-3 text-center text-slate-300">${tx.holder}</td>
+                    <td class="px-3 py-3 text-center text-slate-300">${tx.platform}</td>
+                    <td class="px-3 py-3 text-center no-print">
+                        <div class="flex gap-2 justify-center flex-wrap">
+                            <button onclick="openEditTransactionModal('${tx.id}')" 
+                                    class="text-purple-400 hover:text-purple-300 px-2 py-1 rounded hover:bg-purple-900 hover:bg-opacity-20 transition-colors text-sm" 
+                                    title="編輯">
+                                ✏️
+                            </button>
+                            <button onclick="deleteTransaction('${tx.id}')" 
+                                    class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm" 
+                                    title="刪除">
+                                🗑️
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.applyTransactionFilters = function() {
+            renderTransactions();
+        };
+
+        window.clearTransactionFilters = function() {
+            document.getElementById('filterYear').value = '';
+            document.getElementById('filterTransactionType').value = '';
+            renderTransactions();
+        };
+
+        // ========== 補登交易功能 ==========
+        window.updateImportTypeFields = function() {
+            const type = document.getElementById('importType').value;
+            const taxField = document.getElementById('importTaxField');
+            const profitField = document.getElementById('importProfitField');
+
+            if (type === '賣出') {
+                taxField.classList.remove('hidden');
+                profitField.classList.remove('hidden');
+            } else {
+                taxField.classList.add('hidden');
+                profitField.classList.add('hidden');
+            }
+        };
+
+        window.importTransaction = async function() {
+            const date = document.getElementById('importDate').value;
+            const type = document.getElementById('importType').value;
+            const symbol = document.getElementById('importSymbol').value.toUpperCase().trim();
+            const companyName = document.getElementById('importCompany').value.trim() || symbol; // 如果沒有公司名稱就用代號
+            const shares = parseFloat(document.getElementById('importShares').value);
+            const price = parseFloat(document.getElementById('importPrice').value);
+            const fee = parseFloat(document.getElementById('importFee').value) || 0;
+            const tax = parseFloat(document.getElementById('importTax').value) || 0;
+            const holder = document.getElementById('importHolder').value;
+            const platform = document.getElementById('importPlatform').value;
+            const region = document.getElementById('importRegion').value;
+
+            if (!date || !type || !symbol || !shares || !price || !holder || !platform || !region) {
+                alert('請填寫所有必填欄位（標記 * 的欄位）');
+                return;
+            }
+
+            try {
+                const amount = type === '買入' 
+                    ? shares * price + fee 
+                    : shares * price - fee - tax;
+
+                const transaction = {
+                    date: new Date(date + 'T12:00:00').toISOString(), // 設定為中午12點
+                    type: type,
+                    symbol: symbol,
+                    companyName: companyName,
+                    shares: shares,
+                    price: price,
+                    fee: fee,
+                    tax: tax,
+                    amount: amount,
+                    holder: holder,
+                    platform: platform,
+                    region: region,
+                    createdBy: currentUser.email,
+                    importedAt: new Date().toISOString(),
+                    isHistoricalImport: true
+                };
+
+                // 如果是賣出，可以手動輸入已實現損益
+                if (type === '賣出') {
+                    const profitInput = document.getElementById('importProfit').value;
+                    if (profitInput) {
+                        transaction.realizedProfit = parseFloat(profitInput);
+                    }
+                }
+
+                await addDoc(collection(db, 'transactions'), transaction);
+
+                alert(`✅ 交易記錄新增成功！\n\n類型：${type}\n股票：${symbol} - ${companyName}\n股數：${shares}\n價格：${price}\n日期：${date}`);
+
+                // 清空表單
+                document.getElementById('importForm').reset();
+
+                // 重新載入交易記錄
+                await loadTransactions();
+            } catch (error) {
+                console.error('新增失敗:', error);
+                alert('❌ 新增失敗：' + error.message);
+            }
+        };
+
+        // 自動帶出公司名稱（補登頁面用）
+        window.fetchImportCompanyName = async function() {
+            const symbolInput = document.getElementById('importSymbol');
+            const regionSelect = document.getElementById('importRegion');
+            const companyInput = document.getElementById('importCompany');
+            
+            let symbol = symbolInput.value.toUpperCase().trim();
+            
+            if (!symbol) return;
+            
+            const region = regionSelect.value;
+            
+            // 策略：先快速顯示內建名稱，再用 API 更新
+            const quickName = getCompanyNameQuick(symbol, region);
+            
+            // 1. 先立即顯示內建名稱（如果有的話）
+            if (quickName !== symbol) {
+                companyInput.value = quickName;
+            } else {
+                companyInput.value = '查詢中...';
+            }
+            
+            // 2. 同時在背景調用 API 獲取最新名稱
+            try {
+                const info = await fetchStockInfo(symbol, region);
+                
+                if (info && info.companyName && info.companyName !== symbol) {
+                    // 如果 API 返回了有效的公司名稱，就更新
+                    companyInput.value = info.companyName;
+                }
+            } catch (error) {
+                // API 失敗也沒關係，保持內建名稱
+                console.log('使用內建名稱:', quickName);
+                if (companyInput.value === '查詢中...') {
+                    companyInput.value = quickName;
+                }
+            }
+        };
+
+        // ========== 編輯交易記錄功能 ==========
+        window.openEditTransactionModal = function(txId) {
+            const tx = transactions.find(t => t.id === txId);
+            if (!tx) return;
+
+            // 填入資料
+            document.getElementById('editTxId').value = txId;
+            
+            // 日期轉換為 YYYY-MM-DD 格式
+            const date = new Date(tx.date);
+            const dateStr = date.toISOString().split('T')[0];
+            document.getElementById('editTxDate').value = dateStr;
+            
+            document.getElementById('editTxType').value = tx.type;
+            document.getElementById('editTxRegion').value = tx.region;
+            document.getElementById('editTxSymbol').value = tx.symbol;
+            document.getElementById('editTxCompany').value = tx.companyName || tx.symbol;
+            document.getElementById('editTxShares').value = tx.shares;
+            document.getElementById('editTxPrice').value = tx.price;
+            document.getElementById('editTxFee').value = tx.fee || 0;
+            document.getElementById('editTxTax').value = tx.tax || 0;
+            document.getElementById('editTxHolder').value = tx.holder;
+            document.getElementById('editTxPlatform').value = tx.platform;
+            
+            if (tx.type === '賣出' && tx.realizedProfit !== undefined) {
+                document.getElementById('editTxProfit').value = tx.realizedProfit;
+            }
+
+            // 顯示/隱藏交易稅和損益欄位
+            updateEditTypeFields();
+
+            document.getElementById('editTransactionModal').style.display = 'flex';
+        };
+
+        window.closeEditTransactionModal = function() {
+            document.getElementById('editTransactionModal').style.display = 'none';
+        };
+
+        window.updateEditTypeFields = function() {
+            const type = document.getElementById('editTxType').value;
+            const taxField = document.getElementById('editTxTaxField');
+            const profitField = document.getElementById('editTxProfitField');
+
+            if (type === '賣出') {
+                taxField.classList.remove('hidden');
+                profitField.classList.remove('hidden');
+            } else {
+                taxField.classList.add('hidden');
+                profitField.classList.add('hidden');
+            }
+        };
+
+        window.saveEditTransaction = async function() {
+            const txId = document.getElementById('editTxId').value;
+            const date = document.getElementById('editTxDate').value;
+            const type = document.getElementById('editTxType').value;
+            const shares = parseFloat(document.getElementById('editTxShares').value);
+            const price = parseFloat(document.getElementById('editTxPrice').value);
+            const fee = parseFloat(document.getElementById('editTxFee').value) || 0;
+            const tax = parseFloat(document.getElementById('editTxTax').value) || 0;
+            const holder = document.getElementById('editTxHolder').value;
+            const platform = document.getElementById('editTxPlatform').value;
+
+            if (!date || !shares || !price || !holder || !platform) {
+                alert('請填寫所有必填欄位');
+                return;
+            }
+
+            try {
+                const amount = type === '買入' 
+                    ? shares * price + fee 
+                    : shares * price - fee - tax;
+
+                const updateData = {
+                    date: new Date(date + 'T12:00:00').toISOString(),
+                    type: type,
+                    shares: shares,
+                    price: price,
+                    fee: fee,
+                    tax: tax,
+                    amount: amount,
+                    holder: holder,
+                    platform: platform,
+                    modifiedAt: new Date().toISOString(),
+                    modifiedBy: currentUser.email
+                };
+
+                // 如果是賣出，更新已實現損益
+                if (type === '賣出') {
+                    const profitInput = document.getElementById('editTxProfit').value;
+                    if (profitInput) {
+                        updateData.realizedProfit = parseFloat(profitInput);
+                    }
+                } else {
+                    // 買入則移除已實現損益欄位
+                    updateData.realizedProfit = null;
+                }
+
+                await updateDoc(doc(db, 'transactions', txId), updateData);
+
+                alert('✅ 交易記錄已更新！');
+                closeEditTransactionModal();
+                await loadTransactions();
+            } catch (error) {
+                console.error('更新失敗:', error);
+                alert('❌ 更新失敗：' + error.message);
+            }
+        };
+
+        // ========== 刪除交易記錄功能 ==========
+        window.deleteTransaction = async function(txId) {
+            const tx = transactions.find(t => t.id === txId);
+            if (!tx) return;
+
+            const confirmMsg = `確定要刪除這筆交易記錄嗎？\n\n` +
+                `日期：${new Date(tx.date).toLocaleDateString('zh-TW')}\n` +
+                `類型：${tx.type}\n` +
+                `股票：${tx.symbol} - ${tx.companyName || tx.symbol}\n` +
+                `股數：${tx.shares}\n` +
+                `價格：${tx.price}`;
+
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                await deleteDoc(doc(db, 'transactions', txId));
+                alert('✅ 交易記錄已刪除！');
+                await loadTransactions();
+            } catch (error) {
+                console.error('刪除失敗:', error);
+                alert('❌ 刪除失敗：' + error.message);
+            }
+        };
     </script>
     
     <!-- 分析模態框 HTML -->
     <div id="analysisModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='analysisModal') closeAnalysisModal()">
         <div id="analysisContent" class="analysis-content bg-slate-800 border-2 border-blue-500 rounded-lg max-w-5xl w-full mx-4" onclick="event.stopPropagation()">
             <!-- 內容會動態插入這裡 -->
+        </div>
+    </div>
+    
+    <!-- 買入模態框 HTML -->
+    <div id="buyModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='buyModal') closeBuyModal()">
+        <div class="bg-slate-800 border-2 border-blue-500 rounded-lg max-w-md w-full mx-4 p-6" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-blue-400">🛒 買入股票</h3>
+                <button onclick="closeBuyModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">股票</label>
+                    <div id="buyStockInfo" class="text-lg font-semibold text-slate-100"></div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">目前持有股數</label>
+                    <div id="buyCurrentShares" class="text-lg font-bold text-blue-400"></div>
+                </div>
+
+                <div>
+                    <label class="block text-sm text-slate-300 mb-1">目前平均成本價</label>
+                    <div id="buyCurrentCost" class="text-lg font-bold text-yellow-400"></div>
+                </div>
+                
+                <div>
+                    <label for="buyDate" class="block text-sm text-slate-300 mb-1">買入日期 *</label>
+                    <input type="date" id="buyDate" required
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600"
+                           value="" />
+                </div>
+                
+                <div>
+                    <label for="buyShares" class="block text-sm text-slate-300 mb-1">買入股數 *</label>
+                    <input type="number" id="buyShares" min="1" 
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="輸入要買入的股數" />
+                </div>
+
+                <div>
+                    <label for="buyPrice" class="block text-sm text-slate-300 mb-1">買入價格 *</label>
+                    <input type="number" id="buyPrice" min="0" step="0.01"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="輸入買入價格" />
+                </div>
+
+                <div>
+                    <label for="buyFee" class="block text-sm text-slate-300 mb-1">手續費</label>
+                    <input type="number" id="buyFee" min="0" step="0.01" value="0"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="手續費（台股約0.1425%，美股約$1-$10）" />
+                    <div class="text-xs text-slate-400 mt-1">
+                        台股約 0.1425%，美股約 $1-$10
+                    </div>
+                </div>
+                
+                <div class="bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-3">
+                    <div class="text-xs text-blue-300">
+                        💡 提示：買入後系統會自動重新計算平均成本價
+                    </div>
+                </div>
+                
+                <div class="flex gap-3 mt-6">
+                    <button onclick="confirmBuy()" 
+                            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        確認買入
+                    </button>
+                    <button onclick="closeBuyModal()" 
+                            class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        取消
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -2178,12 +3427,42 @@
                 </div>
                 
                 <div>
-                    <label for="sellShares" class="block text-sm text-slate-300 mb-1">賣出股數</label>
+                    <label for="sellShares" class="block text-sm text-slate-300 mb-1">賣出股數 *</label>
                     <input type="number" id="sellShares" min="1" 
                            class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
                            placeholder="輸入要賣出的股數" />
+                </div>
+
+                <div>
+                    <label for="sellPrice" class="block text-sm text-slate-300 mb-1">賣出價格 *</label>
+                    <input type="number" id="sellPrice" min="0" step="0.01"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="輸入賣出價格" />
+                </div>
+
+                <div>
+                    <label for="sellFee" class="block text-sm text-slate-300 mb-1">手續費</label>
+                    <input type="number" id="sellFee" min="0" step="0.01" value="0"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="手續費" />
                     <div class="text-xs text-slate-400 mt-1">
-                        💡 提示：賣出後系統會自動重新計算投資成本和其他欄位
+                        台股約 0.1425%，美股約 $1-$10
+                    </div>
+                </div>
+
+                <div>
+                    <label for="sellTax" class="block text-sm text-slate-300 mb-1">交易稅</label>
+                    <input type="number" id="sellTax" min="0" step="0.01" value="0"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono"
+                           placeholder="交易稅" />
+                    <div class="text-xs text-slate-400 mt-1">
+                        台股約 0.3%，美股無交易稅
+                    </div>
+                </div>
+                
+                <div class="bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded-lg p-3">
+                    <div class="text-xs text-yellow-300">
+                        💡 提示：賣出後系統會自動計算已實現損益並記錄交易
                     </div>
                 </div>
                 
@@ -2198,6 +3477,242 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 新增股票模態框 HTML -->
+    <div id="addStockModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='addStockModal') closeAddStockModal()">
+        <div class="bg-slate-800 border-2 border-green-500 rounded-lg max-w-2xl w-full mx-4 p-6" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-green-400">➕ 新增股票</h3>
+                <button onclick="closeAddStockModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <form id="addStockForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">購買日期 *</label>
+                        <input type="date" id="newDate" required
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">地區 *</label>
+                        <select id="newRegion" required
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none">
+                            <option value="台股">台股</option>
+                            <option value="美股">美股</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">股票代號 *</label>
+                        <input type="text" id="newSymbol" required placeholder="例如：2330, TSLA"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none" 
+                               style="text-transform: uppercase;"
+                               onchange="fetchNewCompanyName()" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">公司名稱</label>
+                        <input type="text" id="newCompany" placeholder="輸入代號後自動帶出" readonly
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">股數 *</label>
+                        <input type="number" id="newShares" required min="1" step="1" placeholder="1000"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none"
+                               oninput="calculateNewCost()" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">購買價格 *</label>
+                        <input type="number" id="newCostPrice" required min="0" step="0.01" placeholder="150.50"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none"
+                               oninput="calculateNewCost()" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">手續費</label>
+                        <input type="number" id="newFee" min="0" step="0.01" value="0" placeholder="28.50"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none"
+                               oninput="calculateNewCost()" />
+                        <div class="text-xs text-slate-500 mt-1">台股約 0.1425%，美股約 $1-$10</div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">總投資成本</label>
+                        <input type="number" id="newTotalCost" readonly
+                               class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" />
+                        <div class="text-xs text-slate-500 mt-1">自動計算 = 股數 × 價格 + 手續費</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">持有人 *</label>
+                        <select id="newHolder" required
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none">
+                            <option value="">選擇持有人</option>
+                            <option value="Rebecca">Rebecca</option>
+                            <option value="Eric">Eric</option>
+                            <option value="Ian">Ian</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">交易平台 *</label>
+                        <select id="newPlatform" required
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none">
+                            <option value="複委託">複委託</option>
+                            <option value="證券">證券</option>
+                            <option value="信託">信託</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-3">
+                    <div class="text-xs text-blue-300">
+                        💡 新增後會自動記錄到交易明細，並更新持股
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="confirmAddStock(event)" 
+                            class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        ✓ 確認新增
+                    </button>
+                    <button type="button" onclick="closeAddStockModal()" 
+                            class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 編輯交易模態框 HTML -->
+    <div id="editTransactionModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='editTransactionModal') closeEditTransactionModal()">
+        <div class="bg-slate-800 border-2 border-purple-500 rounded-lg max-w-2xl w-full mx-4 p-6" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-purple-400">✏️ 編輯交易記錄</h3>
+                <button onclick="closeEditTransactionModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <form id="editTransactionForm" class="space-y-4">
+                <input type="hidden" id="editTxId">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">交易日期 *</label>
+                        <input type="date" id="editTxDate" required
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">交易類型 *</label>
+                        <select id="editTxType" required onchange="updateEditTypeFields()"
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none">
+                            <option value="買入">買入</option>
+                            <option value="賣出">賣出</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">地區 *</label>
+                        <input type="text" id="editTxRegion" readonly
+                               class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">股票代號 *</label>
+                        <input type="text" id="editTxSymbol" readonly
+                               class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm text-slate-300 mb-2">公司名稱</label>
+                    <input type="text" id="editTxCompany" readonly
+                           class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">股數 *</label>
+                        <input type="number" id="editTxShares" required min="1" step="1"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">價格 *</label>
+                        <input type="number" id="editTxPrice" required min="0" step="0.01"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">手續費</label>
+                        <input type="number" id="editTxFee" min="0" step="0.01"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                    </div>
+
+                    <div id="editTxTaxField">
+                        <label class="block text-sm text-slate-300 mb-2">交易稅</label>
+                        <input type="number" id="editTxTax" min="0" step="0.01"
+                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                    </div>
+                </div>
+
+                <div id="editTxProfitField">
+                    <label class="block text-sm text-slate-300 mb-2">已實現損益（選填）</label>
+                    <input type="number" id="editTxProfit" step="0.01"
+                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">持有人 *</label>
+                        <select id="editTxHolder" required
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none">
+                            <option value="Rebecca">Rebecca</option>
+                            <option value="Eric">Eric</option>
+                            <option value="Ian">Ian</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-300 mb-2">交易平台 *</label>
+                        <select id="editTxPlatform" required
+                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none">
+                            <option value="複委託">複委託</option>
+                            <option value="證券">證券</option>
+                            <option value="信託">信託</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mt-6">
+                    <button type="button" onclick="saveEditTransaction()" 
+                            class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        ✓ 儲存變更
+                    </button>
+                    <button type="button" onclick="closeEditTransactionModal()" 
+                            class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        取消
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </body>
