@@ -2710,10 +2710,14 @@
                 // 使用 Promise.race 實現總體超時
                 await Promise.race([addStockPromise, timeoutPromise]);
                 
+                // 成功後恢復按鈕狀態
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                
             } catch (error) {
                 console.error('新增失敗:', error);
                 
-                // 恢復按鈕狀態
+                // 失敗時也恢復按鈕狀態
                 btn.disabled = false;
                 btn.innerHTML = originalText;
                 
