@@ -290,7 +290,7 @@
                 </div>
 
                 <!-- 總投資統計 -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                     <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
                         <div class="text-slate-400 text-sm mb-1">總投資成本</div>
                         <div id="totalCost" class="text-2xl font-bold text-slate-100">TWD 0</div>
@@ -306,6 +306,25 @@
                     <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
                         <div class="text-slate-400 text-sm mb-1">總報酬率</div>
                         <div id="totalReturn" class="text-2xl font-bold">0%</div>
+                    </div>
+                </div>
+                <!-- 年度報酬率 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-slate-800 border border-blue-600 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="text-slate-400 text-sm">2026 年報酬率</div>
+                            <div class="text-xs text-blue-400 font-mono">基準：2025年底 TWD 8,819,244</div>
+                        </div>
+                        <div id="thisYearReturn" class="text-2xl font-bold">-</div>
+                        <div id="thisYearDetail" class="text-xs text-slate-500 mt-1"></div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-600 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="text-slate-400 text-sm">2025 年報酬率（已實現損益）</div>
+                            <div id="lastYearLabel" class="text-xs text-slate-400 font-mono"></div>
+                        </div>
+                        <div id="lastYearReturn" class="text-2xl font-bold">-</div>
+                        <div id="lastYearDetail" class="text-xs text-slate-500 mt-1"></div>
                     </div>
                 </div>
 
@@ -1083,6 +1102,7 @@
                     document.getElementById('mainApp').classList.remove('hidden');
                     document.getElementById('userEmail').textContent = user.email;
                     await loadStocks();
+                    await loadTransactions(); // 背景載入交易記錄，供年度報酬率計算使用
     
                     // 首次加載時更新匯率
                     await fetchExchangeRate();
@@ -1830,6 +1850,70 @@
             document.getElementById('totalProfit').className = 'text-2xl font-bold ' + (profit >= 0 ? 'text-green-400' : 'text-red-400');
             document.getElementById('totalReturn').textContent = (returnRate >= 0 ? '+' : '') + returnRate.toFixed(2) + '%';
             document.getElementById('totalReturn').className = 'text-2xl font-bold ' + (returnRate >= 0 ? 'text-green-400' : 'text-red-400');
+
+            // === 年度報酬率計算 ===
+            const BASE_VALUE_2025 = 8819244; // 2025年底市值基準（TWD）
+            const thisYear = new Date().getFullYear();  // 2026
+            const lastYear = thisYear - 1;              // 2025
+
+            // 今年淨投入（2026年買入 - 賣出，換算TWD）
+            let thisYearNetInflow = 0;
+            // 去年已實現損益（2025年，換算TWD）
+            let lastYearRealizedProfit = 0;
+            // 去年買入總成本（2025年，換算TWD）
+            let lastYearBuyCost = 0;
+
+            transactions.forEach(tx => {
+                const txYear = new Date(tx.date).getFullYear();
+                const amountTWD = tx.region === '美股' ? (tx.amount || 0) * usdRate : (tx.amount || 0);
+
+                if (txYear === thisYear) {
+                    // 今年：買入為正流入，賣出為負（資金流出）
+                    if (tx.type === '買入') {
+                        thisYearNetInflow += amountTWD;
+                    } else if (tx.type === '賣出') {
+                        thisYearNetInflow -= amountTWD;
+                    }
+                }
+
+                if (txYear === lastYear) {
+                    if (tx.type === '賣出' && tx.realizedProfit !== undefined) {
+                        const profitTWD = tx.region === '美股'
+                            ? tx.realizedProfit * usdRate
+                            : tx.realizedProfit;
+                        lastYearRealizedProfit += profitTWD;
+                    }
+                    if (tx.type === '買入') {
+                        lastYearBuyCost += amountTWD;
+                    }
+                }
+            });
+
+            // 今年報酬率 = (目前市值 - 2025年底市值 - 今年淨投入) / 2025年底市值
+            const thisYearGain = totalValue - BASE_VALUE_2025 - thisYearNetInflow;
+            const thisYearReturnRate = (thisYearGain / BASE_VALUE_2025) * 100;
+            const thisYearColor = thisYearReturnRate >= 0 ? 'text-green-400' : 'text-red-400';
+            const thisYearSign = thisYearReturnRate >= 0 ? '+' : '';
+
+            document.getElementById('thisYearReturn').textContent = thisYearSign + thisYearReturnRate.toFixed(2) + '%';
+            document.getElementById('thisYearReturn').className = 'text-2xl font-bold ' + thisYearColor;
+            document.getElementById('thisYearDetail').textContent =
+                `目前市值 ${totalValue.toLocaleString(undefined,{maximumFractionDigits:0})} ｜ 今年淨投入 ${thisYearNetInflow.toLocaleString(undefined,{maximumFractionDigits:0})} ｜ 獲利 ${thisYearGain.toLocaleString(undefined,{maximumFractionDigits:0})}`;
+
+            // 去年報酬率 = 去年已實現損益 / 去年買入成本
+            if (lastYearBuyCost > 0) {
+                const lastYearReturnRate = (lastYearRealizedProfit / lastYearBuyCost) * 100;
+                const lastYearColor = lastYearReturnRate >= 0 ? 'text-green-400' : 'text-red-400';
+                const lastYearSign = lastYearReturnRate >= 0 ? '+' : '';
+                document.getElementById('lastYearReturn').textContent = lastYearSign + lastYearReturnRate.toFixed(2) + '%';
+                document.getElementById('lastYearReturn').className = 'text-2xl font-bold ' + lastYearColor;
+                document.getElementById('lastYearDetail').textContent =
+                    `已實現損益 TWD ${lastYearRealizedProfit.toLocaleString(undefined,{maximumFractionDigits:0})} ｜ 買入成本 TWD ${lastYearBuyCost.toLocaleString(undefined,{maximumFractionDigits:0})}`;
+            } else {
+                document.getElementById('lastYearReturn').textContent = '無交易記錄';
+                document.getElementById('lastYearReturn').className = 'text-2xl font-bold text-slate-500';
+                document.getElementById('lastYearDetail').textContent = '2025年無買入交易記錄';
+            }
         }
 
         window.addStock = async () => {
