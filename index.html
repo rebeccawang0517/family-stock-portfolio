@@ -1052,6 +1052,12 @@
             'ONDS': 'Ondas Holdings',
             'PLTR': 'Palantir Technologies'
         };
+        // 公司名稱超過20字元則顯示股票代號
+        function getDisplayName(companyName, symbol) {
+            const name = companyName || symbol;
+            return name.length > 20 ? symbol : name;
+        }
+
         let filteredStocks = [];
         let autoRefreshInterval = null;
 
@@ -1670,14 +1676,14 @@
                     <td class="px-4 py-3 text-center text-blue-400 font-mono font-bold">${stock.symbol}</td>
                     <td class="px-4 py-3 text-center">
                         ${isBondETF ? 
-                            `<span class="text-slate-200">${stock.companyName || stock.symbol}</span>` :
+                            `<span class="text-slate-200">${getDisplayName(stock.companyName, stock.symbol)}</span>` :
                             `<button class="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer font-medium transition-colors summary-analysis-btn"
                                 data-symbol="${stock.symbol}"
                                 data-region="${stock.region}"
                                 data-company="${stock.companyName || stock.symbol}"
                                 data-cost="${stock.totalCost}"
                                 data-shares="${stock.totalShares}">
-                                ${stock.companyName || stock.symbol}
+                                ${getDisplayName(stock.companyName, stock.symbol)}
                             </button>`
                         }
                     </td>
@@ -1747,7 +1753,7 @@
                 tr.innerHTML = `
                     <td class="px-4 py-3 text-center text-slate-300">${stock.region || ''}</td>
                     <td class="px-3 py-3 text-center text-slate-200 font-medium">
-                        ${stock.companyName || stock.symbol}
+                        ${getDisplayName(stock.companyName, stock.symbol)}
                     </td>
                     <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${stock.symbol}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono">${stock.shares.toLocaleString()}</td>
@@ -2989,13 +2995,17 @@
             const currentYear = new Date().getFullYear();
             let yearProfit = 0;
             let yearTransactionCount = 0;
+            const usdRateForProfit = parseFloat(document.getElementById('usdRate').value) || 31.5;
 
             transactions.forEach(tx => {
                 const txYear = new Date(tx.date).getFullYear();
                 if (txYear === currentYear) {
                     yearTransactionCount++;
                     if (tx.type === '賣出' && tx.realizedProfit) {
-                        yearProfit += tx.realizedProfit;
+                        const profitTWD = tx.region === '美股'
+                            ? tx.realizedProfit * usdRateForProfit
+                            : tx.realizedProfit;
+                        yearProfit += profitTWD;
                     }
                 }
             });
@@ -3023,9 +3033,23 @@
 
                 const typeColor = tx.type === '買入' ? 'text-blue-400' : 'text-green-400';
                 const profitCell = tx.type === '賣出' && tx.realizedProfit !== undefined
-                    ? `<td class="px-3 py-3 text-center font-mono font-bold ${tx.realizedProfit >= 0 ? 'text-green-400' : 'text-red-400'}">
-                         ${tx.realizedProfit >= 0 ? '+' : ''}${tx.realizedProfit.toLocaleString(undefined, {maximumFractionDigits: 2})}
-                       </td>`
+                    ? (() => {
+                        const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
+                        const profit = tx.realizedProfit;
+                        const profitColor = profit >= 0 ? 'text-green-400' : 'text-red-400';
+                        const sign = profit >= 0 ? '+' : '';
+                        if (tx.region === '美股') {
+                            const profitTWD = profit * usdRate;
+                            return `<td class="px-3 py-3 text-center font-mono font-bold ${profitColor}">
+                                <div>${sign}USD ${profit.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+                                <div class="text-xs text-slate-400">${sign}TWD ${profitTWD.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                            </td>`;
+                        } else {
+                            return `<td class="px-3 py-3 text-center font-mono font-bold ${profitColor}">
+                                <div>${sign}TWD ${profit.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+                            </td>`;
+                        }
+                    })()
                     : '<td class="px-3 py-3 text-center text-slate-500">-</td>';
 
                 tr.innerHTML = `
