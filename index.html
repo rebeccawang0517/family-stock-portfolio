@@ -414,48 +414,8 @@
                     </div>
                 </div>
 
-                <!-- 年度統計 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
-                        <div class="text-slate-400 text-sm mb-1">本年度已實現損益</div>
-                        <div id="yearProfit" class="text-2xl font-bold">TWD 0</div>
-                    </div>
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
-                        <div class="text-slate-400 text-sm mb-1">本年度交易次數</div>
-                        <div id="yearTransactions" class="text-2xl font-bold text-slate-100">0 筆</div>
-                    </div>
-                </div>
-
-                <!-- 交易記錄表格 -->
-                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-gradient-to-r from-slate-700 to-slate-800">
-                                <tr>
-                                    <th class="px-3 py-3 text-center text-slate-300">日期</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">類型</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">代號</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">公司名稱</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">股數</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">價格</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">手續費</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">交易稅</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">成交金額</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">已實現損益</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">持有人</th>
-                                    <th class="px-3 py-3 text-center text-slate-300">平台</th>
-                                    <th class="px-3 py-3 text-center text-slate-300 no-print">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="transactionsTableBody">
-                                <tr><td colspan="13" class="px-4 py-8 text-center text-slate-500">載入中...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- ===== 補登歷史交易（可收合） ===== -->
-                <div class="mt-6">
+                <!-- 補登歷史交易（篩選區下方） -->
+                <div class="mb-6">
                     <button onclick="toggleImportForm()" id="toggleImportBtn"
                             class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-between no-print">
                         <span>＋ 補登歷史交易</span>
@@ -527,13 +487,13 @@
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-sm text-slate-300 mb-2">手續費</label>
-                                        <input type="number" id="importFee" min="0" step="0.01" value="0" placeholder="28.50"
+                                        <input type="number" id="importFee" min="0" step="0.01" value="0"
                                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
                                         <div class="text-xs text-slate-500 mt-1">台股約 0.1425%，美股約 $1-$10</div>
                                     </div>
                                     <div id="importTaxField" class="hidden">
                                         <label class="block text-sm text-slate-300 mb-2">交易稅</label>
-                                        <input type="number" id="importTax" min="0" step="0.01" value="0" placeholder="45.00"
+                                        <input type="number" id="importTax" min="0" step="0.01" value="0"
                                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
                                         <div class="text-xs text-slate-500 mt-1">台股約 0.3%，美股無交易稅</div>
                                     </div>
@@ -575,7 +535,46 @@
                         </div>
                     </div>
                 </div>
-                <!-- ===== 補登區塊結束 ===== -->
+
+                <!-- 年度統計 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                        <div class="text-slate-400 text-sm mb-1">本年度已實現損益</div>
+                        <div id="yearProfit" class="text-2xl font-bold">TWD 0</div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                        <div class="text-slate-400 text-sm mb-1">本年度交易次數</div>
+                        <div id="yearTransactions" class="text-2xl font-bold text-slate-100">0 筆</div>
+                    </div>
+                </div>
+
+                <!-- 交易記錄表格 -->
+                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gradient-to-r from-slate-700 to-slate-800">
+                                <tr>
+                                    <th class="px-3 py-3 text-center text-slate-300">日期</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">類型</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">代號</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">公司名稱</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">股數</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">價格</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">手續費</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">交易稅</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">成交金額</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">已實現損益</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">持有人</th>
+                                    <th class="px-3 py-3 text-center text-slate-300">平台</th>
+                                    <th class="px-3 py-3 text-center text-slate-300 no-print">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsTableBody">
+                                <tr><td colspan="13" class="px-4 py-8 text-center text-slate-500">載入中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
             </div>
 
@@ -1061,7 +1060,7 @@
                         <div class="flex gap-2 justify-center flex-wrap">
                             <button onclick="openBuyModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares}, ${calc.costPrice})" class="text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-blue-900 hover:bg-opacity-20 transition-colors text-sm">🛒 買入</button>
                             <button onclick="openSellModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares})" class="text-green-400 hover:text-green-300 px-2 py-1 rounded hover:bg-green-900 hover:bg-opacity-20 transition-colors text-sm">💰 賣出</button>
-                            <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm">🗑️ 刪除</button>
+                            <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm">✕ 刪除</button>
                         </div>
                     </td>
                 `;
@@ -1604,7 +1603,7 @@
                     <td class="px-3 py-3 text-center no-print">
                         <div class="flex gap-2 justify-center flex-wrap">
                             <button onclick="openEditTransactionModal('${tx.id}')" class="text-purple-400 hover:text-purple-300 px-2 py-1 rounded hover:bg-purple-900 hover:bg-opacity-20 transition-colors text-sm">✏️</button>
-                            <button onclick="deleteTransaction('${tx.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm">🗑️</button>
+                            <button onclick="deleteTransaction('${tx.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm">✕</button>
                         </div>
                     </td>
                 `;
