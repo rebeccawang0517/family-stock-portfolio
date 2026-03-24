@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: futures-line-notifier
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: LINE_NOTIFY_TOKEN
+        sync: false          # 在 Render Dashboard 填入
+      - key: ANTHROPIC_API_KEY
+        sync: false          # 在 Render Dashboard 填入
+    plan: free
