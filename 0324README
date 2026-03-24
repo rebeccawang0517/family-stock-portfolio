@@ -1,0 +1,48 @@
+# 期貨監控 LINE 通知系統
+
+Streamlit 後端，部署到 Render / Railway，自動發送 LINE 通知。
+
+## 功能
+
+- 🔴🟡 保證金紅/黃燈警示
+- 📊 每日結算報告
+- 🤖 AI 技術分析推送
+- 📆 台指期 & 美期結算日提醒（前7/3/1天、當天）
+- 💸 出入金記錄 + 自動更新帳戶權益
+- 📌 自訂重要財經事件（Fed、CPI、非農等）
+
+## 部署到 Railway（推薦，最快）
+
+1. Fork 或上傳這個 repo 到 GitHub
+2. 前往 https://railway.app → New Project → Deploy from GitHub
+3. 選擇 repo，Railway 自動讀取 `railway.toml`
+4. 在 Variables 填入：
+   ```
+   LINE_NOTIFY_TOKEN = 你的 LINE Notify Token
+   ANTHROPIC_API_KEY = sk-ant-...
+   ```
+5. 部署完成後取得 URL，即可從任何裝置開啟
+
+## 部署到 Render（免費）
+
+1. 上傳 repo 到 GitHub
+2. https://render.com → New Web Service → Connect GitHub
+3. 設定：
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true`
+4. Environment Variables 填入 LINE_NOTIFY_TOKEN 和 ANTHROPIC_API_KEY
+5. ⚠️ 免費版 15 分鐘無流量會休眠，建議用 UptimeRobot 每 10 分鐘 ping 一次
+
+## LINE Notify Token 申請
+
+1. https://notify-bot.line.me/zh_TW/
+2. 登入 → 個人頁面 → 發行存取權杖
+3. 名稱填「期貨監控」，選擇要通知的群組
+4. 複製 Token
+
+## 本機執行
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
