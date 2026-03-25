@@ -225,11 +225,25 @@ function renderQuickRisk(){
 }
 
 // ── 部位管理 ──────────────────────────────────────────────────
+// 每種類別對權益數的影響
+// 入金：+  出金：-  成交（買期貨）：0（保證金凍結，不影響權益）
+// 平倉損益：+/-  手續費：-  期交稅：-
+const TRANS_TYPES = {
+    '入金':   { sign: +1,  color: 'text-green-400', bg: 'bg-green-900 text-green-300' },
+    '出金':   { sign: -1,  color: 'text-red-400',   bg: 'bg-red-900 text-red-300' },
+    '成交':   { sign:  0,  color: 'text-blue-400',  bg: 'bg-blue-900 text-blue-300' },
+    '平倉':   { sign: +1,  color: 'text-yellow-400',bg: 'bg-yellow-900 text-yellow-300' },
+    '手續費': { sign: -1,  color: 'text-orange-400',bg: 'bg-orange-900 text-orange-300' },
+    '期交稅': { sign: -1,  color: 'text-orange-400',bg: 'bg-orange-900 text-orange-300' },
+};
+
 function calcEquity(){
-    // 基礎權益 + 累計入金 - 累計出金
-    let base = G.cfg.equity;
-    G.deposits.forEach(d=>{ base += d.amount; });
-    return base;
+    let eq = G.cfg.equity;
+    G.deposits.forEach(d => {
+        const info = TRANS_TYPES[d.type] || { sign: 0 };
+        eq += info.sign * Math.abs(d.amount);
+    });
+    return eq;
 }
 
 function renderPositions(){
@@ -269,31 +283,78 @@ window.addPos=()=>{const p=Math.round(G.twse?.price||22500);G.positions.push({di
 function renderDeposits(){
     const el=document.getElementById('deposit-history');
     if(!el)return;
-    // 統計
-    const totalIn  = G.deposits.filter(d=>d.amount>0).reduce((s,d)=>s+d.amount,0);
-    const totalOut = G.deposits.filter(d=>d.amount<0).reduce((s,d)=>s+Math.abs(d.amount),0);
     const baseEquity = G.cfg.equity;
     const currentEquity = calcEquity();
+
+    // 各類別統計
+    const stats = {};
+    Object.keys(TRANS_TYPES).forEach(k=>{ stats[k]=0; });
+    G.deposits.forEach(d=>{ if(stats[d.type]!==undefined) stats[d.type]+=Math.abs(d.amount); });
+
     const sumEl = document.getElementById('equity-summary');
-    if(sumEl) sumEl.innerHTML='<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3"><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">初始權益數</div><div class="font-bold text-slate-100 font-mono text-sm">'+fmtNT(baseEquity)+'</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">累計入金</div><div class="font-bold text-green-400 font-mono text-sm">+'+fmtNT(totalIn)+'</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">累計出金</div><div class="font-bold text-red-400 font-mono text-sm">-'+fmtNT(totalOut)+'</div></div><div class="bg-slate-700 rounded-lg p-3 border border-blue-500"><div class="text-slate-400 text-xs mb-1">目前帳戶權益</div><div class="font-bold text-blue-400 font-mono text-sm">'+fmtNT(currentEquity)+'</div></div></div>';
-    if(!G.deposits.length){el.innerHTML='<div class="text-slate-500 text-sm text-center py-3">尚無出入金記錄</div>';return;}
-    el.innerHTML=G.deposits.map((d,i)=>{
-        const color=d.amount>0?'text-green-400':'text-red-400';
-        const sign=d.amount>0?'+':'-';
-        return '<div class="flex items-center justify-between py-2 border-b border-slate-700 last:border-0 text-sm"><span class="text-slate-400">'+d.date+'</span><span class="'+color+' font-mono font-bold">'+sign+fmtNT(Math.abs(d.amount))+'</span><span class="text-slate-400">'+d.note+'</span><button onclick="delDeposit('+i+')" class="text-red-400 hover:text-red-300 text-xs ml-2">✕</button></div>';
-    }).join('');
+    if(sumEl){
+        const items = [
+            {label:'初始權益',    val:baseEquity,           color:'text-slate-100',  sign:''},
+            {label:'累計入金',    val:stats['入金'],        color:'text-green-400',  sign:'+'},
+            {label:'累計出金',    val:stats['出金'],        color:'text-red-400',    sign:'-'},
+            {label:'平倉損益',    val:stats['平倉'],        color:'text-yellow-400', sign:'±'},
+            {label:'手續費',      val:stats['手續費'],      color:'text-orange-400', sign:'-'},
+            {label:'期交稅',      val:stats['期交稅'],      color:'text-orange-400', sign:'-'},
+            {label:'目前權益數',  val:currentEquity,        color:'text-blue-400',   sign:'', highlight:true},
+        ];
+        sumEl.innerHTML = '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">'
+            + items.map(item=>'<div class="bg-slate-700 rounded-lg p-3'+(item.highlight?' border border-blue-500':'')+'"><div class="text-slate-400 text-xs mb-1">'+item.label+'</div><div class="font-bold '+item.color+' font-mono text-sm">'+(item.sign&&item.val>0?item.sign:'')+fmtNT(item.val)+'</div></div>').join('')
+            + '</div>';
+    }
+
+    if(!G.deposits.length){
+        el.innerHTML='<div class="text-slate-500 text-sm text-center py-3">尚無記錄</div>';
+        return;
+    }
+
+    // 計算每筆記帳後的累計權益
+    let runningEq = baseEquity;
+    const withEq = G.deposits.slice().reverse().map(d=>{
+        const info = TRANS_TYPES[d.type]||{sign:0};
+        runningEq += info.sign * Math.abs(d.amount);
+        return {...d, eqAfter: runningEq};
+    }).reverse();
+
+    el.innerHTML = '<table class="w-full text-sm">'
+        + '<thead><tr class="bg-slate-900 border-b border-slate-700">'
+        + '<th class="px-3 py-2 text-left text-slate-300 text-xs">日期</th>'
+        + '<th class="px-3 py-2 text-center text-slate-300 text-xs">類別</th>'
+        + '<th class="px-3 py-2 text-right text-slate-300 text-xs">金額</th>'
+        + '<th class="px-3 py-2 text-right text-slate-300 text-xs">累計權益</th>'
+        + '<th class="px-3 py-2 text-left text-slate-300 text-xs">備註</th>'
+        + '<th class="px-3 py-2 text-center text-slate-300 text-xs">操作</th>'
+        + '</tr></thead><tbody>'
+        + withEq.map((d,i)=>{
+            const info = TRANS_TYPES[d.type]||{sign:0,color:'text-slate-300',bg:'bg-slate-700 text-slate-300'};
+            const amtSign = info.sign > 0 ? '+' : info.sign < 0 ? '-' : '';
+            const amtColor = info.sign > 0 ? 'text-green-400' : info.sign < 0 ? 'text-red-400' : 'text-blue-400';
+            return '<tr class="border-b border-slate-700 hover:bg-slate-750">'
+                + '<td class="px-3 py-2 text-slate-400 text-xs">'+d.date+'</td>'
+                + '<td class="px-3 py-2 text-center"><span class="text-xs px-2 py-0.5 rounded font-medium '+info.bg+'">'+d.type+'</span></td>'
+                + '<td class="px-3 py-2 text-right font-mono font-bold '+amtColor+' text-sm">'+amtSign+fmtNT(Math.abs(d.amount))+'</td>'
+                + '<td class="px-3 py-2 text-right font-mono text-slate-300 text-sm">'+fmtNT(d.eqAfter)+'</td>'
+                + '<td class="px-3 py-2 text-slate-400 text-xs">'+(d.note||'—')+'</td>'
+                + '<td class="px-3 py-2 text-center"><button onclick="delDeposit('+i+')" class="text-red-400 hover:text-red-300 text-xs px-1.5 py-0.5 rounded">✕</button></td>'
+                + '</tr>';
+        }).join('')
+        + '</tbody></table>';
 }
 
 window.addDeposit=(type)=>{
-    const amtEl=document.getElementById('dep-amount');
-    const noteEl=document.getElementById('dep-note');
-    const dateEl=document.getElementById('dep-date');
-    const amt=parseFloat(amtEl?.value)||0;
-    const note=noteEl?.value||'';
-    const date=dateEl?.value||new Date().toISOString().slice(0,10);
+    const amtEl  = document.getElementById('dep-amount');
+    const noteEl = document.getElementById('dep-note');
+    const dateEl = document.getElementById('dep-date');
+    const amt  = parseFloat(amtEl?.value)||0;
+    const note = noteEl?.value||'';
+    const date = dateEl?.value||new Date().toISOString().slice(0,10);
     if(!amt||amt<=0){alert('請輸入金額');return;}
-    const amount=type==='in'?amt:-amt;
-    G.deposits.push({date,amount,note,id:Date.now().toString()});
+    // type 直接是中文類別名
+    G.deposits.push({date, type, amount:amt, note, id:Date.now().toString()});
     G.deposits.sort((a,b)=>new Date(b.date)-new Date(a.date));
     if(amtEl)amtEl.value='';
     if(noteEl)noteEl.value='';
@@ -683,22 +744,32 @@ function renderAll(){
             <h3 class="font-bold text-slate-100 mb-4">💸 出入金（自動更新帳戶權益）</h3>
             <div id="equity-summary"></div>
             <!-- 輸入列 -->
-            <div class="flex flex-wrap gap-3 items-end mb-4 p-4 bg-slate-700 rounded-lg">
-                <div>
-                    <div class="text-slate-400 text-xs mb-1">日期</div>
-                    <input type="date" id="dep-date" class="bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+            <div class="p-4 bg-slate-700 rounded-lg mb-4">
+                <div class="flex flex-wrap gap-3 items-end mb-3">
+                    <div>
+                        <div class="text-slate-400 text-xs mb-1">日期</div>
+                        <input type="date" id="dep-date" class="bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+                    </div>
+                    <div class="flex-1 min-w-32">
+                        <div class="text-slate-400 text-xs mb-1">金額 (NT$)</div>
+                        <input type="number" id="dep-amount" placeholder="例如：50000" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
+                    </div>
+                    <div class="flex-1 min-w-24">
+                        <div class="text-slate-400 text-xs mb-1">備註（選填）</div>
+                        <input type="text" id="dep-note" placeholder="例如：補繳保證金" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+                    </div>
                 </div>
-                <div class="flex-1 min-w-32">
-                    <div class="text-slate-400 text-xs mb-1">金額 (NT$)</div>
-                    <input type="number" id="dep-amount" placeholder="例如：50000" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
+                <!-- 六個類別按鈕 -->
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="addDeposit('入金')"  class="bg-green-700 hover:bg-green-600 text-green-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">💵 入金</button>
+                    <button onclick="addDeposit('出金')"  class="bg-red-700 hover:bg-red-600 text-red-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">💸 出金</button>
+                    <button onclick="addDeposit('成交')"  class="bg-blue-700 hover:bg-blue-600 text-blue-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">📋 成交</button>
+                    <button onclick="addDeposit('平倉')"  class="bg-yellow-700 hover:bg-yellow-600 text-yellow-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">✅ 平倉</button>
+                    <button onclick="addDeposit('手續費')" class="bg-orange-700 hover:bg-orange-600 text-orange-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">💳 手續費</button>
+                    <button onclick="addDeposit('期交稅')" class="bg-orange-700 hover:bg-orange-600 text-orange-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">🧾 期交稅</button>
                 </div>
-                <div class="flex-1 min-w-24">
-                    <div class="text-slate-400 text-xs mb-1">備註</div>
-                    <input type="text" id="dep-note" placeholder="例如：補繳保證金" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="addDeposit('in')" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">💵 入金</button>
-                    <button onclick="addDeposit('out')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">💸 出金</button>
+                <div class="text-slate-500 text-xs mt-2">
+                    入金/平倉 → <span class="text-green-400">+權益</span>　出金/手續費/期交稅 → <span class="text-red-400">-權益</span>　成交 → <span class="text-blue-400">不影響權益</span>（保證金凍結）
                 </div>
             </div>
             <div id="deposit-history"></div>
