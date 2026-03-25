@@ -650,6 +650,7 @@ S1=${twT.s1} S2=${twT.s2} R1=${twT.r1} R2=${twT.r2}，MA5=${twT.ma5} MA20=${twT.
     <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 mb-6">
         <div class="flex gap-2 flex-wrap">
             <button onclick="switchTab('live')"      id="tab-live"      class="tab-button active flex-1 px-4 py-3 rounded-lg font-semibold text-base">即時監控</button>
+            <button onclick="switchTab('chart')"     id="tab-chart"     class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold text-base text-slate-400">📊 走勢圖</button>
             <button onclick="switchTab('positions')" id="tab-positions" class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold text-base text-slate-400">部位管理</button>
             <button onclick="switchTab('calendar')"  id="tab-calendar"  class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold text-base text-slate-400">日曆事件</button>
             <button onclick="switchTab('settings')"  id="tab-settings"  class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold text-base text-slate-400">設定</button>
@@ -698,6 +699,71 @@ S1=${twT.s1} S2=${twT.s2} R1=${twT.r1} R2=${twT.r2}，MA5=${twT.ma5} MA20=${twT.
         <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5">
             <div class="font-bold text-slate-100 text-sm mb-3">🤖 AI 分析結果</div>
             <div id="ai-result"><div class="text-slate-500 text-sm text-center py-8">點擊上方「🤖 AI 完整分析」開始</div></div>
+        </div>
+    </div>
+
+
+    <!-- TradingView 走勢圖 -->
+    <div id="pane-chart" class="tab-content">
+        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-4">
+            <div class="flex items-center gap-3 flex-wrap mb-3">
+                <span class="text-slate-300 font-medium text-sm">選擇標的：</span>
+                <button onclick="loadChart('TAIFEX:FITX1!','台指期 FITX','60')"  class="chart-sel-btn bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold">台指期 FITX</button>
+                <button onclick="loadChart('TSE:2330','台積電 2330','D')"        class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-sm">台積電 2330</button>
+                <button onclick="loadChart('TSE:0050','元大50 0050','D')"        class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-sm">元大50</button>
+                <button onclick="loadChart('TVC:SPX','S&amp;P500','D')"          class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-sm">S&amp;P500</button>
+                <button onclick="loadChart('NASDAQ:NDX','Nasdaq100','D')"        class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-sm">Nasdaq100</button>
+                <button onclick="loadChart('COMEX:GC1!','黃金','D')"             class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-sm">黃金</button>
+                <button onclick="loadChart('FX_IDC:USDTWD','USD/TWD','D')"      class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-sm">USD/TWD</button>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <span class="text-slate-300 font-medium text-sm">週期：</span>
+                <button onclick="setChartInterval('1')"  class="intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1 rounded text-xs">1分</button>
+                <button onclick="setChartInterval('5')"  class="intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1 rounded text-xs">5分</button>
+                <button onclick="setChartInterval('15')" class="intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1 rounded text-xs">15分</button>
+                <button onclick="setChartInterval('30')" class="intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1 rounded text-xs">30分</button>
+                <button onclick="setChartInterval('60')" class="intv-btn bg-blue-600 text-white px-3 py-1 rounded text-xs">1小時</button>
+                <button onclick="setChartInterval('D')"  class="intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1 rounded text-xs">日線</button>
+                <button onclick="setChartInterval('W')"  class="intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1 rounded text-xs">週線</button>
+                <span class="text-slate-400 text-xs ml-2" id="chart-current-label">台指期 FITX · 1小時</span>
+            </div>
+        </div>
+
+        <!-- 主圖（大） -->
+        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden mb-4">
+            <div id="tv-main-chart" style="height:520px;width:100%;"></div>
+        </div>
+
+        <!-- 副圖：台指期日線 + 台積電日線 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
+                <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold text-slate-300">台指期 FITX — 日線</div>
+                <iframe scrolling="no" allowtransparency="true" frameborder="0" style="width:100%;height:260px;display:block;"
+                    src="https://s.tradingview.com/widgetembed/?symbol=TAIFEX%3AFITX1%21&interval=D&hidesidetoolbar=1&hidetoptoolbar=1&theme=dark&style=1&timezone=Asia%2FTaipei&locale=zh_TW&toolbarbg=1e293b&saveimage=0"></iframe>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
+                <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold text-slate-300">台積電 2330 — 日線</div>
+                <iframe scrolling="no" allowtransparency="true" frameborder="0" style="width:100%;height:260px;display:block;"
+                    src="https://s.tradingview.com/widgetembed/?symbol=TSE%3A2330&interval=D&hidesidetoolbar=1&hidetoptoolbar=1&theme=dark&style=1&timezone=Asia%2FTaipei&locale=zh_TW&toolbarbg=1e293b&saveimage=0"></iframe>
+            </div>
+        </div>
+
+        <!-- 副圖：VIX + ES 期貨 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
+                <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold text-slate-300">VIX 恐慌指數</div>
+                <iframe scrolling="no" allowtransparency="true" frameborder="0" style="width:100%;height:200px;display:block;"
+                    src="https://s.tradingview.com/widgetembed/?symbol=TVC%3AVIX&interval=D&hidesidetoolbar=1&hidetoptoolbar=1&theme=dark&style=1&timezone=America%2FNew_York&locale=zh_TW&toolbarbg=1e293b&saveimage=0"></iframe>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
+                <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold text-slate-300">S&amp;P500 期貨（ES）</div>
+                <iframe scrolling="no" allowtransparency="true" frameborder="0" style="width:100%;height:200px;display:block;"
+                    src="https://s.tradingview.com/widgetembed/?symbol=CME_MINI%3AES1%21&interval=60&hidesidetoolbar=1&hidetoptoolbar=1&theme=dark&style=1&timezone=America%2FNew_York&locale=zh_TW&toolbarbg=1e293b&saveimage=0"></iframe>
+            </div>
+        </div>
+
+        <div class="bg-blue-900 bg-opacity-30 border border-blue-700 border-opacity-50 rounded-lg p-4 text-sm text-blue-200">
+            💡 圖表由 <strong>TradingView</strong> 免費提供，支援 K 線、技術指標（MA / MACD / RSI / 布林帶）。台指期即時，台股延遲15分鐘。
         </div>
     </div>
 
@@ -803,14 +869,66 @@ S1=${twT.s1} S2=${twT.s2} R1=${twT.r1} R2=${twT.r2}，MA5=${twT.ma5} MA20=${twT.
 </div>
 
 <script>
+// ── TradingView 走勢圖 ────────────────────────────────────────
+var _tvSym  = 'TAIFEX:FITX1!';
+var _tvIntv = '60';
+var _tvLbl  = '台指期 FITX';
+var INTV_LABELS = {'1':'1分','5':'5分','15':'15分','30':'30分','60':'1小時','D':'日線','W':'週線'};
+
+function loadChart(sym, lbl, intv) {
+    _tvSym = sym; _tvLbl = lbl;
+    if (intv) _tvIntv = intv;
+    document.querySelectorAll('.chart-sel-btn').forEach(function(b){
+        b.className = 'chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-sm';
+    });
+    if (event && event.currentTarget) event.currentTarget.className = 'chart-sel-btn bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold';
+    renderMainChart();
+}
+
+function setChartInterval(intv) {
+    _tvIntv = intv;
+    document.querySelectorAll('.intv-btn').forEach(function(b){
+        b.className = 'intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1 rounded text-xs';
+    });
+    if (event && event.currentTarget) event.currentTarget.className = 'intv-btn bg-blue-600 text-white px-3 py-1 rounded text-xs';
+    renderMainChart();
+}
+
+function renderMainChart() {
+    var container = document.getElementById('tv-main-chart');
+    if (!container) return;
+    container.innerHTML = '';
+    var src = 'https://s.tradingview.com/widgetembed/'
+        + '?symbol=' + encodeURIComponent(_tvSym)
+        + '&interval=' + _tvIntv
+        + '&hidesidetoolbar=0&hidetoptoolbar=0'
+        + '&theme=dark&style=1'
+        + '&timezone=Asia%2FTaipei'
+        + '&locale=zh_TW'
+        + '&toolbarbg=1e293b'
+        + '&studies=BB%40tv-basicstudies,MACD%40tv-basicstudies,RSI%40tv-basicstudies'
+        + '&saveimage=0&withdateranges=1';
+    var iframe = document.createElement('iframe');
+    iframe.src = src;
+    iframe.scrolling = 'no';
+    iframe.allowTransparency = true;
+    iframe.frameBorder = '0';
+    iframe.style.cssText = 'width:100%;height:520px;display:block;';
+    container.appendChild(iframe);
+    var lbl = document.getElementById('chart-current-label');
+    if (lbl) lbl.textContent = _tvLbl + ' · ' + (INTV_LABELS[_tvIntv] || _tvIntv);
+}
+
+
 function switchTab(name){
-    ['live','positions','calendar','settings'].forEach(t=>{
+    ['live','chart','positions','calendar','settings'].forEach(t=>{
         const btn=document.getElementById('tab-'+t);
         const pane=document.getElementById('pane-'+t);
         if(btn){btn.classList.toggle('active',t===name);if(t!==name)btn.classList.add('text-slate-400');else btn.classList.remove('text-slate-400');}
         if(pane)pane.classList.toggle('active',t===name);
     });
     if(name==='calendar'){if(typeof renderCalendar==='function'){renderCalendar();renderEventList();}}
+    if(name==='chart' && !window._tvLoaded){loadChart('TAIFEX:FITX1!','台指期 FITX','60');window._tvLoaded=true;}
     if(name==='positions'){if(typeof renderPositions==='function'){renderPositions();renderDayHistory();}}
 }
 window.addEventListener('load',()=>{
