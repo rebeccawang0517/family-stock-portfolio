@@ -22,7 +22,7 @@ const firebaseConfig = {
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
-const PTF  = 50;
+const PTF  = 10;  // 微台指每點 NT$10（小台=50）
 
 // ── 狀態 ──────────────────────────────────────────────────────
 let G = {
@@ -112,45 +112,123 @@ function calcTech(price,pct){
             r1:Math.round(p+p*0.01),r2:Math.round(p+p*0.02)};
 }
 
-// ── 報價抓取（多來源）────────────────────────────────────────
-async function fetchYahoo(sym){
+// ── 報價：TradingView Mini Symbol Widget（可嵌入版本）───────
+function renderTVQuoteWidget(){
+    const twEl = document.getElementById('tv-quote-twse');
+    const tsEl = document.getElementById('tv-quote-tsmc');
+
+    // 使用 mini-symbol-overview widget（允許嵌入，不會跳轉）
+    function makeWidget(sym, containerId){
+        return `<div class="tradingview-widget-container" style="width:100%;height:130px;">
+            <div id="${containerId}" style="width:100%;height:130px;"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>
+            {
+                "symbol": "${sym}",
+                "width": "100%",
+                "height": 130,
+                "locale": "zh_TW",
+                "dateRange": "1D",
+                "colorTheme": "dark",
+                "isTransparent": true,
+                "autosize": true,
+                "largeChartUrl": ""
+            }
+            <\/script>
+        </div>`;
+    }
+
+    if(twEl) twEl.innerHTML = makeWidget('TSE:TAIEX', 'tv-mini-twse');
+    if(tsEl) tsEl.innerHTML = makeWidget('TSE:2330',  'tv-mini-tsmc');
+}
+
+// 背景嘗試取得數值（供技術分析推估用）
+async function fetchYahooValue(sym){
     const symbol = /^\d/.test(sym) ? sym+'.TW' : sym;
-    const url = 'https://query1.finance.yahoo.com/v8/finance/chart/'+symbol+'?interval=1d&range=2d';
-    const proxies = [
-        'https://corsproxy.io/?url='+encodeURIComponent(url),
-        'https://api.allorigins.win/raw?url='+encodeURIComponent(url),
-        'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url)
+    const urls = [
+        'https://corsproxy.io/?url='+encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+symbol+'?interval=1d&range=2d'),
+        'https://api.allorigins.win/raw?url='+encodeURIComponent('https://query2.finance.yahoo.com/v8/finance/chart/'+symbol+'?interval=1d&range=2d'),
+        'https://thingproxy.freeboard.io/fetch/https://query1.finance.yahoo.com/v8/finance/chart/'+symbol+'?interval=1d&range=2d',
     ];
-    for(const p of proxies){
+    for(const u of urls){
         try{
-            const r = await fetch(p, {signal:AbortSignal.timeout(8000)});
+            const r = await fetch(u, {signal:AbortSignal.timeout(6000), cache:'no-cache'});
+            if(!r.ok) continue;
             const d = await r.json();
             const meta = d?.chart?.result?.[0]?.meta;
             if(!meta) continue;
             const cur  = meta.regularMarketPrice || meta.chartPreviousClose;
-            const prev = meta.chartPreviousClose || meta.previousClose || cur;
-            if(cur&&cur>0) return {price:Math.abs(cur), prev:Math.abs(prev), diff:cur-prev, pct:prev>0?(cur-prev)/prev*100:0};
+            const prev = meta.chartPreviousClose  || meta.previousClose || cur;
+            if(cur && cur > 0) return {price:Math.abs(cur), prev:Math.abs(prev), diff:cur-prev, pct:prev>0?(cur-prev)/prev*100:0};
         }catch(e){}
     }
     return null;
 }
 
 window.fetchAll = async () => {
-    const btn=document.getElementById('refresh-btn');
-    if(btn){btn.disabled=true;btn.innerHTML='🔄 更新中...';}
-    try {
-        const [twse,tsmc] = await Promise.all([fetchYahoo('t00'), fetchYahoo('2330')]);
-        if(twse) G.twse=twse;
-        if(tsmc) G.tsmc=tsmc;
+    const btn = document.getElementById('refresh-btn');
+    if(btn){ btn.disabled=true; btn.innerHTML='🔄 更新中...'; }
+
+    // 立即嵌入 TradingView 即時報價 widget（不會失敗）
+    renderTVQuoteWidget();
+
+    // 背景取得數值供技術分析用
+    try{
+        const [r1, r2] = await Promise.allSettled([fetchYahooValue('t00'), fetchYahooValue('2330')]);
+        if(r1.status==='fulfilled' && r1.value) G.twse = r1.value;
+        if(r2.status==='fulfilled' && r2.value) G.tsmc = r2.value;
         const now = new Date().toLocaleTimeString('zh-TW');
-        document.getElementById('last-update').textContent = (twse||tsmc) ? '更新：'+now : '⚠️ 報價取得失敗，請稍後再試';
-        renderQuotes();
+        document.getElementById('last-update').textContent = '更新：'+now+(G.twse?.price>0 ? '　技術分析已更新' : '　技術分析數值載入中');
+        renderTechSection();
         renderQuickRisk();
+    } catch(e){
+        document.getElementById('last-update').textContent = '即時報價由 TradingView 顯示';
     } finally {
-        if(btn){btn.disabled=false;btn.innerHTML='🔄 更新報價';}
+        if(btn){ btn.disabled=false; btn.innerHTML='🔄 更新報價'; }
     }
 };
 
+// 技術分析（在取得數值後更新）
+function renderTechSection(){
+    function buildTech(data, prefix){
+        if(!data || data.price<=0) return;
+        const t = calcTech(data.price, data.pct);
+        const scoreEl = document.getElementById(prefix+'-score');
+        const barEl   = document.getElementById(prefix+'-score-bar');
+        const techEl  = document.getElementById(prefix+'-tech');
+        const srEl    = document.getElementById(prefix+'-sr');
+        const miniEl  = document.getElementById(prefix+'-sr-mini');
+        if(scoreEl){ scoreEl.textContent=t.score; scoreEl.className='text-2xl font-bold '+(t.score>=65?'text-green-400':t.score<=35?'text-red-400':'text-yellow-400'); }
+        if(barEl)  { barEl.style.width=t.score+'%'; barEl.className='h-1.5 rounded-full transition-all '+(t.score>=65?'bg-green-500':t.score<=35?'bg-red-500':'bg-yellow-500'); }
+        if(miniEl) { miniEl.innerHTML='S2 <b class="text-red-400">'+t.s2+'</b> S1 <b class="text-red-300">'+t.s1+'</b><br>R1 <b class="text-yellow-300">'+t.r1+'</b> R2 <b class="text-yellow-400">'+t.r2+'</b>'; }
+        if(techEl){
+            const sigs=[
+                {n:'均線',v:data.price>t.ma5&&t.ma5>t.ma20?'多頭排列':data.price<t.ma5&&t.ma5<t.ma20?'空頭排列':'均線糾結',bull:data.price>t.ma5&&t.ma5>t.ma20?1:data.price<t.ma5?-1:0},
+                {n:'RSI', v:t.rsi>70?'超買'+t.rsi:t.rsi<30?'超賣'+t.rsi:''+t.rsi,bull:t.rsi>70?-0.5:t.rsi<30?0.5:t.rsi>50?0.4:-0.3},
+                {n:'KD',  v:t.k>t.d?'K>D偏多':'K<D偏空',bull:t.k>t.d?0.4:-0.4},
+                {n:'MACD',v:t.macd>0?'紅柱+'+t.macd:t.macd<0?'綠柱'+t.macd:'零軸',bull:t.macd>0?0.6:t.macd<0?-0.6:0},
+            ];
+            techEl.innerHTML=sigs.map(s=>{
+                const c=s.bull>0.1?'text-green-400':s.bull<-0.1?'text-red-400':'text-slate-400';
+                const bg=s.bull>0.1?'bg-green-900 text-green-300':s.bull<-0.1?'bg-red-900 text-red-300':'bg-slate-700 text-slate-400';
+                return '<div class="flex items-center gap-2 py-1.5 border-b border-slate-700 last:border-0 text-sm"><div class="w-1.5 h-1.5 rounded-full flex-shrink-0 '+c.replace('text-','bg-')+'"></div><span class="text-slate-400 w-10 text-xs">'+s.n+'</span><span class="font-semibold '+c+' flex-1 text-xs">'+s.v+'</span><span class="text-xs px-1.5 py-0.5 rounded font-medium '+bg+'">'+(s.bull>0.1?'看多':s.bull<-0.1?'看空':'中性')+'</span></div>';
+            }).join('');
+        }
+        if(srEl) srEl.innerHTML='<div class="grid grid-cols-4 gap-1 mt-2"><div class="bg-red-900 bg-opacity-40 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">S2</div><div class="font-mono font-bold text-red-400 text-sm">'+t.s2+'</div></div><div class="bg-red-900 bg-opacity-30 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">S1</div><div class="font-mono font-bold text-red-300 text-sm">'+t.s1+'</div></div><div class="bg-yellow-900 bg-opacity-30 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">R1</div><div class="font-mono font-bold text-yellow-300 text-sm">'+t.r1+'</div></div><div class="bg-yellow-900 bg-opacity-40 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">R2</div><div class="font-mono font-bold text-yellow-400 text-sm">'+t.r2+'</div></div></div>';
+    }
+    buildTech(G.twse, 'mtx');
+    buildTech(G.tsmc, 'tsmc');
+    // 關聯分析
+    const ca=document.getElementById('corr-area');
+    if(ca&&G.twse?.price>0&&G.tsmc?.price>0){
+        const same=(G.twse.pct>0&&G.tsmc.pct>0)||(G.twse.pct<0&&G.tsmc.pct<0);
+        const diff=Math.abs(Math.abs(G.twse.pct)-Math.abs(G.tsmc.pct));
+        let cls,label,note;
+        if(same&&diff<1){cls='bg-green-900 border-green-600 text-green-300';label='高度同向';note='台積電與加權同步，微台指方向明確';}
+        else if(same)   {cls='bg-blue-900 border-blue-600 text-blue-300';label='同向但幅度差異';note='差異 '+diff.toFixed(2)+'%';}
+        else            {cls='bg-yellow-900 border-yellow-600 text-yellow-300';label='多空背離';note='方向不同，操作需謹慎';}
+        ca.innerHTML='<div class="border '+cls+' rounded-lg px-4 py-2 text-sm mt-0 mb-4"><span class="font-bold">📊 關聯 — '+label+'：</span>'+note+'</div>';
+    }
+}
 // ── 結算橫幅 ──────────────────────────────────────────────────
 function renderSettleBanner(){
     const el=document.getElementById('settle-banner');
@@ -241,7 +319,12 @@ function calcEquity(){
     let eq = G.cfg.equity;
     G.deposits.forEach(d => {
         const info = TRANS_TYPES[d.type] || { sign: 0 };
-        eq += info.sign * Math.abs(d.amount);
+        if(d.type === '平倉' && d.pnlSign !== undefined){
+            // 平倉損益有正負
+            eq += d.pnlSign * Math.abs(d.amount);
+        } else {
+            eq += info.sign * Math.abs(d.amount);
+        }
     });
     return eq;
 }
@@ -316,7 +399,11 @@ function renderDeposits(){
     let runningEq = baseEquity;
     const withEq = G.deposits.slice().reverse().map(d=>{
         const info = TRANS_TYPES[d.type]||{sign:0};
-        runningEq += info.sign * Math.abs(d.amount);
+        if(d.type === '平倉' && d.pnlSign !== undefined){
+            runningEq += d.pnlSign * Math.abs(d.amount);
+        } else {
+            runningEq += info.sign * Math.abs(d.amount);
+        }
         return {...d, eqAfter: runningEq};
     }).reverse();
 
@@ -345,6 +432,26 @@ function renderDeposits(){
         + '</tbody></table>';
 }
 
+// 切換資金異動/交易記錄介面
+window.selectDepType = (mode) => {
+    const fundSection  = document.getElementById('dep-fund-section');
+    const tradeSection = document.getElementById('dep-trade-section');
+    const fundBtn  = document.getElementById('dtype-fund');
+    const tradeBtn = document.getElementById('dtype-trade');
+    if(mode === 'fund'){
+        fundSection?.classList.remove('hidden');
+        tradeSection?.classList.add('hidden');
+        fundBtn.className  = 'dep-type-btn bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
+        tradeBtn.className = 'dep-type-btn bg-slate-600 hover:bg-slate-500 text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
+    } else {
+        fundSection?.classList.add('hidden');
+        tradeSection?.classList.remove('hidden');
+        fundBtn.className  = 'dep-type-btn bg-slate-600 hover:bg-slate-500 text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
+        tradeBtn.className = 'dep-type-btn bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
+    }
+};
+
+// 入金 / 出金
 window.addDeposit=(type)=>{
     const amtEl  = document.getElementById('dep-amount');
     const noteEl = document.getElementById('dep-note');
@@ -353,11 +460,53 @@ window.addDeposit=(type)=>{
     const note = noteEl?.value||'';
     const date = dateEl?.value||new Date().toISOString().slice(0,10);
     if(!amt||amt<=0){alert('請輸入金額');return;}
-    // type 直接是中文類別名
     G.deposits.push({date, type, amount:amt, note, id:Date.now().toString()});
     G.deposits.sort((a,b)=>new Date(b.date)-new Date(a.date));
     if(amtEl)amtEl.value='';
     if(noteEl)noteEl.value='';
+    renderPositions();
+    saveFS();
+};
+
+// 成交 / 平倉（可附帶手續費、期交稅）
+window.addTrade=(type)=>{
+    const dateEl = document.getElementById('trade-date');
+    const pnlEl  = document.getElementById('trade-pnl');
+    const noteEl = document.getElementById('trade-note');
+    const feeEl  = document.getElementById('trade-fee');
+    const taxEl  = document.getElementById('trade-tax');
+    const date   = dateEl?.value || new Date().toISOString().slice(0,10);
+    const pnl    = parseFloat(pnlEl?.value) || 0;
+    const note   = noteEl?.value || '';
+    const fee    = parseFloat(feeEl?.value) || 0;
+    const tax    = parseFloat(taxEl?.value) || 0;
+
+    const entries = [];
+
+    if(type === '成交'){
+        // 成交不影響權益，只記錄
+        entries.push({date, type:'成交', amount:0, note, id:Date.now().toString()});
+    } else {
+        // 平倉：先記損益
+        if(pnl !== 0){
+            entries.push({date, type:'平倉', amount:Math.abs(pnl), note:'損益 '+(pnl>0?'+':'')+pnl.toLocaleString('zh-TW')+(note?' '+note:''), id:Date.now().toString()+'_pnl', pnlSign: pnl >= 0 ? 1 : -1});
+        }
+    }
+    // 手續費（成交和平倉都可以有）
+    if(fee > 0) entries.push({date, type:'手續費', amount:fee, note:note||'', id:Date.now().toString()+'_fee'});
+    // 期交稅
+    if(tax > 0) entries.push({date, type:'期交稅', amount:tax, note:note||'', id:Date.now().toString()+'_tax'});
+
+    if(!entries.length){ alert('請至少填入損益或手續費/期交稅'); return; }
+
+    G.deposits.push(...entries);
+    G.deposits.sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+    // 清空欄位
+    if(pnlEl)pnlEl.value='';
+    if(noteEl)noteEl.value='';
+    if(feeEl)feeEl.value='0';
+    if(taxEl)taxEl.value='0';
     renderPositions();
     saveFS();
 };
@@ -547,7 +696,7 @@ window.delDay=(id)=>{G.dayRecords=G.dayRecords.filter(r=>r.id!==id);renderDayHis
 // ── 全部渲染 ──────────────────────────────────────────────────
 function renderAll(){
     renderSettleBanner();
-    renderQuotes();
+    renderTVQuoteWidget();   // 立即顯示 TradingView 即時報價
     renderQuickRisk();
     renderPositions();
     renderDayHistory();
@@ -556,6 +705,7 @@ function renderAll(){
     const today=new Date().toISOString().slice(0,10);
     const r=document.getElementById('rec-date');if(r)r.value=today;
     const d=document.getElementById('dep-date');if(d)d.value=today;
+    const td=document.getElementById('trade-date');if(td)td.value=today;
 }
 </script>
 <style>
@@ -618,38 +768,61 @@ function renderAll(){
     <!-- ═══ Tab 1：即時監控 + 走勢圖 合併 ═══ -->
     <div id="pane-live" class="tab-content active">
 
-        <!-- 報價雙卡 -->
+        <!-- 報價雙卡：TradingView Widget 即時報價 + 技術分析 -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <!-- 微台指 / 加權指數 -->
             <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <div><div class="font-bold text-slate-100">微台指 MTX</div><div class="text-xs text-slate-500">加權指數點位</div></div>
-                    <div id="mtx-pct" class="text-slate-400 font-semibold">—</div>
+                <div class="flex items-center justify-between mb-2">
+                    <div><div class="font-bold text-slate-100">微台指 MTX</div><div class="text-xs text-slate-500">走勢同加權指數 · NT$50/點</div></div>
+                    <div class="text-xs text-slate-500">即時</div>
                 </div>
-                <div id="mtx-price" class="text-3xl font-bold text-slate-500 mb-3">—</div>
-                <div class="grid grid-cols-3 gap-2 mb-3">
-                    <div class="bg-slate-700 rounded-lg p-2.5 text-center"><div class="text-xs text-slate-400 mb-1">漲跌</div><div id="mtx-diff" class="font-semibold text-slate-400">—</div></div>
-                    <div class="bg-slate-700 rounded-lg p-2.5 text-center"><div class="text-xs text-slate-400 mb-1">技術評分</div><div id="mtx-score" class="text-2xl font-bold text-slate-400">—</div><div class="bg-slate-600 rounded-full h-1.5 mt-1 overflow-hidden"><div id="mtx-score-bar" class="h-1.5 rounded-full bg-slate-500" style="width:50%"></div></div></div>
-                    <div class="bg-slate-700 rounded-lg p-2.5 text-center"><div class="text-xs text-slate-400 mb-1">點位</div><div class="text-xs text-slate-400" id="mtx-sr-mini">—</div></div>
+                <!-- TradingView 即時報價（不需要 CORS） -->
+                <div id="tv-quote-twse" class="mb-3 rounded-lg overflow-hidden" style="min-height:60px;">
+                    <div class="text-slate-500 text-xs text-center py-4">載入中...</div>
+                </div>
+                <!-- 技術評分（背景取得數值後更新） -->
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <div class="bg-slate-700 rounded-lg p-2.5 text-center">
+                        <div class="text-xs text-slate-400 mb-1">技術評分</div>
+                        <div id="mtx-score" class="text-2xl font-bold text-slate-400">—</div>
+                        <div class="bg-slate-600 rounded-full h-1.5 mt-1 overflow-hidden"><div id="mtx-score-bar" class="h-1.5 rounded-full bg-slate-500" style="width:50%"></div></div>
+                    </div>
+                    <div class="bg-slate-700 rounded-lg p-2.5 text-center">
+                        <div class="text-xs text-slate-400 mb-1">推估支撐壓力</div>
+                        <div class="text-xs text-slate-400 leading-relaxed" id="mtx-sr-mini">更新後顯示</div>
+                    </div>
                 </div>
                 <div id="mtx-tech"></div>
                 <div id="mtx-sr"></div>
             </div>
+            <!-- 台積電 -->
             <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5">
-                <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center justify-between mb-2">
                     <div><div class="font-bold text-slate-100">台積電 2330</div><div class="text-xs text-slate-500">TSMC · TSE</div></div>
-                    <div id="tsmc-pct" class="text-slate-400 font-semibold">—</div>
+                    <div class="text-xs text-slate-500">即時</div>
                 </div>
-                <div id="tsmc-price" class="text-3xl font-bold text-slate-500 mb-3">—</div>
-                <div class="grid grid-cols-3 gap-2 mb-3">
-                    <div class="bg-slate-700 rounded-lg p-2.5 text-center"><div class="text-xs text-slate-400 mb-1">漲跌</div><div id="tsmc-diff" class="font-semibold text-slate-400">—</div></div>
-                    <div class="bg-slate-700 rounded-lg p-2.5 text-center"><div class="text-xs text-slate-400 mb-1">技術評分</div><div id="tsmc-score" class="text-2xl font-bold text-slate-400">—</div><div class="bg-slate-600 rounded-full h-1.5 mt-1 overflow-hidden"><div id="tsmc-score-bar" class="h-1.5 rounded-full bg-slate-500" style="width:50%"></div></div></div>
-                    <div class="bg-slate-700 rounded-lg p-2.5 text-center"><div class="text-xs text-slate-400 mb-1">點位</div><div class="text-xs text-slate-400" id="tsmc-sr-mini">—</div></div>
+                <!-- TradingView 即時報價 -->
+                <div id="tv-quote-tsmc" class="mb-3 rounded-lg overflow-hidden" style="min-height:60px;">
+                    <div class="text-slate-500 text-xs text-center py-4">載入中...</div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <div class="bg-slate-700 rounded-lg p-2.5 text-center">
+                        <div class="text-xs text-slate-400 mb-1">技術評分</div>
+                        <div id="tsmc-score" class="text-2xl font-bold text-slate-400">—</div>
+                        <div class="bg-slate-600 rounded-full h-1.5 mt-1 overflow-hidden"><div id="tsmc-score-bar" class="h-1.5 rounded-full bg-slate-500" style="width:50%"></div></div>
+                    </div>
+                    <div class="bg-slate-700 rounded-lg p-2.5 text-center">
+                        <div class="text-xs text-slate-400 mb-1">推估支撐壓力</div>
+                        <div class="text-xs text-slate-400 leading-relaxed" id="tsmc-sr-mini">更新後顯示</div>
+                    </div>
                 </div>
                 <div id="tsmc-tech"></div>
                 <div id="tsmc-sr"></div>
             </div>
         </div>
-
+        <div class="bg-blue-900 bg-opacity-20 border border-blue-700 border-opacity-40 rounded-lg px-4 py-2 text-xs text-blue-300 mb-4">
+            📡 即時報價由 <strong>TradingView</strong> 直接提供，無需 API 或 Proxy，永遠可用。技術評分在點擊「更新報價」後顯示。
+        </div>
         <div id="corr-area"></div>
 
         <!-- 快速風控 -->
@@ -719,7 +892,7 @@ function renderAll(){
 
             <!-- 部位列表 -->
             <div class="flex items-center justify-between mb-3 mt-2">
-                <h3 class="font-bold text-slate-100">📋 持有部位（微台指 MTX · NT$50/點）</h3>
+                <h3 class="font-bold text-slate-100">📋 持有部位（微台指 MTX · NT$10/點）</h3>
                 <button onclick="addPos()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">➕ 新增部位</button>
             </div>
             <div class="overflow-x-auto mb-2">
@@ -736,40 +909,95 @@ function renderAll(){
                     <tbody id="pos-list"></tbody>
                 </table>
             </div>
-            <div class="text-xs text-slate-500">每口微台指 NT$50/點 · 修改欄位即時計算 · 自動儲存 Firebase</div>
+            <div class="text-xs text-slate-500">每口微台指 NT$10/點 · 修改欄位即時計算 · 自動儲存 Firebase</div>
         </div>
 
         <!-- 出入金 -->
         <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5 mb-4">
             <h3 class="font-bold text-slate-100 mb-4">💸 出入金（自動更新帳戶權益）</h3>
             <div id="equity-summary"></div>
-            <!-- 輸入列 -->
+            <!-- 出入金輸入介面 -->
             <div class="p-4 bg-slate-700 rounded-lg mb-4">
-                <div class="flex flex-wrap gap-3 items-end mb-3">
-                    <div>
-                        <div class="text-slate-400 text-xs mb-1">日期</div>
-                        <input type="date" id="dep-date" class="bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
-                    </div>
-                    <div class="flex-1 min-w-32">
-                        <div class="text-slate-400 text-xs mb-1">金額 (NT$)</div>
-                        <input type="number" id="dep-amount" placeholder="例如：50000" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
-                    </div>
-                    <div class="flex-1 min-w-24">
-                        <div class="text-slate-400 text-xs mb-1">備註（選填）</div>
-                        <input type="text" id="dep-note" placeholder="例如：補繳保證金" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+
+                <!-- Step 1：選擇類型 -->
+                <div class="mb-4">
+                    <div class="text-slate-300 text-xs font-medium mb-2">選擇類型</div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="selectDepType('fund')" id="dtype-fund"
+                            class="dep-type-btn bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                            💰 資金異動
+                        </button>
+                        <button onclick="selectDepType('trade')" id="dtype-trade"
+                            class="dep-type-btn bg-slate-600 hover:bg-slate-500 text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                            📋 交易記錄
+                        </button>
                     </div>
                 </div>
-                <!-- 六個類別按鈕 -->
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="addDeposit('入金')"  class="bg-green-700 hover:bg-green-600 text-green-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">💵 入金</button>
-                    <button onclick="addDeposit('出金')"  class="bg-red-700 hover:bg-red-600 text-red-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">💸 出金</button>
-                    <button onclick="addDeposit('成交')"  class="bg-blue-700 hover:bg-blue-600 text-blue-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">📋 成交</button>
-                    <button onclick="addDeposit('平倉')"  class="bg-yellow-700 hover:bg-yellow-600 text-yellow-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">✅ 平倉</button>
-                    <button onclick="addDeposit('手續費')" class="bg-orange-700 hover:bg-orange-600 text-orange-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">💳 手續費</button>
-                    <button onclick="addDeposit('期交稅')" class="bg-orange-700 hover:bg-orange-600 text-orange-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">🧾 期交稅</button>
+
+                <!-- 資金異動區（入金/出金）-->
+                <div id="dep-fund-section">
+                    <div class="flex flex-wrap gap-3 items-end mb-3">
+                        <div>
+                            <div class="text-slate-400 text-xs mb-1">日期</div>
+                            <input type="date" id="dep-date" class="bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <div class="flex-1 min-w-32">
+                            <div class="text-slate-400 text-xs mb-1">金額 (NT$)</div>
+                            <input type="number" id="dep-amount" placeholder="例如：50000" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <div class="flex-1 min-w-24">
+                            <div class="text-slate-400 text-xs mb-1">備註（選填）</div>
+                            <input type="text" id="dep-note" placeholder="例如：補繳保證金" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="addDeposit('入金')" class="bg-green-700 hover:bg-green-600 text-green-100 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex-1">
+                            💵 入金（+權益）
+                        </button>
+                        <button onclick="addDeposit('出金')" class="bg-red-700 hover:bg-red-600 text-red-100 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex-1">
+                            💸 出金（-權益）
+                        </button>
+                    </div>
                 </div>
-                <div class="text-slate-500 text-xs mt-2">
-                    入金/平倉 → <span class="text-green-400">+權益</span>　出金/手續費/期交稅 → <span class="text-red-400">-權益</span>　成交 → <span class="text-blue-400">不影響權益</span>（保證金凍結）
+
+                <!-- 交易記錄區（成交/平倉 + 手續費/期交稅）-->
+                <div id="dep-trade-section" class="hidden">
+                    <!-- 第一列：日期 + 標的 + 損益金額 -->
+                    <div class="flex flex-wrap gap-3 items-end mb-3">
+                        <div>
+                            <div class="text-slate-400 text-xs mb-1">日期</div>
+                            <input type="date" id="trade-date" class="bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <div class="flex-1 min-w-28">
+                            <div class="text-slate-400 text-xs mb-1">損益金額 (NT$)（平倉用）</div>
+                            <input type="number" id="trade-pnl" placeholder="正=獲利 負=虧損" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <div class="flex-1 min-w-24">
+                            <div class="text-slate-400 text-xs mb-1">備註</div>
+                            <input type="text" id="trade-note" placeholder="例如：多2口 22500→22650" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+                        </div>
+                    </div>
+                    <!-- 第二列：手續費 + 期交稅 -->
+                    <div class="flex flex-wrap gap-3 items-end mb-3 p-3 bg-slate-800 rounded-lg">
+                        <div class="text-slate-400 text-xs w-full mb-1">成交/平倉附帶費用（可選）</div>
+                        <div class="flex-1 min-w-24">
+                            <div class="text-slate-400 text-xs mb-1">手續費 (NT$)</div>
+                            <input type="number" id="trade-fee" placeholder="例如：40" value="0" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <div class="flex-1 min-w-24">
+                            <div class="text-slate-400 text-xs mb-1">期交稅 (NT$)</div>
+                            <input type="number" id="trade-tax" placeholder="例如：20" value="0" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
+                        </div>
+                    </div>
+                    <!-- 按鈕 -->
+                    <div class="flex gap-3 flex-wrap">
+                        <button onclick="addTrade('成交')" class="bg-blue-700 hover:bg-blue-600 text-blue-100 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex-1">
+                            📋 成交（不影響權益）
+                        </button>
+                        <button onclick="addTrade('平倉')" class="bg-yellow-700 hover:bg-yellow-600 text-yellow-100 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex-1">
+                            ✅ 平倉（損益±權益）
+                        </button>
+                    </div>
                 </div>
             </div>
             <div id="deposit-history"></div>
