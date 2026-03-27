@@ -3,1196 +3,956 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>期貨監控 — 家族資產管理</title>
+<title>期貨監控</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-
-const firebaseConfig = {
-    apiKey: "AIzaSyAt8QWDrmdYxnIsjEWX6DJ5tHXnDPDSwdM",
-    authDomain: "rebecca-financial-platform.firebaseapp.com",
-    projectId: "rebecca-financial-platform",
-    storageBucket: "rebecca-financial-platform.firebasestorage.app",
-    messagingSenderId: "335938745651",
-    appId: "1:335938745651:web:2c090e33a72db1a5adfa46"
-};
-
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
-const PTF  = 10;  // 微台指每點 NT$10（小台=50）
-
-// ── 狀態 ──────────────────────────────────────────────────────
-let G = {
-    user: null,
-    twse: null, tsmc: null,
-    positions: [],
-    deposits: [],
-    dayRecords: [],
-    cfg: { equity:353421, margin:46000, risk:3, maxLots:3, warnPct:70, dangerPct:90, maxLossPct:5, realized:0 }
-};
-
-// ── Auth ──────────────────────────────────────────────────────
-onAuthStateChanged(auth, async (user) => {
-    if (!user) { show('loginScreen'); hide('mainApp'); return; }
-    const authDoc = await getDoc(doc(db,'config','auth'));
-    const allowed = authDoc.exists() ? (authDoc.data().allowedemail||[]) : [];
-    if (!allowed.includes(user.email)) { alert('帳號不在允許名單'); await signOut(auth); return; }
-    G.user = user;
-    document.getElementById('userEmail').textContent = user.email;
-    hide('loginScreen'); show('mainApp');
-    await loadFS();
-    renderAll();
-    fetchAll();
-});
-
-window.doSignOut = async () => { await signOut(auth); window.location.href='index.html'; };
-window.goHome   = () => { window.location.href='index.html'; };
-function show(id){ document.getElementById(id)?.classList.remove('hidden'); }
-function hide(id){ document.getElementById(id)?.classList.add('hidden'); }
-
-// ── Firestore ─────────────────────────────────────────────────
-async function saveFS() {
-    if (!G.user) return;
-    try { await setDoc(doc(db,'futures',G.user.uid),{positions:G.positions,deposits:G.deposits,dayRecords:G.dayRecords.slice(0,200),cfg:G.cfg,updatedAt:Date.now()}); }
-    catch(e){ console.warn(e); }
-}
-async function loadFS() {
-    if (!G.user) return;
-    try {
-        const s = await getDoc(doc(db,'futures',G.user.uid));
-        if (s.exists()) {
-            const d = s.data();
-            if(d.positions)  G.positions  = d.positions;
-            if(d.deposits)   G.deposits   = d.deposits;
-            if(d.dayRecords) G.dayRecords = d.dayRecords;
-            if(d.cfg)        G.cfg = {...G.cfg,...d.cfg};
-        }
-    } catch(e){ console.warn(e); }
-}
-
-// ── 結算日 ────────────────────────────────────────────────────
-function thirdWed(y,m){ let c=0; for(let d=1;d<=31;d++){const dt=new Date(y,m,d);if(dt.getMonth()!==m)break;if(dt.getDay()===3){c++;if(c===3)return dt;}} return null; }
-function nextSettle(){
-    const t=new Date();
-    for(let i=0;i<4;i++){
-        const m=t.getMonth()+i, y=t.getFullYear()+Math.floor(m/12);
-        const s=thirdWed(y,m%12);
-        if(s&&s>=t)return s;
-    }
-    return null;
-}
-function daysUntil(dt){ return Math.round((new Date(dt)-new Date())/864e5); }
-
-// ── Helpers ───────────────────────────────────────────────────
-function fmtNT(n){ return 'NT$'+Math.round(n).toLocaleString('zh-TW'); }
-function fmtPct(n){ return (n>=0?'+':'')+n.toFixed(2)+'%'; }
-
-function calcTech(price,pct){
-    const p=Math.round(price);
-    const ma5=p-Math.round(p*0.0015),ma20=p-Math.round(p*0.005),ma60=p-Math.round(p*0.012);
-    const bbMid=ma20,bbUp=Math.round(ma20+p*0.018),bbDn=Math.round(ma20-p*0.018);
-    const bbPct=Math.round((p-bbDn)/(bbUp-bbDn)*100);
-    const rsi=pct>1.5?72:pct>0.5?62:pct>0?54:pct>-0.5?46:pct>-1.5?38:28;
-    const k=Math.min(95,Math.max(5,rsi+5)),dv=Math.min(95,Math.max(5,rsi-3));
-    const macd=pct>0.5?Math.round(p*0.001):pct<-0.5?-Math.round(p*0.001):0;
-    let sc=0,wt=0;
-    const a=(v,w)=>{sc+=v*w;wt+=w;};
-    a(p>ma5&&ma5>ma20&&ma20>ma60?1:p<ma5&&ma5<ma20?-1:p>ma20?0.4:-0.3,2);
-    a(bbPct>85?-0.3:bbPct<15?0.3:p>bbMid?0.5:-0.4,1.5);
-    a(rsi>70?-0.4:rsi<30?0.4:rsi>50?0.5:-0.4,1.5);
-    a(k>dv?0.4:-0.4,1.5);
-    a(macd>0?0.6:macd<0?-0.6:0,2);
-    a(pct>1?0.7:pct>0.3?0.4:pct<-1?-0.7:pct<-0.3?-0.4:0,1.5);
-    const score=Math.round((sc/wt+1)/2*100);
-    return {score,ma5,ma20,ma60,bbUp,bbDn,bbMid,bbPct,rsi,k,d:dv,macd,
-            s1:Math.round(p-p*0.01),s2:Math.round(p-p*0.02),
-            r1:Math.round(p+p*0.01),r2:Math.round(p+p*0.02)};
-}
-
-// ── 報價：TradingView symbol-overview widget（支援嵌入）─────
-function renderTVQuoteWidget(){
-    const twEl = document.getElementById('tv-quote-twse');
-    const tsEl = document.getElementById('tv-quote-tsmc');
-
-    function makeWidget(containerId, symbols){
-        const cfg = JSON.stringify({
-            symbols: symbols,
-            chartOnly: false,
-            width: '100%',
-            height: 120,
-            locale: 'zh_TW',
-            colorTheme: 'dark',
-            autosize: true,
-            showVolume: false,
-            showMA: false,
-            hideDateRanges: true,
-            hideMarketStatus: false,
-            hideSymbolLogo: true,
-            scalePosition: 'right',
-            scaleMode: 'Normal',
-            fontFamily: 'Trebuchet MS, sans-serif',
-            fontSize: '10',
-            noTimeScale: true,
-            valuesTracking: '1',
-            changeMode: 'price-and-percent',
-            chartType: 'area',
-            lineWidth: 2,
-            lineType: 0,
-            dateRanges: ['1d|1']
-        });
-        return '<div class="tradingview-widget-container" style="width:100%;height:120px;">'
-            + '<div id="'+containerId+'" style="width:100%;height:120px;"></div>'
-            + '<script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>'
-            + cfg
-            + '<\/script></div>';
-    }
-
-    if(twEl) twEl.innerHTML = makeWidget('tv-ov-twse', [['TSE:TAIEX|1D', '加權指數', 'TAIEX']]);
-    if(tsEl) tsEl.innerHTML = makeWidget('tv-ov-tsmc', [['TSE:2330|1D',  '台積電 2330', '2330']]);
-}
-
-// 背景嘗試取得數值（供技術分析推估用）
-async function fetchYahooValue(sym){
-    const symbol = /^\d/.test(sym) ? sym+'.TW' : sym;
-    const urls = [
-        'https://corsproxy.io/?url='+encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/'+symbol+'?interval=1d&range=2d'),
-        'https://api.allorigins.win/raw?url='+encodeURIComponent('https://query2.finance.yahoo.com/v8/finance/chart/'+symbol+'?interval=1d&range=2d'),
-        'https://thingproxy.freeboard.io/fetch/https://query1.finance.yahoo.com/v8/finance/chart/'+symbol+'?interval=1d&range=2d',
-    ];
-    for(const u of urls){
-        try{
-            const r = await fetch(u, {signal:AbortSignal.timeout(6000), cache:'no-cache'});
-            if(!r.ok) continue;
-            const d = await r.json();
-            const meta = d?.chart?.result?.[0]?.meta;
-            if(!meta) continue;
-            const cur  = meta.regularMarketPrice || meta.chartPreviousClose;
-            const prev = meta.chartPreviousClose  || meta.previousClose || cur;
-            if(cur && cur > 0) return {price:Math.abs(cur), prev:Math.abs(prev), diff:cur-prev, pct:prev>0?(cur-prev)/prev*100:0};
-        }catch(e){}
-    }
-    return null;
-}
-
-window.fetchAll = async () => {
-    const btn = document.getElementById('refresh-btn');
-    if(btn){ btn.disabled=true; btn.innerHTML='🔄 更新中...'; }
-
-    // 立即嵌入 TradingView 即時報價 widget（不會失敗）
-    renderTVQuoteWidget();
-
-    // 背景取得數值供技術分析用
-    try{
-        const [r1, r2] = await Promise.allSettled([fetchYahooValue('t00'), fetchYahooValue('2330')]);
-        if(r1.status==='fulfilled' && r1.value) G.twse = r1.value;
-        if(r2.status==='fulfilled' && r2.value) G.tsmc = r2.value;
-        const now = new Date().toLocaleTimeString('zh-TW');
-        document.getElementById('last-update').textContent = '更新：'+now+(G.twse?.price>0 ? '　技術分析已更新' : '　技術分析數值載入中');
-        renderTechSection();
-        renderQuickRisk();
-    } catch(e){
-        document.getElementById('last-update').textContent = '即時報價由 TradingView 顯示';
-    } finally {
-        if(btn){ btn.disabled=false; btn.innerHTML='🔄 更新報價'; }
-    }
-};
-
-// 技術分析（在取得數值後更新）
-function renderTechSection(){
-    function buildTech(data, prefix){
-        if(!data || data.price<=0) return;
-        const t = calcTech(data.price, data.pct);
-        const scoreEl = document.getElementById(prefix+'-score');
-        const barEl   = document.getElementById(prefix+'-score-bar');
-        const techEl  = document.getElementById(prefix+'-tech');
-        const srEl    = document.getElementById(prefix+'-sr');
-        const miniEl  = document.getElementById(prefix+'-sr-mini');
-        if(scoreEl){ scoreEl.textContent=t.score; scoreEl.className='text-2xl font-bold '+(t.score>=65?'text-green-400':t.score<=35?'text-red-400':'text-yellow-400'); }
-        if(barEl)  { barEl.style.width=t.score+'%'; barEl.className='h-1.5 rounded-full transition-all '+(t.score>=65?'bg-green-500':t.score<=35?'bg-red-500':'bg-yellow-500'); }
-        if(miniEl) { miniEl.innerHTML='S2 <b class="text-red-400">'+t.s2+'</b> S1 <b class="text-red-300">'+t.s1+'</b><br>R1 <b class="text-yellow-300">'+t.r1+'</b> R2 <b class="text-yellow-400">'+t.r2+'</b>'; }
-        if(techEl){
-            const sigs=[
-                {n:'均線',v:data.price>t.ma5&&t.ma5>t.ma20?'多頭排列':data.price<t.ma5&&t.ma5<t.ma20?'空頭排列':'均線糾結',bull:data.price>t.ma5&&t.ma5>t.ma20?1:data.price<t.ma5?-1:0},
-                {n:'RSI', v:t.rsi>70?'超買'+t.rsi:t.rsi<30?'超賣'+t.rsi:''+t.rsi,bull:t.rsi>70?-0.5:t.rsi<30?0.5:t.rsi>50?0.4:-0.3},
-                {n:'KD',  v:t.k>t.d?'K>D偏多':'K<D偏空',bull:t.k>t.d?0.4:-0.4},
-                {n:'MACD',v:t.macd>0?'紅柱+'+t.macd:t.macd<0?'綠柱'+t.macd:'零軸',bull:t.macd>0?0.6:t.macd<0?-0.6:0},
-            ];
-            techEl.innerHTML=sigs.map(s=>{
-                const c=s.bull>0.1?'text-green-400':s.bull<-0.1?'text-red-400':'text-slate-400';
-                const bg=s.bull>0.1?'bg-green-900 text-green-300':s.bull<-0.1?'bg-red-900 text-red-300':'bg-slate-700 text-slate-400';
-                return '<div class="flex items-center gap-2 py-1.5 border-b border-slate-700 last:border-0 text-sm"><div class="w-1.5 h-1.5 rounded-full flex-shrink-0 '+c.replace('text-','bg-')+'"></div><span class="text-slate-400 w-10 text-xs">'+s.n+'</span><span class="font-semibold '+c+' flex-1 text-xs">'+s.v+'</span><span class="text-xs px-1.5 py-0.5 rounded font-medium '+bg+'">'+(s.bull>0.1?'看多':s.bull<-0.1?'看空':'中性')+'</span></div>';
-            }).join('');
-        }
-        if(srEl) srEl.innerHTML='<div class="grid grid-cols-4 gap-1 mt-2"><div class="bg-red-900 bg-opacity-40 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">S2</div><div class="font-mono font-bold text-red-400 text-sm">'+t.s2+'</div></div><div class="bg-red-900 bg-opacity-30 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">S1</div><div class="font-mono font-bold text-red-300 text-sm">'+t.s1+'</div></div><div class="bg-yellow-900 bg-opacity-30 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">R1</div><div class="font-mono font-bold text-yellow-300 text-sm">'+t.r1+'</div></div><div class="bg-yellow-900 bg-opacity-40 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">R2</div><div class="font-mono font-bold text-yellow-400 text-sm">'+t.r2+'</div></div></div>';
-    }
-    buildTech(G.twse, 'mtx');
-    buildTech(G.tsmc, 'tsmc');
-    // 關聯分析
-    const ca=document.getElementById('corr-area');
-    if(ca&&G.twse?.price>0&&G.tsmc?.price>0){
-        const same=(G.twse.pct>0&&G.tsmc.pct>0)||(G.twse.pct<0&&G.tsmc.pct<0);
-        const diff=Math.abs(Math.abs(G.twse.pct)-Math.abs(G.tsmc.pct));
-        let cls,label,note;
-        if(same&&diff<1){cls='bg-green-900 border-green-600 text-green-300';label='高度同向';note='台積電與加權同步，微台指方向明確';}
-        else if(same)   {cls='bg-blue-900 border-blue-600 text-blue-300';label='同向但幅度差異';note='差異 '+diff.toFixed(2)+'%';}
-        else            {cls='bg-yellow-900 border-yellow-600 text-yellow-300';label='多空背離';note='方向不同，操作需謹慎';}
-        ca.innerHTML='<div class="border '+cls+' rounded-lg px-4 py-2 text-sm mt-0 mb-4"><span class="font-bold">📊 關聯 — '+label+'：</span>'+note+'</div>';
-    }
-}
-// ── 結算橫幅 ──────────────────────────────────────────────────
-function renderSettleBanner(){
-    const el=document.getElementById('settle-banner');
-    if(!el)return;
-    const next=nextSettle(); if(!next){el.innerHTML='';return;}
-    const diff=Math.round((next-new Date())/864e5);
-    const ds=next.toLocaleDateString('zh-TW');
-    let cls,msg,sub;
-    if(diff===0)     {cls='bg-red-900 border-red-500 text-red-300';     msg='今日結算日';                      sub='波動極大，結算前一小時特別危險。';}
-    else if(diff<=2) {cls='bg-red-900 border-red-500 text-red-300';     msg='結算倒數 '+diff+' 天（'+ds+'）';  sub='結算前夕，停損設緊。';}
-    else if(diff<=5) {cls='bg-yellow-900 border-yellow-600 text-yellow-300';msg='結算週，剩 '+diff+' 天（'+ds+'）';sub='Gamma 風險上升，注意急拉急殺。';}
-    else if(diff<=10){cls='bg-yellow-900 border-yellow-600 text-yellow-300';msg='本月結算 '+diff+' 天後（'+ds+'）';sub='觀察法人換倉。';}
-    else             {cls='bg-blue-900 border-blue-600 text-blue-300';  msg='本月結算：'+ds+'（'+diff+' 天後）'; sub='正常操作。';}
-    el.innerHTML='<div class="border '+cls+' rounded-lg px-4 py-3 text-sm mb-4"><span class="font-bold">⚠️ '+msg+'</span> — '+sub+'</div>';
-}
-
-// ── 報價卡 ────────────────────────────────────────────────────
-function renderQuotes(){
-    function setQ(prefix,data){
-        const pe=id=>document.getElementById(prefix+'-'+id);
-        if(!data){if(pe('price')){pe('price').textContent='—';pe('price').className='text-3xl font-bold text-slate-500';}return;}
-        const t=calcTech(data.price,data.pct);
-        if(pe('price')){pe('price').textContent=data.price.toLocaleString('zh-TW',{maximumFractionDigits:0});pe('price').className='text-3xl font-bold '+(data.diff>0?'text-green-400':data.diff<0?'text-red-400':'text-slate-100');}
-        if(pe('diff')) {pe('diff').textContent=(data.diff>=0?'+':'')+data.diff.toFixed(0);pe('diff').className='font-semibold '+(data.diff>0?'text-green-400':data.diff<0?'text-red-400':'text-slate-400');}
-        if(pe('pct'))  {pe('pct').textContent=fmtPct(data.pct);pe('pct').className='font-semibold '+(data.pct>0?'text-green-400':data.pct<0?'text-red-400':'text-slate-400');}
-        if(pe('score')){pe('score').textContent=t.score;pe('score').className='text-2xl font-bold '+(t.score>=65?'text-green-400':t.score<=35?'text-red-400':'text-yellow-400');}
-        const bar=pe('score-bar');
-        if(bar){bar.style.width=t.score+'%';bar.className='h-1.5 rounded-full transition-all '+(t.score>=65?'bg-green-500':t.score<=35?'bg-red-500':'bg-yellow-500');}
-        if(pe('tech')){
-            const sigs=[
-                {n:'均線',v:data.price>t.ma5&&t.ma5>t.ma20?'多頭排列':data.price<t.ma5&&t.ma5<t.ma20?'空頭排列':'均線糾結',bull:data.price>t.ma5&&t.ma5>t.ma20?1:data.price<t.ma5?-1:0},
-                {n:'RSI', v:t.rsi>70?'超買'+t.rsi:t.rsi<30?'超賣'+t.rsi:''+t.rsi,bull:t.rsi>70?-0.5:t.rsi<30?0.5:t.rsi>50?0.4:-0.3},
-                {n:'KD',  v:t.k>t.d?'K>D偏多':' K<D偏空',bull:t.k>t.d?0.4:-0.4},
-                {n:'MACD',v:t.macd>0?'紅柱+'+t.macd:t.macd<0?'綠柱'+t.macd:'零軸',bull:t.macd>0?0.6:t.macd<0?-0.6:0},
-            ];
-            pe('tech').innerHTML=sigs.map(s=>{
-                const c=s.bull>0.1?'text-green-400':s.bull<-0.1?'text-red-400':'text-slate-400';
-                const bg=s.bull>0.1?'bg-green-900 text-green-300':s.bull<-0.1?'bg-red-900 text-red-300':'bg-slate-700 text-slate-400';
-                return '<div class="flex items-center gap-2 py-1.5 border-b border-slate-700 last:border-0 text-sm"><div class="w-1.5 h-1.5 rounded-full flex-shrink-0 '+c.replace('text-','bg-')+'"></div><span class="text-slate-400 w-10 text-xs">'+s.n+'</span><span class="font-semibold '+c+' flex-1 text-xs">'+s.v+'</span><span class="text-xs px-1.5 py-0.5 rounded font-medium '+bg+'">'+(s.bull>0.1?'看多':s.bull<-0.1?'看空':'中性')+'</span></div>';
-            }).join('');
-        }
-        if(pe('sr')) pe('sr').innerHTML='<div class="grid grid-cols-4 gap-1 mt-2"><div class="bg-red-900 bg-opacity-40 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">S2</div><div class="font-mono font-bold text-red-400 text-sm">'+t.s2+'</div></div><div class="bg-red-900 bg-opacity-30 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">S1</div><div class="font-mono font-bold text-red-300 text-sm">'+t.s1+'</div></div><div class="bg-yellow-900 bg-opacity-30 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">R1</div><div class="font-mono font-bold text-yellow-300 text-sm">'+t.r1+'</div></div><div class="bg-yellow-900 bg-opacity-40 rounded px-2 py-1 text-center"><div class="text-xs text-slate-400">R2</div><div class="font-mono font-bold text-yellow-400 text-sm">'+t.r2+'</div></div></div>';
-    }
-    setQ('mtx',G.twse);
-    setQ('tsmc',G.tsmc);
-    // 關聯
-    const ca=document.getElementById('corr-area');
-    if(ca&&G.twse&&G.tsmc){
-        const same=(G.twse.pct>0&&G.tsmc.pct>0)||(G.twse.pct<0&&G.tsmc.pct<0);
-        const diff=Math.abs(Math.abs(G.twse.pct)-Math.abs(G.tsmc.pct));
-        let cls,label,note;
-        if(same&&diff<1){cls='bg-green-900 border-green-600 text-green-300';label='高度同向';note='台積電與加權同步，微台指方向明確';}
-        else if(same)   {cls='bg-blue-900 border-blue-600 text-blue-300';  label='同向但幅度差異';note='台積電'+fmtPct(G.tsmc.pct)+' vs 加權'+fmtPct(G.twse.pct);}
-        else            {cls='bg-yellow-900 border-yellow-600 text-yellow-300';label='多空背離';note='台積電'+fmtPct(G.tsmc.pct)+' 與加權'+fmtPct(G.twse.pct)+' 方向不同，操作需謹慎';}
-        ca.innerHTML='<div class="border '+cls+' rounded-lg px-4 py-2 text-sm mt-3"><span class="font-bold">📊 關聯 — '+label+'：</span>'+note+'</div>';
-    }
-}
-
-// ── 快速風控 ──────────────────────────────────────────────────
-function renderQuickRisk(){
-    const el=document.getElementById('quick-risk');
-    if(!el||!G.twse)return;
-    const {equity,risk,maxLots,margin}=G.cfg;
-    const riskAmt=Math.round(equity*risk/100);
-    const p=Math.round(G.twse.price);
-    const t=calcTech(p,G.twse.pct);
-    const isLong=t.score>=50;
-    const sl=isLong?t.s2:t.r2;
-    const slPts=Math.abs(p-sl);
-    const lots=Math.min(maxLots,Math.max(1,slPts>0?Math.floor(riskAmt/(slPts*PTF)):1));
-    el.innerHTML='<div class="grid grid-cols-3 gap-3"><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">最大風險 '+risk+'%</div><div class="font-bold text-red-400 font-mono">'+fmtNT(riskAmt)+'</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">建議口數</div><div class="font-bold text-slate-100 text-xl">'+lots+' 口</div><div class="text-slate-500 text-xs mt-0.5">停損'+slPts+'點</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">停損參考</div><div class="font-bold text-red-400 font-mono">'+sl+'</div><div class="text-slate-500 text-xs mt-0.5">'+(isLong?'多單 S2':'空單 R2')+'</div></div></div>';
-}
-
-// ── 部位管理 ──────────────────────────────────────────────────
-// 每種類別對權益數的影響
-// 入金：+  出金：-  成交（買期貨）：0（保證金凍結，不影響權益）
-// 平倉損益：+/-  手續費：-  期交稅：-
-const TRANS_TYPES = {
-    '入金':   { sign: +1,  color: 'text-green-400', bg: 'bg-green-900 text-green-300' },
-    '出金':   { sign: -1,  color: 'text-red-400',   bg: 'bg-red-900 text-red-300' },
-    '成交':   { sign:  0,  color: 'text-blue-400',  bg: 'bg-blue-900 text-blue-300' },
-    '平倉':   { sign: +1,  color: 'text-yellow-400',bg: 'bg-yellow-900 text-yellow-300' },
-    '手續費': { sign: -1,  color: 'text-orange-400',bg: 'bg-orange-900 text-orange-300' },
-    '期交稅': { sign: -1,  color: 'text-orange-400',bg: 'bg-orange-900 text-orange-300' },
-};
-
-function calcEquity(){
-    let eq = G.cfg.equity;
-    G.deposits.forEach(d => {
-        const info = TRANS_TYPES[d.type] || { sign: 0 };
-        if(d.type === '平倉' && d.pnlSign !== undefined){
-            // 平倉損益有正負
-            eq += d.pnlSign * Math.abs(d.amount);
-        } else {
-            eq += info.sign * Math.abs(d.amount);
-        }
-    });
-    return eq;
-}
-
-function renderPositions(){
-    const equity=calcEquity();
-    const {margin,dangerPct,warnPct,maxLossPct,realized}=G.cfg;
-    let totalMargin=0,totalPnl=0;
-    G.positions.forEach(p=>{totalMargin+=margin*p.qty;totalPnl+=(p.dir==='多'?p.cur-p.entry:p.entry-p.cur)*PTF*p.qty;});
-    const netEquity=equity+totalPnl;
-    const ratio=totalMargin>0?totalMargin/netEquity*100:0;
-    const dayTotal=realized+totalPnl;
-    const ratioColor=ratio>=dangerPct?'text-red-400':ratio>=warnPct?'text-yellow-400':'text-green-400';
-    const barColor=ratio>=dangerPct?'bg-red-500':ratio>=warnPct?'bg-yellow-500':'bg-green-500';
-    const mEl=document.getElementById('pos-metrics');
-    if(mEl){
-        let alerts='';
-        if(ratio>=dangerPct) alerts+='<div class="border border-red-500 bg-red-900 bg-opacity-40 text-red-300 rounded-lg px-4 py-2 text-sm mb-2">🔴 保證金使用率 '+ratio.toFixed(1)+'%，請立即減倉</div>';
-        else if(ratio>=warnPct) alerts+='<div class="border border-yellow-600 bg-yellow-900 bg-opacity-40 text-yellow-300 rounded-lg px-4 py-2 text-sm mb-2">🟡 保證金使用率 '+ratio.toFixed(1)+'% 達黃燈</div>';
-        if(dayTotal<-equity*maxLossPct/100) alerts+='<div class="border border-red-500 bg-red-900 bg-opacity-40 text-red-300 rounded-lg px-4 py-2 text-sm mb-2">🔴 今日虧損超過上限，建議停止交易</div>';
-        mEl.innerHTML=alerts+'<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">帳戶淨值（含出入金）</div><div class="font-bold text-slate-100 font-mono text-sm">'+fmtNT(netEquity)+'</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">未實現損益</div><div class="font-bold font-mono text-sm '+(totalPnl>=0?'text-green-400':'text-red-400')+'">'+(totalPnl>=0?'+':'')+fmtNT(totalPnl)+'</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">保證金使用率</div><div class="font-bold '+ratioColor+' text-sm">'+ratio.toFixed(1)+'%</div><div class="mt-1.5 bg-slate-600 rounded-full h-1.5 overflow-hidden"><div class="'+barColor+' h-1.5 rounded-full" style="width:'+Math.min(100,ratio).toFixed(1)+'%"></div></div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">今日總損益</div><div class="font-bold font-mono text-sm '+(dayTotal>=0?'text-green-400':'text-red-400')+'">'+(dayTotal>=0?'+':'')+fmtNT(dayTotal)+'</div></div></div>';
-    }
-    const pl=document.getElementById('pos-list');
-    if(!pl)return;
-    if(G.positions.length===0){pl.innerHTML='<tr><td colspan="7" class="px-4 py-6 text-center text-slate-500">尚無部位，點擊「新增部位」</td></tr>';return;}
-    pl.innerHTML=G.positions.map((p,i)=>{
-        const pnl=(p.dir==='多'?p.cur-p.entry:p.entry-p.cur)*PTF*p.qty;
-        return '<tr class="border-b border-slate-700"><td class="px-3 py-3 text-center"><select onchange="updPos('+i+',\'dir\',this.value)" class="bg-slate-700 text-slate-100 px-2 py-1 rounded border border-slate-600 text-sm"><option value="多" '+(p.dir==='多'?'selected':'')+'>多</option><option value="空" '+(p.dir==='空'?'selected':'')+'>空</option></select></td><td class="px-3 py-3 text-center"><input type="number" value="'+p.qty+'" min="1" max="99" onchange="updPos('+i+',\'qty\',this.value)" class="w-14 bg-slate-700 text-slate-100 px-2 py-1 rounded border border-slate-600 text-sm text-center font-mono"></td><td class="px-3 py-3 text-center"><input type="number" value="'+p.entry+'" onchange="updPos('+i+',\'entry\',this.value)" class="w-24 bg-slate-700 text-slate-100 px-2 py-1 rounded border border-slate-600 text-sm font-mono"></td><td class="px-3 py-3 text-center"><input type="number" value="'+p.cur+'" onchange="updPos('+i+',\'cur\',this.value)" class="w-24 bg-slate-700 text-slate-100 px-2 py-1 rounded border border-slate-600 text-sm font-mono"></td><td class="px-3 py-3 text-center font-mono font-bold '+(pnl>=0?'text-green-400':'text-red-400')+' text-sm">'+(pnl>=0?'+':'')+fmtNT(pnl)+'</td><td class="px-3 py-3 text-center font-mono text-slate-300 text-xs">'+fmtNT(Math.abs(pnl/PTF/(p.qty||1)))+'/點</td><td class="px-3 py-3 text-center"><button onclick="delPos('+i+')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded text-sm">✕</button></td></tr>';
-    }).join('');
-    // 出入金歷史
-    renderDeposits();
-}
-
-window.updPos=(i,f,v)=>{if(!G.positions[i])return;G.positions[i][f]=['qty','entry','cur'].includes(f)?parseFloat(v)||0:v;renderPositions();renderQuickRisk();saveFS();};
-window.delPos=(i)=>{if(!confirm('確定刪除？'))return;G.positions.splice(i,1);renderPositions();saveFS();};
-window.addPos=()=>{const p=Math.round(G.twse?.price||22500);G.positions.push({dir:'多',qty:1,entry:p,cur:p});renderPositions();saveFS();};
-
-// ── 出入金 ────────────────────────────────────────────────────
-function renderDeposits(){
-    const el=document.getElementById('deposit-history');
-    if(!el)return;
-    const baseEquity = G.cfg.equity;
-    const currentEquity = calcEquity();
-
-    // 各類別統計
-    const stats = {};
-    Object.keys(TRANS_TYPES).forEach(k=>{ stats[k]=0; });
-    G.deposits.forEach(d=>{ if(stats[d.type]!==undefined) stats[d.type]+=Math.abs(d.amount); });
-
-    const sumEl = document.getElementById('equity-summary');
-    if(sumEl){
-        const items = [
-            {label:'初始權益',    val:baseEquity,           color:'text-slate-100',  sign:''},
-            {label:'累計入金',    val:stats['入金'],        color:'text-green-400',  sign:'+'},
-            {label:'累計出金',    val:stats['出金'],        color:'text-red-400',    sign:'-'},
-            {label:'平倉損益',    val:stats['平倉'],        color:'text-yellow-400', sign:'±'},
-            {label:'手續費',      val:stats['手續費'],      color:'text-orange-400', sign:'-'},
-            {label:'期交稅',      val:stats['期交稅'],      color:'text-orange-400', sign:'-'},
-            {label:'目前權益數',  val:currentEquity,        color:'text-blue-400',   sign:'', highlight:true},
-        ];
-        sumEl.innerHTML = '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">'
-            + items.map(item=>'<div class="bg-slate-700 rounded-lg p-3'+(item.highlight?' border border-blue-500':'')+'"><div class="text-slate-400 text-xs mb-1">'+item.label+'</div><div class="font-bold '+item.color+' font-mono text-sm">'+(item.sign&&item.val>0?item.sign:'')+fmtNT(item.val)+'</div></div>').join('')
-            + '</div>';
-    }
-
-    if(!G.deposits.length){
-        el.innerHTML='<div class="text-slate-500 text-sm text-center py-3">尚無記錄</div>';
-        return;
-    }
-
-    // 計算每筆記帳後的累計權益
-    let runningEq = baseEquity;
-    const withEq = G.deposits.slice().reverse().map(d=>{
-        const info = TRANS_TYPES[d.type]||{sign:0};
-        if(d.type === '平倉' && d.pnlSign !== undefined){
-            runningEq += d.pnlSign * Math.abs(d.amount);
-        } else {
-            runningEq += info.sign * Math.abs(d.amount);
-        }
-        return {...d, eqAfter: runningEq};
-    }).reverse();
-
-    el.innerHTML = '<table class="w-full text-sm">'
-        + '<thead><tr class="bg-slate-900 border-b border-slate-700">'
-        + '<th class="px-3 py-2 text-left text-slate-300 text-xs">日期</th>'
-        + '<th class="px-3 py-2 text-center text-slate-300 text-xs">類別</th>'
-        + '<th class="px-3 py-2 text-right text-slate-300 text-xs">金額</th>'
-        + '<th class="px-3 py-2 text-right text-slate-300 text-xs">累計權益</th>'
-        + '<th class="px-3 py-2 text-left text-slate-300 text-xs">備註</th>'
-        + '<th class="px-3 py-2 text-center text-slate-300 text-xs">操作</th>'
-        + '</tr></thead><tbody>'
-        + withEq.map((d,i)=>{
-            const info = TRANS_TYPES[d.type]||{sign:0,color:'text-slate-300',bg:'bg-slate-700 text-slate-300'};
-            const amtSign = info.sign > 0 ? '+' : info.sign < 0 ? '-' : '';
-            const amtColor = info.sign > 0 ? 'text-green-400' : info.sign < 0 ? 'text-red-400' : 'text-blue-400';
-            return '<tr class="border-b border-slate-700 hover:bg-slate-750">'
-                + '<td class="px-3 py-2 text-slate-400 text-xs">'+d.date+'</td>'
-                + '<td class="px-3 py-2 text-center"><span class="text-xs px-2 py-0.5 rounded font-medium '+info.bg+'">'+d.type+'</span></td>'
-                + '<td class="px-3 py-2 text-right font-mono font-bold '+amtColor+' text-sm">'+amtSign+fmtNT(Math.abs(d.amount))+'</td>'
-                + '<td class="px-3 py-2 text-right font-mono text-slate-300 text-sm">'+fmtNT(d.eqAfter)+'</td>'
-                + '<td class="px-3 py-2 text-slate-400 text-xs">'+(d.note||'—')+'</td>'
-                + '<td class="px-3 py-2 text-center"><button onclick="delDeposit('+i+')" class="text-red-400 hover:text-red-300 text-xs px-1.5 py-0.5 rounded">✕</button></td>'
-                + '</tr>';
-        }).join('')
-        + '</tbody></table>';
-}
-
-// 切換資金異動/交易記錄介面
-window.selectDepType = (mode) => {
-    const fundSection  = document.getElementById('dep-fund-section');
-    const tradeSection = document.getElementById('dep-trade-section');
-    const fundBtn  = document.getElementById('dtype-fund');
-    const tradeBtn = document.getElementById('dtype-trade');
-    if(mode === 'fund'){
-        fundSection?.classList.remove('hidden');
-        tradeSection?.classList.add('hidden');
-        fundBtn.className  = 'dep-type-btn bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
-        tradeBtn.className = 'dep-type-btn bg-slate-600 hover:bg-slate-500 text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
-    } else {
-        fundSection?.classList.add('hidden');
-        tradeSection?.classList.remove('hidden');
-        fundBtn.className  = 'dep-type-btn bg-slate-600 hover:bg-slate-500 text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
-        tradeBtn.className = 'dep-type-btn bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
-    }
-};
-
-// 入金 / 出金
-window.addDeposit=(type)=>{
-    const amtEl  = document.getElementById('dep-amount');
-    const noteEl = document.getElementById('dep-note');
-    const dateEl = document.getElementById('dep-date');
-    const amt  = parseFloat(amtEl?.value)||0;
-    const note = noteEl?.value||'';
-    const date = dateEl?.value||new Date().toISOString().slice(0,10);
-    if(!amt||amt<=0){alert('請輸入金額');return;}
-    G.deposits.push({date, type, amount:amt, note, id:Date.now().toString()});
-    G.deposits.sort((a,b)=>new Date(b.date)-new Date(a.date));
-    if(amtEl)amtEl.value='';
-    if(noteEl)noteEl.value='';
-    renderPositions();
-    saveFS();
-};
-
-// 成交 / 平倉（可附帶手續費、期交稅）
-window.addTrade=(type)=>{
-    const dateEl = document.getElementById('trade-date');
-    const pnlEl  = document.getElementById('trade-pnl');
-    const noteEl = document.getElementById('trade-note');
-    const feeEl  = document.getElementById('trade-fee');
-    const taxEl  = document.getElementById('trade-tax');
-    const date   = dateEl?.value || new Date().toISOString().slice(0,10);
-    const pnl    = parseFloat(pnlEl?.value) || 0;
-    const note   = noteEl?.value || '';
-    const fee    = parseFloat(feeEl?.value) || 0;
-    const tax    = parseFloat(taxEl?.value) || 0;
-
-    const entries = [];
-
-    if(type === '成交'){
-        // 成交不影響權益，只記錄
-        entries.push({date, type:'成交', amount:0, note, id:Date.now().toString()});
-    } else {
-        // 平倉：先記損益
-        if(pnl !== 0){
-            entries.push({date, type:'平倉', amount:Math.abs(pnl), note:'損益 '+(pnl>0?'+':'')+pnl.toLocaleString('zh-TW')+(note?' '+note:''), id:Date.now().toString()+'_pnl', pnlSign: pnl >= 0 ? 1 : -1});
-        }
-    }
-    // 手續費（成交和平倉都可以有）
-    if(fee > 0) entries.push({date, type:'手續費', amount:fee, note:note||'', id:Date.now().toString()+'_fee'});
-    // 期交稅
-    if(tax > 0) entries.push({date, type:'期交稅', amount:tax, note:note||'', id:Date.now().toString()+'_tax'});
-
-    if(!entries.length){ alert('請至少填入損益或手續費/期交稅'); return; }
-
-    G.deposits.push(...entries);
-    G.deposits.sort((a,b)=>new Date(b.date)-new Date(a.date));
-
-    // 清空欄位
-    if(pnlEl)pnlEl.value='';
-    if(noteEl)noteEl.value='';
-    if(feeEl)feeEl.value='0';
-    if(taxEl)taxEl.value='0';
-    renderPositions();
-    saveFS();
-};
-window.delDeposit=(i)=>{G.deposits.splice(i,1);renderPositions();saveFS();};
-
-// ── AI 分析 ───────────────────────────────────────────────────
-window.doAnalyze=async()=>{
-    const btn=document.getElementById('ai-btn');
-    const area=document.getElementById('ai-result');
-    if(!G.twse){area.innerHTML='<div class="text-yellow-400 text-sm text-center py-4">請先更新報價再執行 AI 分析</div>';return;}
-    btn.disabled=true;btn.innerHTML='⏳ 分析中...';
-    area.innerHTML='<div class="flex items-center gap-3 py-6 justify-center text-slate-400 text-sm"><div class="flex gap-1"><div class="w-2 h-2 rounded-full bg-blue-400 animate-bounce"></div><div class="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style="animation-delay:200ms"></div><div class="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style="animation-delay:400ms"></div></div>AI 整合分析中...</div>';
-    const twT=calcTech(G.twse.price,G.twse.pct);
-    const next=nextSettle();
-    const diff=next?Math.round((next-new Date())/864e5):99;
-    const sc=diff===0?'今日結算日':diff<=2?'結算倒數'+diff+'天':diff<=5?'結算週'+diff+'天':'距結算'+diff+'天';
-    const {equity,risk,maxLots}=G.cfg;
-    const eq=calcEquity();
-    const riskAmt=Math.round(eq*risk/100);
-    const prompt='你是專業微台指分析師。根據即時數據給出完整操作建議。\n即時：加權'+Math.round(G.twse.price)+'點，今日'+fmtPct(G.twse.pct)+'，技術評分'+twT.score+'/100\nS1='+twT.s1+' S2='+twT.s2+' R1='+twT.r1+' R2='+twT.r2+'\n台積電：'+(G.tsmc?'NT$'+Math.round(G.tsmc.price)+'，今日'+fmtPct(G.tsmc.pct):'無數據')+'\n結算：'+sc+'，帳戶NT$'+eq+'，風險'+risk+'%=NT$'+riskAmt+'，最大'+maxLots+'口\n只回覆JSON：{"score":<0-100>,"trend":"<強多|偏多|中性|偏空|強空>","context":"<2句>","entry":{"dir":"<long|short|wait>","type":"<類型>","zone":"<區間>","reason":"<1句>","sl":<數>,"tp1":<數>,"tp2":<數>,"lots":<數>,"rr":"<比>"},"fixed":{"sl":<數>,"tp1":<數>,"tp2":<數>,"sl_pts":<數>,"tp1_pts":<數>,"tp2_pts":<數>},"tsmc_note":"<1句>","settle_note":"<1句>","risk_warn":"<1句>"}';
-    try{
-        const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
-        const data=await res.json();
-        const raw=data.content?.find(c=>c.type==='text')?.text||'';
-        const a=JSON.parse(raw.replace(/```json|```/g,'').trim());
-        const e=a.entry||{},f=a.fixed||{};
-        const lots=Math.min(maxLots,e.lots||1);
-        const isL=e.dir==='long',isS=e.dir==='short',isW=!isL&&!isS;
-        const sc2=Math.min(100,Math.max(0,a.score||50));
-        const scC=sc2>=65?'text-green-400':sc2<=35?'text-red-400':'text-yellow-400';
-        const scBg=sc2>=65?'border-green-500 bg-green-900 bg-opacity-30':sc2<=35?'border-red-500 bg-red-900 bg-opacity-30':'border-yellow-600 bg-yellow-900 bg-opacity-30';
-        const sp=f.sl_pts||0,tp1p=f.tp1_pts||0,tp2p=f.tp2_pts||0;
-        const eBg=isL?'border-green-500 bg-green-900 bg-opacity-30':isS?'border-red-500 bg-red-900 bg-opacity-30':'border-slate-600 bg-slate-700 bg-opacity-50';
-        const eC=isL?'text-green-400':isS?'text-red-400':'text-slate-400';
-        area.innerHTML='<div class="space-y-4"><div class="border '+scBg+' rounded-lg p-4"><div class="flex items-center gap-4 mb-3"><div class="text-5xl font-bold '+scC+'">'+sc2+'</div><div><div class="font-bold text-slate-100 text-lg">'+(a.trend||'')+'</div><div class="w-40 bg-slate-600 rounded-full h-2 mt-2 overflow-hidden"><div class="h-2 rounded-full '+(sc2>=65?'bg-green-500':sc2<=35?'bg-red-500':'bg-yellow-500')+'" style="width:'+sc2+'%"></div></div></div></div><p class="text-slate-300 text-sm leading-relaxed">'+(a.context||'')+'</p></div><div><div class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">進出場建議</div><div class="border '+eBg+' rounded-lg p-4"><div class="font-bold text-sm mb-1 '+eC+'">'+(isW?'建議觀望':isL?'多單進場 — '+(e.type||''):'空單進場 — '+(e.type||''))+'</div><div class="text-xs mb-3 '+eC+' opacity-90">'+(e.reason||'')+'</div>'+((!isW)?'<div class="grid grid-cols-3 gap-2 mb-3"><div class="bg-slate-800 rounded p-2"><div class="text-slate-400 text-xs">進場區間</div><div class="font-semibold text-slate-100 text-sm font-mono">'+(e.zone||'-')+'</div></div><div class="bg-slate-800 rounded p-2"><div class="text-slate-400 text-xs">口數/風報</div><div class="font-semibold text-slate-100 text-sm">'+lots+'口 '+(e.rr||'-')+'</div></div><div class="bg-slate-800 rounded p-2"><div class="text-slate-400 text-xs">停損</div><div class="font-bold text-red-400 font-mono text-sm">'+(e.sl||'-')+'</div><div class="text-xs text-slate-500">'+sp+'點 '+fmtNT(sp*PTF*lots)+'</div></div></div><div class="grid grid-cols-2 gap-2"><div class="bg-slate-800 rounded p-2"><div class="text-slate-400 text-xs">TP1</div><div class="font-bold text-green-400 font-mono text-sm">'+(e.tp1||'-')+'</div><div class="text-xs text-slate-500">+'+fmtNT(tp1p*PTF*lots)+'</div></div><div class="bg-slate-800 rounded p-2"><div class="text-slate-400 text-xs">TP2</div><div class="font-bold text-green-400 font-mono text-sm">'+(e.tp2||'-')+'</div><div class="text-xs text-slate-500">+'+fmtNT(tp2p*PTF*lots)+'</div></div></div>':'')+'</div></div><div class="space-y-2">'+(a.tsmc_note?'<div class="border border-blue-700 bg-blue-900 bg-opacity-30 text-blue-300 rounded-lg px-4 py-2 text-sm"><span class="font-semibold">台積電：</span>'+a.tsmc_note+'</div>':'')+(a.settle_note?'<div class="border border-yellow-700 bg-yellow-900 bg-opacity-30 text-yellow-300 rounded-lg px-4 py-2 text-sm"><span class="font-semibold">結算策略：</span>'+a.settle_note+'</div>':'')+(a.risk_warn?'<div class="border border-red-700 bg-red-900 bg-opacity-30 text-red-300 rounded-lg px-4 py-2 text-sm">⚠️ '+a.risk_warn+'</div>':'')+'</div></div>';
-    }catch(e){area.innerHTML='<div class="text-red-400 text-sm text-center py-4">分析失敗：'+e.message+'</div>';}
-    btn.disabled=false;btn.innerHTML='🤖 AI 完整分析';
-};
-
-// ── 日曆 ──────────────────────────────────────────────────────
-function getImportantEvents(y, m){
-    // 台指期結算（第三個週三）
-    const settle = thirdWed(y, m);
-    // 自動產生已知重要日期
-    const known = [];
-    // Fed 會議（預設每年8次，約每6-7週，這裡列2026年預估）
-    const fedDates2026 = [
-        [2026,1,28],[2026,3,18],[2026,4,29],[2026,6,10],
-        [2026,7,29],[2026,9,16],[2026,10,28],[2026,12,9]
-    ];
-    fedDates2026.forEach(([fy,fm,fd])=>{
-        if(fy===y && fm-1===m) known.push({day:fd, label:'🇺🇸 Fed 利率決議', color:'bg-blue-700'});
-    });
-    // 台指期結算
-    if(settle) known.push({day:settle.getDate(), label:'⚡ 台指期結算', color:'bg-red-700'});
-    return known;
-}
-
-function renderCalendar(){
-    const today=new Date(), y=today.getFullYear(), m=today.getMonth();
-    const months=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-    const el=document.getElementById('cal-title');
-    if(el)el.textContent=y+'年'+months[m];
-    const firstDay=new Date(y,m,1).getDay();
-    const daysInMonth=new Date(y,m+1,0).getDate();
-    const todayD=today.getDate();
-    const events=getImportantEvents(y,m);
-    const evMap={};
-    events.forEach(e=>{ if(!evMap[e.day]) evMap[e.day]=[]; evMap[e.day].push(e); });
-    const grid=document.getElementById('cal-grid');
-    if(!grid)return;
-    let html='';
-    for(let i=0;i<firstDay;i++) html+='<div class="h-20"></div>';
-    for(let d=1;d<=daysInMonth;d++){
-        const isToday=d===todayD;
-        const evs=evMap[d]||[];
-        const hasEv=evs.length>0;
-        const dow=new Date(y,m,d).getDay();
-        const isWeekend=dow===0||dow===6;
-        let cellBg=isToday?'bg-blue-800 border-2 border-blue-400':hasEv?'bg-slate-700':'bg-slate-800';
-        let numColor=isToday?'text-white font-bold':isWeekend?'text-red-400':'text-slate-300';
-        html+='<div class="'+cellBg+' rounded-lg p-1.5 h-20 flex flex-col"><div class="text-xs '+numColor+' mb-1">'+d+'</div>';
-        evs.forEach(e=>{
-            html+='<div class="'+e.color+' text-white text-xs rounded px-1 py-0.5 mb-0.5 leading-tight truncate">'+e.label+'</div>';
-        });
-        html+='</div>';
-    }
-    grid.innerHTML=html;
-    renderUpcomingEvents(y,m,events,todayD);
-}
-
-function renderUpcomingEvents(y,m,events,todayD){
-    const el=document.getElementById('upcoming-events');
-    if(!el)return;
-    const upcoming=events.filter(e=>e.day>=todayD).sort((a,b)=>a.day-b.day);
-    if(!upcoming.length){el.innerHTML='<div class="text-slate-500 text-sm">本月無重要事件</div>';return;}
-    el.innerHTML=upcoming.map(e=>{
-        const diff=e.day-todayD;
-        const label=diff===0?'今天':diff===1?'明天':diff+'天後';
-        return '<div class="flex items-center gap-3 py-2 border-b border-slate-700 last:border-0"><div class="'+e.color+' text-white text-xs rounded px-2 py-1 min-w-max">'+e.label+'</div><div class="text-slate-300 text-sm">'+y+'年'+(m+1)+'月'+e.day+'日</div><div class="text-slate-400 text-xs ml-auto">'+label+'</div></div>';
-    }).join('');
-}
-
-// ── 設定 ──────────────────────────────────────────────────────
-function renderSettings(){
-    const cfg=G.cfg;
-    const fields=[
-        ['cfg-equity','equity'],['cfg-margin','margin'],['cfg-risk','risk'],
-        ['cfg-maxlots','maxLots'],['cfg-maxloss','maxLossPct'],
-        ['cfg-realized','realized'],['cfg-warn','warnPct'],['cfg-danger','dangerPct']
-    ];
-    fields.forEach(([id,key])=>{
-        const el=document.getElementById(id);
-        if(el) el.value=cfg[key];
-    });
-}
-
-window.saveSettings=()=>{
-    const fields=[
-        ['cfg-equity','equity'],['cfg-margin','margin'],['cfg-risk','risk'],
-        ['cfg-maxlots','maxLots'],['cfg-maxloss','maxLossPct'],
-        ['cfg-realized','realized'],['cfg-warn','warnPct'],['cfg-danger','dangerPct']
-    ];
-    fields.forEach(([id,key])=>{
-        const el=document.getElementById(id);
-        if(el) G.cfg[key]=parseFloat(el.value)||0;
-    });
-    renderPositions();renderQuickRisk();saveFS();
-    const s=document.getElementById('cfg-saved');
-    if(s){s.classList.remove('hidden');setTimeout(()=>s.classList.add('hidden'),2000);}
-};
-
-// ── TradingView 圖表 ──────────────────────────────────────────
-var _tvSym='TAIFEX:FITX1!', _tvIntv='60', _tvLbl='台指期 FITX';
-var INTV_LBL={'1':'1分','5':'5分','15':'15分','30':'30分','60':'1小時','D':'日線','W':'週線'};
-
-window.loadChart=function(sym,lbl,intv){
-    _tvSym=sym;_tvLbl=lbl;if(intv)_tvIntv=intv;
-    document.querySelectorAll('.chart-sel-btn').forEach(b=>{b.className='chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-sm transition-colors';});
-    if(event&&event.currentTarget)event.currentTarget.className='chart-sel-btn bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold';
-    renderMainChart();
-};
-window.setChartInterval=function(intv){
-    _tvIntv=intv;
-    document.querySelectorAll('.intv-btn').forEach(b=>{b.className='intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1 rounded text-xs';});
-    if(event&&event.currentTarget)event.currentTarget.className='intv-btn bg-blue-600 text-white px-3 py-1 rounded text-xs';
-    renderMainChart();
-};
-function renderMainChart(){
-    const container = document.getElementById('tv-main-chart');
-    if(!container) return;
-    const lbl = document.getElementById('chart-current-label');
-    if(lbl) lbl.textContent = _tvLbl + ' · ' + (INTV_LBL[_tvIntv]||_tvIntv);
-
-    // 使用 advanced-chart widget（支援嵌入，功能完整）
-    const divId = 'tv-adv-' + Date.now();
-    const cfg = JSON.stringify({
-        autosize: true,
-        symbol: _tvSym,
-        interval: _tvIntv,
-        timezone: 'Asia/Taipei',
-        theme: 'dark',
-        style: '1',
-        locale: 'zh_TW',
-        toolbar_bg: '#1e293b',
-        enable_publishing: false,
-        hide_top_toolbar: false,
-        hide_legend: false,
-        save_image: false,
-        container_id: divId,
-        studies: ['BB@tv-basicstudies','MACD@tv-basicstudies','RSI@tv-basicstudies'],
-        show_popup_button: false
-    });
-
-    container.innerHTML =
-        '<div class="tradingview-widget-container" style="height:500px;width:100%;">'
-        + '<div id="'+divId+'" style="height:500px;width:100%;"></div>'
-        + '<script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>'
-        + cfg
-        + '<\/script></div>';
-}
-
-// ── 每日損益 ──────────────────────────────────────────────────
-function renderDayHistory(){
-    const el=document.getElementById('day-history');
-    if(!el)return;
-    if(!G.dayRecords.length){el.innerHTML='<tr><td colspan="4" class="px-4 py-4 text-center text-slate-500">尚無記錄</td></tr>';return;}
-    const total=G.dayRecords.reduce((s,r)=>s+r.pnl,0);
-    const wins=G.dayRecords.filter(r=>r.pnl>0).length;
-    const wr=G.dayRecords.length>0?Math.round(wins/G.dayRecords.length*100):0;
-    const mEl=document.getElementById('day-summary');
-    if(mEl)mEl.innerHTML='<div class="grid grid-cols-3 gap-3 mb-3"><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">累計損益</div><div class="font-bold font-mono '+(total>=0?'text-green-400':'text-red-400')+'">'+(total>=0?'+':'')+fmtNT(total)+'</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">勝率</div><div class="font-bold text-slate-100">'+wr+'%</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-slate-400 text-xs mb-1">筆數</div><div class="font-bold text-slate-100">'+G.dayRecords.length+'</div></div></div>';
-    el.innerHTML=G.dayRecords.slice(0,30).map(r=>'<tr class="border-b border-slate-700"><td class="px-3 py-2 text-slate-400 text-sm">'+r.date+'</td><td class="px-3 py-2 font-mono font-bold text-sm '+(r.pnl>=0?'text-green-400':'text-red-400')+'">'+(r.pnl>=0?'+':'')+fmtNT(r.pnl)+'</td><td class="px-3 py-2 text-slate-400 text-sm">'+(r.note||'—')+'</td><td class="px-3 py-2 text-center"><button onclick="delDay(\''+r.id+'\')" class="text-red-400 hover:text-red-300 text-xs">✕</button></td></tr>').join('');
-}
-window.addDayRecord=()=>{
-    const date=document.getElementById('rec-date')?.value;
-    const pnl=parseFloat(document.getElementById('rec-pnl')?.value)||0;
-    const note=document.getElementById('rec-note')?.value||'';
-    if(!date){alert('請選擇日期');return;}
-    G.dayRecords.unshift({id:Date.now().toString(),date,pnl,note});
-    G.dayRecords.sort((a,b)=>new Date(b.date)-new Date(a.date));
-    if(document.getElementById('rec-pnl'))document.getElementById('rec-pnl').value='';
-    if(document.getElementById('rec-note'))document.getElementById('rec-note').value='';
-    renderDayHistory();saveFS();
-};
-window.delDay=(id)=>{G.dayRecords=G.dayRecords.filter(r=>r.id!==id);renderDayHistory();saveFS();};
-
-// ── 全部渲染 ──────────────────────────────────────────────────
-function renderAll(){
-    renderSettleBanner();
-    renderTVQuoteWidget();   // 立即顯示 TradingView 即時報價
-    renderQuickRisk();
-    renderPositions();
-    renderDayHistory();
-    renderCalendar();
-    renderSettings();
-    const today=new Date().toISOString().slice(0,10);
-    const r=document.getElementById('rec-date');if(r)r.value=today;
-    const d=document.getElementById('dep-date');if(d)d.value=today;
-    const td=document.getElementById('trade-date');if(td)td.value=today;
-}
-</script>
-<style>
-.tab-button{position:relative;transition:all .3s ease;}
-.tab-button.active{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:white;box-shadow:0 4px 12px rgba(59,130,246,.4);}
-.tab-button:not(.active):hover{background:rgba(59,130,246,.1);}
-.tab-content{display:none;animation:fadeIn .3s ease-in;}
-.tab-content.active{display:block;}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes bounce{0%,100%{transform:translateY(-25%)}50%{transform:translateY(0)}}
-.animate-bounce{animation:bounce 1s infinite;}
-</style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
+<body class="bg-slate-900 min-h-screen text-slate-100">
 
-<!-- 登入牆 -->
+<!-- ══════════════════════════════════════════════════════════
+     登入牆
+════════════════════════════════════════════════════════════ -->
 <div id="loginScreen" class="hidden min-h-screen flex items-center justify-center p-4">
-    <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-        <div class="text-4xl mb-4">📈</div>
-        <h1 class="text-2xl font-bold text-slate-100 mb-2">期貨監控系統</h1>
-        <p class="text-slate-400 mb-6">需要登入才能使用</p>
-        <button onclick="goHome()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold transition-colors">← 回到主頁登入</button>
-    </div>
+  <div class="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-md w-full text-center">
+    <div class="text-5xl mb-4">📈</div>
+    <h1 class="text-2xl font-bold mb-2">期貨監控系統</h1>
+    <p class="text-slate-400 mb-6">需要登入才能使用</p>
+    <button onclick="goHome()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold">← 回到主頁登入</button>
+  </div>
 </div>
 
-<!-- 主應用 -->
+<!-- ══════════════════════════════════════════════════════════
+     主應用
+════════════════════════════════════════════════════════════ -->
 <div id="mainApp" class="hidden p-4 md:p-6">
 <div class="max-w-7xl mx-auto">
 
-    <!-- 頂部 -->
-    <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl p-6 mb-6">
-        <div class="flex items-center justify-between flex-wrap gap-4">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-100 mb-1">期貨安全監測系統</h1>
-                <p class="text-slate-400">已登入：<span id="userEmail" class="text-blue-400"></span></p>
-            </div>
-            <div class="flex items-center gap-3 flex-wrap">
-                <button onclick="goHome()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors">← 返回主頁</button>
-                <button id="refresh-btn" onclick="fetchAll()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">🔄 更新報價</button>
-                <button id="ai-btn" onclick="doAnalyze()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">🤖 AI 完整分析</button>
-                <button onclick="doSignOut()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors">登出</button>
-            </div>
+  <!-- 頂部標題列 -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-5 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold">📈 期貨安全監測系統</h1>
+      <p class="text-slate-400 text-sm mt-0.5">已登入：<span id="userEmail" class="text-blue-400"></span></p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button onclick="goHome()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm">← 返回主頁</button>
+      <button id="refresh-btn" onclick="fetchAll()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-semibold">🔄 更新報價</button>
+      <button id="ai-btn" onclick="doAnalyze()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm font-semibold">🤖 AI 分析</button>
+      <button onclick="doSignOut()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm">登出</button>
+    </div>
+    <div id="last-update" class="w-full text-slate-500 text-xs"></div>
+  </div>
+
+  <!-- 結算橫幅 -->
+  <div id="settle-banner" class="mb-4"></div>
+
+  <!-- Tab 按鈕 -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-2 mb-5">
+    <div class="flex gap-2 flex-wrap">
+      <button id="tab-live"      onclick="switchTab('live')"      class="tab-btn active flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm">📡 即時監控</button>
+      <button id="tab-positions" onclick="switchTab('positions')"  class="tab-btn flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm text-slate-400">💼 部位管理</button>
+      <button id="tab-calendar"  onclick="switchTab('calendar')"   class="tab-btn flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm text-slate-400">📅 事件日曆</button>
+      <button id="tab-settings"  onclick="switchTab('settings')"   class="tab-btn flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm text-slate-400">⚙️ 設定</button>
+    </div>
+  </div>
+
+  <!-- ══ Tab: 即時監控 ══ -->
+  <div id="pane-live" class="tab-pane">
+
+    <!-- 報價雙卡 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <!-- 微台指 -->
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <div class="font-bold">微台指 MTX</div>
+            <div class="text-xs text-slate-500">走勢同加權指數 · NT$10/點</div>
+          </div>
+          <div id="mtx-pct" class="font-semibold text-slate-400 text-sm">—</div>
         </div>
-        <div id="last-update" class="text-slate-500 text-xs mt-2"></div>
+        <div id="mtx-price" class="text-3xl font-bold text-slate-400 mb-3">—</div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <div class="bg-slate-700 rounded-lg p-2.5">
+            <div class="text-xs text-slate-400 mb-1">技術評分</div>
+            <div id="mtx-score" class="text-2xl font-bold text-slate-400">—</div>
+            <div class="bg-slate-600 rounded-full h-1.5 mt-1 overflow-hidden">
+              <div id="mtx-score-bar" class="h-1.5 rounded-full bg-slate-500 transition-all" style="width:50%"></div>
+            </div>
+          </div>
+          <div class="bg-slate-700 rounded-lg p-2.5">
+            <div class="text-xs text-slate-400 mb-1">支撐 / 壓力</div>
+            <div id="mtx-sr-mini" class="text-xs text-slate-400 leading-relaxed">更新後顯示</div>
+          </div>
+        </div>
+        <div id="mtx-tech"></div>
+        <div id="mtx-sr"></div>
+      </div>
+      <!-- 台積電 -->
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <div class="font-bold">台積電 2330</div>
+            <div class="text-xs text-slate-500">TSMC · TSE</div>
+          </div>
+          <div id="tsmc-pct" class="font-semibold text-slate-400 text-sm">—</div>
+        </div>
+        <div id="tsmc-price" class="text-3xl font-bold text-slate-400 mb-3">—</div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <div class="bg-slate-700 rounded-lg p-2.5">
+            <div class="text-xs text-slate-400 mb-1">技術評分</div>
+            <div id="tsmc-score" class="text-2xl font-bold text-slate-400">—</div>
+            <div class="bg-slate-600 rounded-full h-1.5 mt-1 overflow-hidden">
+              <div id="tsmc-score-bar" class="h-1.5 rounded-full bg-slate-500 transition-all" style="width:50%"></div>
+            </div>
+          </div>
+          <div class="bg-slate-700 rounded-lg p-2.5">
+            <div class="text-xs text-slate-400 mb-1">支撐 / 壓力</div>
+            <div id="tsmc-sr-mini" class="text-xs text-slate-400 leading-relaxed">更新後顯示</div>
+          </div>
+        </div>
+        <div id="tsmc-tech"></div>
+        <div id="tsmc-sr"></div>
+      </div>
     </div>
 
-    <!-- 結算橫幅 -->
-    <div id="settle-banner"></div>
+    <div id="corr-area"></div>
 
-    <!-- Tabs -->
-    <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 mb-6">
-        <div class="flex gap-2 flex-wrap">
-            <button onclick="switchTab('live')"      id="tab-live"      class="tab-button active flex-1 px-4 py-3 rounded-lg font-semibold text-base">📡 即時監控</button>
-            <button onclick="switchTab('positions')" id="tab-positions" class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold text-base text-slate-400">💼 部位管理</button>
-            <button onclick="switchTab('calendar')"  id="tab-calendar"  class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold text-base text-slate-400">📅 事件日曆</button>
-            <button onclick="switchTab('settings')"  id="tab-settings"  class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold text-base text-slate-400">⚙️ 設定</button>
-        </div>
+    <!-- 快速風控 -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 my-4">
+      <div class="font-semibold text-sm mb-3">⚡ 快速風控試算</div>
+      <div id="quick-risk" class="text-slate-500 text-sm text-center py-2">更新報價後顯示</div>
     </div>
 
-    <!-- ═══ Tab 1：即時監控 + 走勢圖 合併 ═══ -->
-    <div id="pane-live" class="tab-content active">
-
-        <!-- 報價雙卡：TradingView Widget 即時報價 + 技術分析 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <!-- 微台指 / 加權指數 -->
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5">
-                <div class="flex items-center justify-between mb-2">
-                    <div><div class="font-bold text-slate-100">微台指 MTX</div><div class="text-xs text-slate-500">走勢同加權指數 · NT$50/點</div></div>
-                    <div class="text-xs text-slate-500">即時</div>
-                </div>
-                <!-- TradingView 即時報價（不需要 CORS） -->
-                <div id="tv-quote-twse" class="mb-3 rounded-lg overflow-hidden" style="min-height:60px;">
-                    <div class="text-slate-500 text-xs text-center py-4">載入中...</div>
-                </div>
-                <!-- 技術評分（背景取得數值後更新） -->
-                <div class="grid grid-cols-2 gap-2 mb-3">
-                    <div class="bg-slate-700 rounded-lg p-2.5 text-center">
-                        <div class="text-xs text-slate-400 mb-1">技術評分</div>
-                        <div id="mtx-score" class="text-2xl font-bold text-slate-400">—</div>
-                        <div class="bg-slate-600 rounded-full h-1.5 mt-1 overflow-hidden"><div id="mtx-score-bar" class="h-1.5 rounded-full bg-slate-500" style="width:50%"></div></div>
-                    </div>
-                    <div class="bg-slate-700 rounded-lg p-2.5 text-center">
-                        <div class="text-xs text-slate-400 mb-1">推估支撐壓力</div>
-                        <div class="text-xs text-slate-400 leading-relaxed" id="mtx-sr-mini">更新後顯示</div>
-                    </div>
-                </div>
-                <div id="mtx-tech"></div>
-                <div id="mtx-sr"></div>
-            </div>
-            <!-- 台積電 -->
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5">
-                <div class="flex items-center justify-between mb-2">
-                    <div><div class="font-bold text-slate-100">台積電 2330</div><div class="text-xs text-slate-500">TSMC · TSE</div></div>
-                    <div class="text-xs text-slate-500">即時</div>
-                </div>
-                <!-- TradingView 即時報價 -->
-                <div id="tv-quote-tsmc" class="mb-3 rounded-lg overflow-hidden" style="min-height:60px;">
-                    <div class="text-slate-500 text-xs text-center py-4">載入中...</div>
-                </div>
-                <div class="grid grid-cols-2 gap-2 mb-3">
-                    <div class="bg-slate-700 rounded-lg p-2.5 text-center">
-                        <div class="text-xs text-slate-400 mb-1">技術評分</div>
-                        <div id="tsmc-score" class="text-2xl font-bold text-slate-400">—</div>
-                        <div class="bg-slate-600 rounded-full h-1.5 mt-1 overflow-hidden"><div id="tsmc-score-bar" class="h-1.5 rounded-full bg-slate-500" style="width:50%"></div></div>
-                    </div>
-                    <div class="bg-slate-700 rounded-lg p-2.5 text-center">
-                        <div class="text-xs text-slate-400 mb-1">推估支撐壓力</div>
-                        <div class="text-xs text-slate-400 leading-relaxed" id="tsmc-sr-mini">更新後顯示</div>
-                    </div>
-                </div>
-                <div id="tsmc-tech"></div>
-                <div id="tsmc-sr"></div>
-            </div>
-        </div>
-        <div class="bg-blue-900 bg-opacity-20 border border-blue-700 border-opacity-40 rounded-lg px-4 py-2 text-xs text-blue-300 mb-4">
-            📡 即時報價由 <strong>TradingView</strong> 直接提供，無需 API 或 Proxy，永遠可用。技術評分在點擊「更新報價」後顯示。
-        </div>
-        <div id="corr-area"></div>
-
-        <!-- 快速風控 -->
-        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5 mt-4 mb-4">
-            <div class="font-bold text-slate-100 text-sm mb-3">⚡ 快速風控試算</div>
-            <div id="quick-risk"><div class="text-slate-500 text-sm text-center py-2">更新報價後顯示</div></div>
-        </div>
-
-        <!-- AI 分析 -->
-        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5 mb-4">
-            <div class="font-bold text-slate-100 text-sm mb-3">🤖 AI 分析結果</div>
-            <div id="ai-result"><div class="text-slate-500 text-sm text-center py-8">點擊上方「🤖 AI 完整分析」開始</div></div>
-        </div>
-
-        <!-- TradingView 走勢圖 -->
-        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-4">
-            <div class="font-bold text-slate-100 text-sm mb-3">📊 走勢圖（TradingView）</div>
-            <div class="flex items-center gap-2 flex-wrap mb-3">
-                <button onclick="loadChart('TAIFEX:FITX1!','台指期','60')"  class="chart-sel-btn bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">台指期</button>
-                <button onclick="loadChart('TSE:2330','台積電 2330','D')"    class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-xs">台積電 2330</button>
-                <button onclick="loadChart('TSE:0050','元大50','D')"          class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-xs">元大50</button>
-                <button onclick="loadChart('TVC:SPX','S&amp;P500','D')"       class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-xs">S&amp;P500</button>
-                <button onclick="loadChart('NASDAQ:NDX','Nasdaq100','D')"     class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-xs">Nasdaq100</button>
-                <button onclick="loadChart('COMEX:GC1!','黃金','D')"          class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-xs">黃金</button>
-                <button onclick="loadChart('FX_IDC:USDTWD','USD/TWD','D')"   class="chart-sel-btn bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-1.5 rounded-lg text-xs">USD/TWD</button>
-                <span class="text-slate-500 text-xs ml-1">｜</span>
-                <button onclick="setChartInterval('5')"  class="intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded text-xs">5分</button>
-                <button onclick="setChartInterval('15')" class="intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded text-xs">15分</button>
-                <button onclick="setChartInterval('60')" class="intv-btn bg-blue-600 text-white px-2 py-1 rounded text-xs">1小時</button>
-                <button onclick="setChartInterval('D')"  class="intv-btn bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded text-xs">日線</button>
-                <span class="text-slate-400 text-xs ml-1" id="chart-current-label">台指期 · 1小時</span>
-            </div>
-            <div id="tv-main-chart" style="height:500px;width:100%;"></div>
-        </div>
-
-        <!-- 副圖 2x2（symbol-overview widget，支援嵌入）-->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
-                <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold text-slate-300">台指期 FITX — 日線</div>
-                <div class="tradingview-widget-container" style="width:100%;height:220px;"><div id="tv-sub-fitx" style="width:100%;height:220px;"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>{"symbols":[["TAIFEX:FITX1!|1D","台指期","FITX"]],"chartOnly":false,"width":"100%","height":220,"locale":"zh_TW","colorTheme":"dark","autosize":true,"showVolume":false,"showMA":false,"hideDateRanges":true,"hideMarketStatus":false,"hideSymbolLogo":true,"scalePosition":"right","scaleMode":"Normal","fontFamily":"Trebuchet MS, sans-serif","fontSize":"10","noTimeScale":false,"valuesTracking":"1","changeMode":"price-and-percent","chartType":"area","lineWidth":2,"lineType":0,"dateRanges":["3m|1D"]}<\/script></div>
-            </div>
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
-                <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold text-slate-300">台積電 2330 — 日線</div>
-                <div class="tradingview-widget-container" style="width:100%;height:220px;"><div id="tv-sub-tsmc" style="width:100%;height:220px;"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>{"symbols":[["TSE:2330|1D","台積電","2330"]],"chartOnly":false,"width":"100%","height":220,"locale":"zh_TW","colorTheme":"dark","autosize":true,"showVolume":false,"showMA":false,"hideDateRanges":true,"hideMarketStatus":false,"hideSymbolLogo":true,"scalePosition":"right","scaleMode":"Normal","fontFamily":"Trebuchet MS, sans-serif","fontSize":"10","noTimeScale":false,"valuesTracking":"1","changeMode":"price-and-percent","chartType":"area","lineWidth":2,"lineType":0,"dateRanges":["3m|1D"]}<\/script></div>
-            </div>
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
-                <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold text-slate-300">S&amp;P500 指數 — 日線</div>
-                <div class="tradingview-widget-container" style="width:100%;height:200px;"><div id="tv-sub-spx" style="width:100%;height:200px;"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>{"symbols":[["SP:SPX|1D","S&P500","SPX"]],"chartOnly":false,"width":"100%","height":200,"locale":"zh_TW","colorTheme":"dark","autosize":true,"showVolume":false,"showMA":false,"hideDateRanges":true,"hideMarketStatus":false,"hideSymbolLogo":true,"scalePosition":"right","scaleMode":"Normal","fontFamily":"Trebuchet MS, sans-serif","fontSize":"10","noTimeScale":false,"valuesTracking":"1","changeMode":"price-and-percent","chartType":"area","lineWidth":2,"lineType":0,"dateRanges":["3m|1D"]}<\/script></div>
-            </div>
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
-                <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold text-slate-300">Nasdaq 100 — 日線</div>
-                <div class="tradingview-widget-container" style="width:100%;height:200px;"><div id="tv-sub-ndx" style="width:100%;height:200px;"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>{"symbols":[["NASDAQ:NDX|1D","Nasdaq 100","NDX"]],"chartOnly":false,"width":"100%","height":200,"locale":"zh_TW","colorTheme":"dark","autosize":true,"showVolume":false,"showMA":false,"hideDateRanges":true,"hideMarketStatus":false,"hideSymbolLogo":true,"scalePosition":"right","scaleMode":"Normal","fontFamily":"Trebuchet MS, sans-serif","fontSize":"10","noTimeScale":false,"valuesTracking":"1","changeMode":"price-and-percent","chartType":"area","lineWidth":2,"lineType":0,"dateRanges":["3m|1D"]}<\/script></div>
-            </div>
-        </div>
+    <!-- AI 分析 -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-4">
+      <div class="font-semibold text-sm mb-3">🤖 AI 分析結果</div>
+      <div id="ai-result" class="text-slate-500 text-sm text-center py-6">點擊上方「🤖 AI 分析」開始</div>
     </div>
 
-    <!-- ═══ Tab 2：部位管理 + 出入金 ═══ -->
-    <div id="pane-positions" class="tab-content">
-
-        <!-- 帳戶總覽 -->
-        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5 mb-4">
-            <div id="pos-metrics"></div>
-
-            <!-- 部位列表 -->
-            <div class="flex items-center justify-between mb-3 mt-2">
-                <h3 class="font-bold text-slate-100">📋 持有部位（微台指 MTX · NT$10/點）</h3>
-                <button onclick="addPos()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">➕ 新增部位</button>
-            </div>
-            <div class="overflow-x-auto mb-2">
-                <table class="w-full text-sm">
-                    <thead><tr class="bg-slate-900 border-b border-slate-700">
-                        <th class="px-3 py-2 text-center text-slate-300">方向</th>
-                        <th class="px-3 py-2 text-center text-slate-300">口數</th>
-                        <th class="px-3 py-2 text-center text-slate-300">成本點位</th>
-                        <th class="px-3 py-2 text-center text-slate-300">現在點位</th>
-                        <th class="px-3 py-2 text-center text-slate-300">未實現損益</th>
-                        <th class="px-3 py-2 text-center text-slate-300">每點損益</th>
-                        <th class="px-3 py-2 text-center text-slate-300">操作</th>
-                    </tr></thead>
-                    <tbody id="pos-list"></tbody>
-                </table>
-            </div>
-            <div class="text-xs text-slate-500">每口微台指 NT$10/點 · 修改欄位即時計算 · 自動儲存 Firebase</div>
-        </div>
-
-        <!-- 出入金 -->
-        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5 mb-4">
-            <h3 class="font-bold text-slate-100 mb-4">💸 出入金（自動更新帳戶權益）</h3>
-            <div id="equity-summary"></div>
-            <!-- 出入金輸入介面 -->
-            <div class="p-4 bg-slate-700 rounded-lg mb-4">
-
-                <!-- Step 1：選擇類型 -->
-                <div class="mb-4">
-                    <div class="text-slate-300 text-xs font-medium mb-2">選擇類型</div>
-                    <div class="flex gap-2 flex-wrap">
-                        <button onclick="selectDepType('fund')" id="dtype-fund"
-                            class="dep-type-btn bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                            💰 資金異動
-                        </button>
-                        <button onclick="selectDepType('trade')" id="dtype-trade"
-                            class="dep-type-btn bg-slate-600 hover:bg-slate-500 text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
-                            📋 交易記錄
-                        </button>
-                    </div>
-                </div>
-
-                <!-- 資金異動區（入金/出金）-->
-                <div id="dep-fund-section">
-                    <div class="flex flex-wrap gap-3 items-end mb-3">
-                        <div>
-                            <div class="text-slate-400 text-xs mb-1">日期</div>
-                            <input type="date" id="dep-date" class="bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
-                        </div>
-                        <div class="flex-1 min-w-32">
-                            <div class="text-slate-400 text-xs mb-1">金額 (NT$)</div>
-                            <input type="number" id="dep-amount" placeholder="例如：50000" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
-                        </div>
-                        <div class="flex-1 min-w-24">
-                            <div class="text-slate-400 text-xs mb-1">備註（選填）</div>
-                            <input type="text" id="dep-note" placeholder="例如：補繳保證金" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <button onclick="addDeposit('入金')" class="bg-green-700 hover:bg-green-600 text-green-100 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex-1">
-                            💵 入金（+權益）
-                        </button>
-                        <button onclick="addDeposit('出金')" class="bg-red-700 hover:bg-red-600 text-red-100 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex-1">
-                            💸 出金（-權益）
-                        </button>
-                    </div>
-                </div>
-
-                <!-- 交易記錄區（成交/平倉 + 手續費/期交稅）-->
-                <div id="dep-trade-section" class="hidden">
-                    <!-- 第一列：日期 + 標的 + 損益金額 -->
-                    <div class="flex flex-wrap gap-3 items-end mb-3">
-                        <div>
-                            <div class="text-slate-400 text-xs mb-1">日期</div>
-                            <input type="date" id="trade-date" class="bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
-                        </div>
-                        <div class="flex-1 min-w-28">
-                            <div class="text-slate-400 text-xs mb-1">損益金額 (NT$)（平倉用）</div>
-                            <input type="number" id="trade-pnl" placeholder="正=獲利 負=虧損" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
-                        </div>
-                        <div class="flex-1 min-w-24">
-                            <div class="text-slate-400 text-xs mb-1">備註</div>
-                            <input type="text" id="trade-note" placeholder="例如：多2口 22500→22650" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
-                        </div>
-                    </div>
-                    <!-- 第二列：手續費 + 期交稅 -->
-                    <div class="flex flex-wrap gap-3 items-end mb-3 p-3 bg-slate-800 rounded-lg">
-                        <div class="text-slate-400 text-xs w-full mb-1">成交/平倉附帶費用（可選）</div>
-                        <div class="flex-1 min-w-24">
-                            <div class="text-slate-400 text-xs mb-1">手續費 (NT$)</div>
-                            <input type="number" id="trade-fee" placeholder="例如：40" value="0" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
-                        </div>
-                        <div class="flex-1 min-w-24">
-                            <div class="text-slate-400 text-xs mb-1">期交稅 (NT$)</div>
-                            <input type="number" id="trade-tax" placeholder="例如：20" value="0" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
-                        </div>
-                    </div>
-                    <!-- 按鈕 -->
-                    <div class="flex gap-3 flex-wrap">
-                        <button onclick="addTrade('成交')" class="bg-blue-700 hover:bg-blue-600 text-blue-100 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex-1">
-                            📋 成交（不影響權益）
-                        </button>
-                        <button onclick="addTrade('平倉')" class="bg-yellow-700 hover:bg-yellow-600 text-yellow-100 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex-1">
-                            ✅ 平倉（損益±權益）
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div id="deposit-history"></div>
-        </div>
-
-        <!-- 每日損益 -->
-        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5">
-            <h3 class="font-bold text-slate-100 mb-4">📅 每日損益記錄</h3>
-            <div id="day-summary"></div>
-            <div class="flex gap-2 mb-4 flex-wrap">
-                <input type="date" id="rec-date" class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 text-sm focus:border-blue-500 focus:outline-none">
-                <input type="number" id="rec-pnl" placeholder="損益 NT$（正=獲利）" class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 text-sm flex-1 min-w-0 font-mono focus:border-blue-500 focus:outline-none">
-                <input type="text" id="rec-note" placeholder="備註（選填）" class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 text-sm w-28 focus:border-blue-500 focus:outline-none">
-                <button onclick="addDayRecord()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">記錄</button>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead><tr class="bg-slate-900 border-b border-slate-700">
-                        <th class="px-3 py-2 text-center text-slate-300">日期</th>
-                        <th class="px-3 py-2 text-center text-slate-300">損益</th>
-                        <th class="px-3 py-2 text-center text-slate-300">備註</th>
-                        <th class="px-3 py-2 text-center text-slate-300">操作</th>
-                    </tr></thead>
-                    <tbody id="day-history"></tbody>
-                </table>
-            </div>
-        </div>
+    <!-- 走勢圖選擇列 -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-4">
+      <div class="font-semibold text-sm mb-3">📊 走勢圖</div>
+      <div class="flex flex-wrap gap-2 mb-2">
+        <button onclick="loadChart('TAIFEX:FITX1!','台指期','60')"  class="chart-btn bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">台指期</button>
+        <button onclick="loadChart('TSE:2330','台積電','D')"          class="chart-btn bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs">台積電 2330</button>
+        <button onclick="loadChart('TSE:0050','元大50','D')"          class="chart-btn bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs">元大50</button>
+        <button onclick="loadChart('SP:SPX','S&amp;P500','D')"         class="chart-btn bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs">S&amp;P500</button>
+        <button onclick="loadChart('NASDAQ:NDX','Nasdaq100','D')"     class="chart-btn bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs">Nasdaq100</button>
+        <button onclick="loadChart('COMEX:GC1!','黃金','D')"          class="chart-btn bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs">黃金</button>
+        <button onclick="loadChart('FX_IDC:USDTWD','USD/TWD','D')"   class="chart-btn bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs">USD/TWD</button>
+        <span class="text-slate-600 self-center">|</span>
+        <button onclick="setChartInterval('15')"  class="intv-btn bg-slate-700 hover:bg-slate-600 px-2 py-1.5 rounded text-xs">15分</button>
+        <button onclick="setChartInterval('60')"  class="intv-btn bg-blue-600 text-white px-2 py-1.5 rounded text-xs">1小時</button>
+        <button onclick="setChartInterval('D')"   class="intv-btn bg-slate-700 hover:bg-slate-600 px-2 py-1.5 rounded text-xs">日線</button>
+        <span id="chart-label" class="text-slate-400 text-xs self-center ml-1">台指期 · 1小時</span>
+      </div>
+      <!-- TradingView 主圖 -->
+      <div id="tv-main" class="rounded-lg overflow-hidden" style="height:480px;background:#1e293b;">
+        <div class="flex items-center justify-center h-full text-slate-500 text-sm">圖表載入中...</div>
+      </div>
     </div>
 
-    <!-- ═══ Tab 3：事件日曆 ═══ -->
-    <div id="pane-calendar" class="tab-content">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <!-- 月曆（大格子） -->
-            <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="font-bold text-slate-100 text-lg" id="cal-title">日曆</h3>
-                    <div class="flex gap-3 text-xs text-slate-400">
-                        <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-red-700"></div>結算日</div>
-                        <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-blue-700"></div>Fed</div>
-                        <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-blue-800 border-2 border-blue-400"></div>今日</div>
-                    </div>
-                </div>
-                <!-- 週頭 -->
-                <div class="grid grid-cols-7 gap-1 mb-2">
-                    <div class="text-center text-xs text-red-400 py-1 font-medium">日</div>
-                    <div class="text-center text-xs text-slate-400 py-1">一</div>
-                    <div class="text-center text-xs text-slate-400 py-1">二</div>
-                    <div class="text-center text-xs text-slate-400 py-1">三</div>
-                    <div class="text-center text-xs text-slate-400 py-1">四</div>
-                    <div class="text-center text-xs text-slate-400 py-1">五</div>
-                    <div class="text-center text-xs text-red-400 py-1 font-medium">六</div>
-                </div>
-                <!-- 日期格子 -->
-                <div class="grid grid-cols-7 gap-1" id="cal-grid"></div>
-            </div>
+    <!-- 副圖 2x2 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold">台指期 FITX — 日線</div>
+        <div id="tv-sub1" style="height:200px;background:#1e293b;"></div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold">台積電 2330 — 日線</div>
+        <div id="tv-sub2" style="height:200px;background:#1e293b;"></div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold">S&amp;P 500 — 日線</div>
+        <div id="tv-sub3" style="height:200px;background:#1e293b;"></div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="px-4 py-2 border-b border-slate-700 text-sm font-semibold">Nasdaq 100 — 日線</div>
+        <div id="tv-sub4" style="height:200px;background:#1e293b;"></div>
+      </div>
+    </div>
+  </div>
 
-            <!-- 近期事件列表 -->
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-5">
-                <h3 class="font-bold text-slate-100 mb-4">📌 本月重要事件</h3>
-                <div id="upcoming-events"></div>
-                <div class="mt-6">
-                    <div class="text-slate-400 text-xs mb-3 font-medium">圖例說明</div>
-                    <div class="space-y-2 text-xs text-slate-300">
-                        <div class="flex items-center gap-2"><span class="bg-red-700 text-white px-2 py-0.5 rounded">⚡ 台指期結算</span><span>每月第三週三</span></div>
-                        <div class="flex items-center gap-2"><span class="bg-blue-700 text-white px-2 py-0.5 rounded">🇺🇸 Fed 利率決議</span><span>2026年預估日期</span></div>
-                    </div>
-                    <div class="mt-4 text-xs text-slate-500">
-                        台指期結算日：期貨波動最大，建議不進場或大幅縮減部位。
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- ══ Tab: 部位管理 ══ -->
+  <div id="pane-positions" class="tab-pane hidden">
+
+    <!-- 帳戶指標 -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-4">
+      <div id="pos-metrics"></div>
+      <div class="flex items-center justify-between mb-3 mt-2">
+        <h3 class="font-bold">📋 持有部位（微台指 MTX · NT$10/點）</h3>
+        <button onclick="addPos()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-semibold">➕ 新增部位</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-slate-300">
+            <th class="px-3 py-2">方向</th><th class="px-3 py-2">口數</th>
+            <th class="px-3 py-2">成本點位</th><th class="px-3 py-2">現在點位</th>
+            <th class="px-3 py-2">未實現損益</th><th class="px-3 py-2">每點損益</th><th class="px-3 py-2">操作</th>
+          </tr></thead>
+          <tbody id="pos-list"></tbody>
+        </table>
+      </div>
+      <div class="text-xs text-slate-500 mt-2">每口微台指 NT$10/點 · 修改欄位即時計算 · 自動儲存 Firebase</div>
     </div>
 
-    <!-- ═══ Tab 4：設定 ═══ -->
-    <div id="pane-settings" class="tab-content">
-        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-2xl">
-            <h3 class="font-bold text-slate-100 text-lg mb-5">⚙️ 帳戶與風控設定</h3>
-            <div class="space-y-4">
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="text-slate-300 text-sm font-medium">帳戶初始權益數 (NT$)</label>
-                        <input type="number" id="cfg-equity" value="353421" step="10000" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-36 text-right font-mono text-sm">
-                    </div>
-                    <div class="text-xs text-slate-500">從截圖：權益數 353,421（出入金記錄會自動加減）</div>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="text-slate-300 text-sm font-medium">保證金/口 (NT$)</label>
-                        <input type="number" id="cfg-margin" value="46000" step="1000" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-36 text-right font-mono text-sm">
-                    </div>
-                    <div class="text-xs text-slate-500">微台指每口保證金，依期交所規定</div>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="text-slate-300 text-sm font-medium">風險 % (每筆交易)</label>
-                        <input type="number" id="cfg-risk" value="3" step="0.5" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-36 text-right font-mono text-sm">
-                    </div>
-                    <div class="text-xs text-slate-500">每筆最大虧損佔帳戶比例</div>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="text-slate-300 text-sm font-medium">最大進場口數</label>
-                        <input type="number" id="cfg-maxlots" value="3" step="1" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-36 text-right font-mono text-sm">
-                    </div>
-                    <div class="text-xs text-slate-500">單次進場口數上限</div>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="text-slate-300 text-sm font-medium">最大單日虧損 %</label>
-                        <input type="number" id="cfg-maxloss" value="5" step="0.5" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-36 text-right font-mono text-sm">
-                    </div>
-                    <div class="text-xs text-slate-500">達到此比例時顯示紅色警示</div>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="text-slate-300 text-sm font-medium">今日已實現損益 (NT$)</label>
-                        <input type="number" id="cfg-realized" value="0" step="100" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-36 text-right font-mono text-sm">
-                    </div>
-                    <div class="text-xs text-slate-500">今日已平倉的損益</div>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="text-slate-300 text-sm font-medium">黃燈閾值 %</label>
-                        <input type="number" id="cfg-warn" value="70" step="1" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-36 text-right font-mono text-sm">
-                    </div>
-                    <div class="text-xs text-slate-500">保證金使用率超過此值顯示黃燈</div>
-                </div>
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="text-slate-300 text-sm font-medium">紅燈閾值 %</label>
-                        <input type="number" id="cfg-danger" value="90" step="1" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-36 text-right font-mono text-sm">
-                    </div>
-                    <div class="text-xs text-slate-500">保證金使用率超過此值顯示紅燈</div>
-                </div>
-            </div>
-            <div class="flex items-center gap-3 mt-6">
-                <button onclick="saveSettings()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold transition-colors">✓ 儲存設定</button>
-                <span id="cfg-saved" class="hidden text-green-400 text-sm">✓ 已儲存到 Firebase</span>
-            </div>
+    <!-- 出入金 -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-4">
+      <h3 class="font-bold mb-4">💸 出入金（自動更新帳戶權益）</h3>
+      <div id="equity-summary" class="mb-4"></div>
+
+      <!-- 切換模式 -->
+      <div class="flex gap-2 mb-4">
+        <button id="dtype-fund"  onclick="selectDepType('fund')"  class="dep-type px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white">💰 資金異動</button>
+        <button id="dtype-trade" onclick="selectDepType('trade')" class="dep-type px-4 py-2 rounded-lg text-sm font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600">📋 交易記錄</button>
+      </div>
+
+      <!-- 資金異動區 -->
+      <div id="dep-fund-area" class="p-4 bg-slate-700 rounded-xl mb-4">
+        <div class="flex flex-wrap gap-3 items-end mb-3">
+          <div><div class="text-xs text-slate-400 mb-1">日期</div>
+            <input type="date" id="dep-date" class="bg-slate-600 text-slate-100 px-3 py-2 rounded-lg border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+          </div>
+          <div class="flex-1 min-w-32"><div class="text-xs text-slate-400 mb-1">金額 (NT$)</div>
+            <input type="number" id="dep-amount" placeholder="例如：50000" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded-lg border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
+          </div>
+          <div class="flex-1 min-w-24"><div class="text-xs text-slate-400 mb-1">備註</div>
+            <input type="text" id="dep-note" placeholder="例如：補繳保證金" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded-lg border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+          </div>
         </div>
+        <div class="flex gap-3">
+          <button onclick="addDeposit('入金')" class="flex-1 bg-green-700 hover:bg-green-600 text-green-100 py-2.5 rounded-lg text-sm font-bold">💵 入金（+權益）</button>
+          <button onclick="addDeposit('出金')" class="flex-1 bg-red-700 hover:bg-red-600 text-red-100 py-2.5 rounded-lg text-sm font-bold">💸 出金（-權益）</button>
+        </div>
+      </div>
+
+      <!-- 交易記錄區 -->
+      <div id="dep-trade-area" class="hidden p-4 bg-slate-700 rounded-xl mb-4">
+        <div class="flex flex-wrap gap-3 items-end mb-3">
+          <div><div class="text-xs text-slate-400 mb-1">日期</div>
+            <input type="date" id="trade-date" class="bg-slate-600 text-slate-100 px-3 py-2 rounded-lg border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+          </div>
+          <div class="flex-1 min-w-28"><div class="text-xs text-slate-400 mb-1">損益金額 NT$（平倉用，正=獲利）</div>
+            <input type="number" id="trade-pnl" placeholder="例如：1500 或 -800" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded-lg border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
+          </div>
+          <div class="flex-1 min-w-24"><div class="text-xs text-slate-400 mb-1">備註</div>
+            <input type="text" id="trade-note" placeholder="例如：多2口 平倉" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded-lg border border-slate-500 text-sm focus:border-blue-500 focus:outline-none">
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-3 items-end p-3 bg-slate-800 rounded-lg mb-3">
+          <div class="text-xs text-slate-400 w-full">附帶費用（選填）</div>
+          <div class="flex-1 min-w-24"><div class="text-xs text-slate-400 mb-1">手續費 NT$</div>
+            <input type="number" id="trade-fee" value="0" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded-lg border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
+          </div>
+          <div class="flex-1 min-w-24"><div class="text-xs text-slate-400 mb-1">期交稅 NT$</div>
+            <input type="number" id="trade-tax" value="0" class="w-full bg-slate-600 text-slate-100 px-3 py-2 rounded-lg border border-slate-500 text-sm font-mono focus:border-blue-500 focus:outline-none">
+          </div>
+        </div>
+        <div class="flex gap-3 flex-wrap">
+          <button onclick="addTrade('成交')" class="flex-1 bg-blue-700 hover:bg-blue-600 text-blue-100 py-2.5 rounded-lg text-sm font-bold">📋 成交（不影響權益）</button>
+          <button onclick="addTrade('平倉')" class="flex-1 bg-yellow-700 hover:bg-yellow-600 text-yellow-100 py-2.5 rounded-lg text-sm font-bold">✅ 平倉（損益±權益）</button>
+        </div>
+      </div>
+
+      <!-- 明細表 -->
+      <div id="deposit-history"></div>
     </div>
+
+    <!-- 每日損益 -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <h3 class="font-bold mb-4">📅 每日損益記錄</h3>
+      <div id="day-summary" class="mb-3"></div>
+      <div class="flex gap-2 mb-4 flex-wrap">
+        <input type="date" id="rec-date" class="bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm focus:border-blue-500 focus:outline-none">
+        <input type="number" id="rec-pnl" placeholder="損益 NT$（正=獲利）" class="flex-1 min-w-0 bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm font-mono focus:border-blue-500 focus:outline-none">
+        <input type="text" id="rec-note" placeholder="備註" class="w-28 bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm focus:border-blue-500 focus:outline-none">
+        <button onclick="addDayRecord()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">記錄</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-slate-300">
+            <th class="px-3 py-2">日期</th><th class="px-3 py-2">損益</th><th class="px-3 py-2">備註</th><th class="px-3 py-2">操作</th>
+          </tr></thead>
+          <tbody id="day-history"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Tab: 事件日曆 ══ -->
+  <div id="pane-calendar" class="tab-pane hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 id="cal-title" class="font-bold text-lg">日曆</h3>
+          <div class="flex gap-3 text-xs text-slate-400">
+            <span><span class="inline-block w-3 h-3 rounded bg-red-700 mr-1"></span>結算日</span>
+            <span><span class="inline-block w-3 h-3 rounded bg-blue-700 mr-1"></span>Fed</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-7 gap-1 mb-2 text-center text-xs">
+          <div class="text-red-400 py-1">日</div><div class="text-slate-400 py-1">一</div>
+          <div class="text-slate-400 py-1">二</div><div class="text-slate-400 py-1">三</div>
+          <div class="text-slate-400 py-1">四</div><div class="text-slate-400 py-1">五</div>
+          <div class="text-red-400 py-1">六</div>
+        </div>
+        <div class="grid grid-cols-7 gap-1" id="cal-grid"></div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <h3 class="font-bold mb-4">📌 本月重要事件</h3>
+        <div id="upcoming-events"></div>
+        <div class="mt-6 space-y-2 text-xs text-slate-400">
+          <div><span class="bg-red-700 text-white px-2 py-0.5 rounded mr-2">⚡ 台指期結算</span>每月第三週三</div>
+          <div><span class="bg-blue-700 text-white px-2 py-0.5 rounded mr-2">🇺🇸 Fed 會議</span>2026年預估</div>
+          <div class="mt-3 text-slate-500">結算日：期貨波動最大，建議縮減部位或不進場。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Tab: 設定 ══ -->
+  <div id="pane-settings" class="tab-pane hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-2xl">
+      <h3 class="font-bold text-lg mb-5">⚙️ 帳戶與風控設定</h3>
+      <div class="space-y-4" id="settings-fields"></div>
+      <div class="flex items-center gap-3 mt-6">
+        <button onclick="saveSettings()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold">✓ 儲存設定</button>
+        <span id="cfg-saved" class="hidden text-green-400 text-sm">✓ 已儲存</span>
+      </div>
+    </div>
+  </div>
 
 </div>
 </div>
 
-<script>
-function switchTab(name){
-    ['live','positions','calendar','settings'].forEach(function(t){
-        var btn=document.getElementById('tab-'+t);
-        var pane=document.getElementById('pane-'+t);
-        if(btn){btn.classList.toggle('active',t===name);if(t!==name)btn.classList.add('text-slate-400');else btn.classList.remove('text-slate-400');}
-        if(pane)pane.classList.toggle('active',t===name);
-    });
-    if(name==='calendar' && typeof renderCalendar==='function') renderCalendar();
-    if(name==='positions' && typeof renderPositions==='function'){ renderPositions(); renderDayHistory(); }
-    if(name==='live' && !window._tvLoaded){ renderMainChart(); window._tvLoaded=true; }
-}
-window.addEventListener('load', function(){
-    var today=new Date().toISOString().slice(0,10);
-    var r=document.getElementById('rec-date'); if(r)r.value=today;
-    var d=document.getElementById('dep-date'); if(d)d.value=today;
-    // 自動載入主圖
-    setTimeout(function(){ if(typeof renderMainChart==='function') renderMainChart(); }, 500);
+<style>
+.tab-btn { transition: all .25s; }
+.tab-btn.active { background: linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; box-shadow:0 4px 12px rgba(59,130,246,.4); }
+.tab-pane { display:block; }
+.tab-pane.hidden { display:none; }
+</style>
+
+<script type="module">
+// ════════════════════════════════════════════════════════════
+// Firebase
+// ════════════════════════════════════════════════════════════
+import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getFirestore, doc, setDoc, getDoc }    from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const FB = { apiKey:"AIzaSyAt8QWDrmdYxnIsjEWX6DJ5tHXnDPDSwdM", authDomain:"rebecca-financial-platform.firebaseapp.com", projectId:"rebecca-financial-platform", storageBucket:"rebecca-financial-platform.firebasestorage.app", messagingSenderId:"335938745651", appId:"1:335938745651:web:2c090e33a72db1a5adfa46" };
+const app  = initializeApp(FB);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// ════════════════════════════════════════════════════════════
+// 全域狀態
+// ════════════════════════════════════════════════════════════
+const PTF = 10; // 微台指每點 NT$10
+
+const G = {
+  user: null, twse: null, tsmc: null,
+  positions: [], deposits: [], dayRecords: [],
+  cfg: { equity:353421, margin:46000, risk:3, maxLots:3, warnPct:70, dangerPct:90, maxLossPct:5, realized:0 }
+};
+
+const TRANS = {
+  '入金':  { sign:+1, cls:'bg-green-900 text-green-300' },
+  '出金':  { sign:-1, cls:'bg-red-900 text-red-300' },
+  '成交':  { sign: 0, cls:'bg-blue-900 text-blue-300' },
+  '平倉':  { sign:+1, cls:'bg-yellow-900 text-yellow-300' },
+  '手續費':{ sign:-1, cls:'bg-orange-900 text-orange-300' },
+  '期交稅':{ sign:-1, cls:'bg-orange-900 text-orange-300' },
+};
+
+// ════════════════════════════════════════════════════════════
+// Auth
+// ════════════════════════════════════════════════════════════
+onAuthStateChanged(auth, async user => {
+  if(!user){ show('loginScreen'); return; }
+  const aDoc = await getDoc(doc(db,'config','auth'));
+  const ok   = aDoc.exists() ? (aDoc.data().allowedemail||[]) : [];
+  if(!ok.includes(user.email)){ alert('帳號不在允許名單'); await signOut(auth); return; }
+  G.user = user;
+  document.getElementById('userEmail').textContent = user.email;
+  hide('loginScreen'); show('mainApp');
+  await loadFS();
+  renderAll();
+  fetchAll();
+  loadTVWidgets();
 });
+
+// ════════════════════════════════════════════════════════════
+// Firestore
+// ════════════════════════════════════════════════════════════
+async function saveFS(){
+  if(!G.user) return;
+  try{ await setDoc(doc(db,'futures',G.user.uid),{positions:G.positions,deposits:G.deposits,dayRecords:G.dayRecords.slice(0,200),cfg:G.cfg,ts:Date.now()}); }catch(e){console.warn(e);}
+}
+async function loadFS(){
+  if(!G.user) return;
+  try{
+    const s = await getDoc(doc(db,'futures',G.user.uid));
+    if(s.exists()){
+      const d=s.data();
+      if(d.positions)  G.positions  = d.positions;
+      if(d.deposits)   G.deposits   = d.deposits;
+      if(d.dayRecords) G.dayRecords = d.dayRecords;
+      if(d.cfg)        Object.assign(G.cfg, d.cfg);
+    }
+  }catch(e){console.warn(e);}
+}
+
+// ════════════════════════════════════════════════════════════
+// Helpers
+// ════════════════════════════════════════════════════════════
+function show(id){ document.getElementById(id)?.classList.remove('hidden'); }
+function hide(id){ document.getElementById(id)?.classList.add('hidden'); }
+function fmtNT(n){ return 'NT$'+Math.round(n).toLocaleString('zh-TW'); }
+function fmtPct(n){ return (n>=0?'+':'')+n.toFixed(2)+'%'; }
+
+function calcEquity(){
+  let eq = G.cfg.equity;
+  G.deposits.forEach(d=>{
+    const t = TRANS[d.type]||{sign:0};
+    if(d.type==='平倉' && d.pnlSign!==undefined) eq += d.pnlSign * Math.abs(d.amount);
+    else eq += t.sign * Math.abs(d.amount);
+  });
+  return eq;
+}
+
+function thirdWed(y,m){
+  let c=0;
+  for(let d=1;d<=31;d++){
+    const dt=new Date(y,m,d);
+    if(dt.getMonth()!==m) break;
+    if(dt.getDay()===3 && ++c===3) return dt;
+  }
+  return null;
+}
+
+function nextSettle(){
+  const t=new Date();
+  for(let i=0;i<4;i++){
+    const m=(t.getMonth()+i)%12, y=t.getFullYear()+Math.floor((t.getMonth()+i)/12);
+    const s=thirdWed(y,m);
+    if(s&&s>=t) return s;
+  }
+  return null;
+}
+
+function calcTech(price, pct){
+  const p=Math.round(price);
+  const ma5=p-Math.round(p*.0015), ma20=p-Math.round(p*.005), ma60=p-Math.round(p*.012);
+  const bbUp=Math.round(ma20+p*.018), bbDn=Math.round(ma20-p*.018);
+  const rsi=pct>1.5?72:pct>.5?62:pct>0?54:pct>-.5?46:pct>-1.5?38:28;
+  const k=Math.min(95,Math.max(5,rsi+5)), d=Math.min(95,Math.max(5,rsi-3));
+  const macd=pct>.5?Math.round(p*.001):pct<-.5?-Math.round(p*.001):0;
+  let sc=0,wt=0;
+  const a=(v,w)=>{sc+=v*w;wt+=w;};
+  a(price>ma5&&ma5>ma20&&ma20>ma60?1:price<ma5&&ma5<ma20?-1:price>ma20?.4:-.3, 2);
+  a(rsi>70?-.4:rsi<30?.4:rsi>50?.5:-.4, 1.5);
+  a(k>d?.4:-.4, 1.5);
+  a(macd>0?.6:macd<0?-.6:0, 2);
+  a(pct>1?.7:pct>.3?.4:pct<-1?-.7:pct<-.3?-.4:0, 1.5);
+  const score=Math.round((sc/wt+1)/2*100);
+  return {score,ma5,ma20,ma60,bbUp,bbDn,rsi,k,d,macd,
+          s1:Math.round(p-p*.01),s2:Math.round(p-p*.02),
+          r1:Math.round(p+p*.01),r2:Math.round(p+p*.02)};
+}
+
+// ════════════════════════════════════════════════════════════
+// 報價（多 proxy 備援）
+// ════════════════════════════════════════════════════════════
+async function fetchQuote(sym){
+  const s = /^\d/.test(sym) ? sym+'.TW' : sym;
+  const u = 'https://query1.finance.yahoo.com/v8/finance/chart/'+s+'?interval=1d&range=2d';
+  const proxies = [
+    'https://corsproxy.io/?url='+encodeURIComponent(u),
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(u),
+  ];
+  for(const px of proxies){
+    try{
+      const r = await fetch(px, {signal:AbortSignal.timeout(7000)});
+      if(!r.ok) continue;
+      const j = await r.json();
+      const meta = j?.chart?.result?.[0]?.meta;
+      const cur  = meta?.regularMarketPrice || meta?.chartPreviousClose;
+      const prev = meta?.chartPreviousClose  || meta?.previousClose || cur;
+      if(cur && cur>0) return {price:Math.abs(cur), prev:Math.abs(prev), diff:cur-prev, pct:prev>0?(cur-prev)/prev*100:0};
+    }catch(e){}
+  }
+  return null;
+}
+
+window.fetchAll = async () => {
+  const btn = document.getElementById('refresh-btn');
+  if(btn){ btn.disabled=true; btn.textContent='🔄 更新中...'; }
+  try{
+    const [tw,ts] = await Promise.allSettled([fetchQuote('t00'), fetchQuote('2330')]);
+    if(tw.status==='fulfilled'&&tw.value) G.twse=tw.value;
+    if(ts.status==='fulfilled'&&ts.value) G.tsmc=ts.value;
+    document.getElementById('last-update').textContent =
+      '更新：'+new Date().toLocaleTimeString('zh-TW') +
+      (G.twse?.price>0 ? '　加權：'+Math.round(G.twse.price).toLocaleString() : '　⚠️ 報價失敗，圖表仍可顯示');
+    renderQuotes();
+    renderQuickRisk();
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='🔄 更新報價'; }
+  }
+};
+
+// ════════════════════════════════════════════════════════════
+// TradingView Widgets
+// ════════════════════════════════════════════════════════════
+function tvWidget(containerId, sym, h){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  // 清空
+  el.innerHTML = '';
+  // 建立 container div + script（TradingView 官方推薦方式）
+  const wrap = document.createElement('div');
+  wrap.className = 'tradingview-widget-container';
+  wrap.style.cssText = 'width:100%;height:'+h+'px;';
+
+  const inner = document.createElement('div');
+  inner.className = 'tradingview-widget-container__widget';
+  inner.style.cssText = 'width:100%;height:'+h+'px;';
+  wrap.appendChild(inner);
+
+  const script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js';
+  script.async = true;
+  script.textContent = JSON.stringify({
+    symbols:[[sym+'|1D', sym.split(':').pop()]],
+    chartOnly: false,
+    width: '100%',
+    height: h,
+    locale: 'zh_TW',
+    colorTheme: 'dark',
+    autosize: true,
+    showVolume: false,
+    hideDateRanges: false,
+    scalePosition: 'no',
+    scaleMode: 'Normal',
+    fontFamily: '-apple-system,BlinkMacSystemFont,sans-serif',
+    fontSize: '10',
+    noTimeScale: false,
+    valuesTracking: '1',
+    changeMode: 'price-and-percent',
+    chartType: 'area',
+    lineWidth: 2,
+    lineType: 0,
+    dateRanges: ['3m|1D','12m|1D']
+  });
+  wrap.appendChild(script);
+  el.appendChild(wrap);
+}
+
+function tvAdvanced(containerId, sym, interval){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'tradingview-widget-container';
+  wrap.style.cssText = 'width:100%;height:480px;';
+  const inner = document.createElement('div');
+  inner.className = 'tradingview-widget-container__widget';
+  inner.style.cssText = 'width:100%;height:480px;';
+  wrap.appendChild(inner);
+  const script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+  script.async = true;
+  script.textContent = JSON.stringify({
+    autosize: true,
+    symbol: sym,
+    interval: interval,
+    timezone: 'Asia/Taipei',
+    theme: 'dark',
+    style: '1',
+    locale: 'zh_TW',
+    enable_publishing: false,
+    withdateranges: true,
+    hide_side_toolbar: false,
+    allow_symbol_change: true,
+    studies: ['STD;Bollinger_Bands','STD;MACD','STD;RSI'],
+    hide_volume: false
+  });
+  wrap.appendChild(script);
+  el.appendChild(wrap);
+}
+
+function loadTVWidgets(){
+  // 主圖
+  tvAdvanced('tv-main', 'TAIFEX:FITX1!', '60');
+  // 副圖
+  tvWidget('tv-sub1', 'TAIFEX:FITX1!', 200);
+  tvWidget('tv-sub2', 'TSE:2330',       200);
+  tvWidget('tv-sub3', 'SP:SPX',         200);
+  tvWidget('tv-sub4', 'NASDAQ:NDX',     200);
+}
+
+// chart 選擇
+let _sym='TAIFEX:FITX1!', _intv='60', _lbl='台指期';
+const INTV={'5':'5分','15':'15分','60':'1小時','D':'日線','W':'週線'};
+
+window.loadChart = (sym,lbl,intv) => {
+  _sym=sym; _lbl=lbl; if(intv)_intv=intv;
+  document.querySelectorAll('.chart-btn').forEach(b=>b.className='chart-btn bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-xs');
+  if(event?.currentTarget) event.currentTarget.className='chart-btn bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold';
+  tvAdvanced('tv-main', _sym, _intv);
+  document.getElementById('chart-label').textContent = _lbl+' · '+(INTV[_intv]||_intv);
+};
+window.setChartInterval = (intv) => {
+  _intv=intv;
+  document.querySelectorAll('.intv-btn').forEach(b=>b.className='intv-btn bg-slate-700 hover:bg-slate-600 px-2 py-1.5 rounded text-xs');
+  if(event?.currentTarget) event.currentTarget.className='intv-btn bg-blue-600 text-white px-2 py-1.5 rounded text-xs';
+  tvAdvanced('tv-main', _sym, _intv);
+  document.getElementById('chart-label').textContent = _lbl+' · '+(INTV[_intv]||_intv);
+};
+
+// ════════════════════════════════════════════════════════════
+// 結算橫幅
+// ════════════════════════════════════════════════════════════
+function renderSettleBanner(){
+  const el=document.getElementById('settle-banner'); if(!el)return;
+  const next=nextSettle(); if(!next){el.innerHTML='';return;}
+  const diff=Math.round((next-new Date())/864e5);
+  const ds=next.toLocaleDateString('zh-TW');
+  let cls,msg,sub;
+  if(diff===0)    {cls='bg-red-900 border-red-500 text-red-300';    msg='今日結算日';              sub='波動極大，請謹慎。';}
+  else if(diff<=2){cls='bg-red-900 border-red-500 text-red-300';    msg='結算倒數'+diff+'天（'+ds+'）';sub='停損設緊。';}
+  else if(diff<=5){cls='bg-yellow-900 border-yellow-600 text-yellow-300';msg='結算週剩'+diff+'天（'+ds+'）';sub='Gamma 風險上升。';}
+  else if(diff<=10){cls='bg-yellow-900 border-yellow-600 text-yellow-300';msg='結算'+diff+'天後（'+ds+'）';sub='觀察法人換倉。';}
+  else            {cls='bg-blue-900 border-blue-700 text-blue-300'; msg='本月結算：'+ds+'（'+diff+'天後）';sub='正常操作。';}
+  el.innerHTML='<div class="border '+cls+' rounded-xl px-4 py-3 text-sm mb-4"><b>⚠️ '+msg+'</b> — '+sub+'</div>';
+}
+
+// ════════════════════════════════════════════════════════════
+// 報價卡 & 技術分析
+// ════════════════════════════════════════════════════════════
+function renderQuotes(){
+  renderCard('mtx', G.twse);
+  renderCard('tsmc', G.tsmc);
+  const ca=document.getElementById('corr-area');
+  if(ca&&G.twse?.price>0&&G.tsmc?.price>0){
+    const same=(G.twse.pct>0&&G.tsmc.pct>0)||(G.twse.pct<0&&G.tsmc.pct<0);
+    const label=same&&Math.abs(G.twse.pct-G.tsmc.pct)<1?'高度同向':same?'同向差異':'多空背離';
+    const cls=same&&Math.abs(G.twse.pct-G.tsmc.pct)<1?'border-green-600 bg-green-900 bg-opacity-30 text-green-300':same?'border-blue-600 bg-blue-900 bg-opacity-30 text-blue-300':'border-yellow-600 bg-yellow-900 bg-opacity-30 text-yellow-300';
+    ca.innerHTML='<div class="border '+cls+' rounded-xl px-4 py-2 text-sm my-3"><b>📊 關聯 — '+label+'</b>　加權 '+fmtPct(G.twse.pct)+'　台積電 '+fmtPct(G.tsmc.pct)+'</div>';
+  }
+}
+
+function renderCard(id, data){
+  const g = k => document.getElementById(id+'-'+k);
+  if(!data||!data.price){
+    ['price','pct'].forEach(k=>{ const el=g(k); if(el){el.textContent='—';el.className='text-3xl font-bold text-slate-400';} });
+    return;
+  }
+  const t = calcTech(data.price, data.pct);
+  const pc=data.pct>=0?'text-green-400':'text-red-400';
+  if(g('price')){g('price').textContent=Math.round(data.price).toLocaleString('zh-TW');g('price').className='text-3xl font-bold '+(data.diff>0?'text-green-400':data.diff<0?'text-red-400':'text-slate-100');}
+  if(g('pct'))  {g('pct').textContent=fmtPct(data.pct);g('pct').className='font-semibold text-sm '+pc;}
+  if(g('score')){g('score').textContent=t.score;g('score').className='text-2xl font-bold '+(t.score>=65?'text-green-400':t.score<=35?'text-red-400':'text-yellow-400');}
+  if(g('score-bar')){g('score-bar').style.width=t.score+'%';g('score-bar').className='h-1.5 rounded-full transition-all '+(t.score>=65?'bg-green-500':t.score<=35?'bg-red-500':'bg-yellow-500');}
+  if(g('sr-mini')) g('sr-mini').innerHTML='S2 <b class="text-red-400">'+t.s2+'</b> S1 <b class="text-red-300">'+t.s1+'</b><br>R1 <b class="text-yellow-300">'+t.r1+'</b> R2 <b class="text-yellow-400">'+t.r2+'</b>';
+  if(g('sr'))     g('sr').innerHTML='<div class="grid grid-cols-4 gap-1 mt-2"><div class="bg-red-900 bg-opacity-40 rounded p-1.5 text-center"><div class="text-xs text-slate-400">S2</div><div class="font-mono font-bold text-red-400 text-sm">'+t.s2+'</div></div><div class="bg-red-900 bg-opacity-30 rounded p-1.5 text-center"><div class="text-xs text-slate-400">S1</div><div class="font-mono font-bold text-red-300 text-sm">'+t.s1+'</div></div><div class="bg-yellow-900 bg-opacity-30 rounded p-1.5 text-center"><div class="text-xs text-slate-400">R1</div><div class="font-mono font-bold text-yellow-300 text-sm">'+t.r1+'</div></div><div class="bg-yellow-900 bg-opacity-40 rounded p-1.5 text-center"><div class="text-xs text-slate-400">R2</div><div class="font-mono font-bold text-yellow-400 text-sm">'+t.r2+'</div></div></div>';
+  const sigs=[
+    {n:'均線',v:data.price>t.ma5&&t.ma5>t.ma20?'多頭排列':data.price<t.ma5&&t.ma5<t.ma20?'空頭排列':'均線糾結',b:data.price>t.ma5&&t.ma5>t.ma20?1:data.price<t.ma5?-1:0},
+    {n:'RSI', v:t.rsi>70?'超買'+t.rsi:t.rsi<30?'超賣'+t.rsi:''+t.rsi, b:t.rsi>70?-.5:t.rsi<30?.5:t.rsi>50?.4:-.3},
+    {n:'KD',  v:t.k>t.d?'K>D偏多':'K<D偏空', b:t.k>t.d?.4:-.4},
+    {n:'MACD',v:t.macd>0?'紅柱+'+t.macd:t.macd<0?'綠柱'+t.macd:'零軸', b:t.macd>0?.6:t.macd<0?-.6:0},
+  ];
+  if(g('tech')) g('tech').innerHTML=sigs.map(s=>{
+    const c=s.b>0.1?'text-green-400':s.b<-0.1?'text-red-400':'text-slate-400';
+    const bg=s.b>0.1?'bg-green-900 text-green-300':s.b<-0.1?'bg-red-900 text-red-300':'bg-slate-700 text-slate-400';
+    return '<div class="flex items-center gap-2 py-1.5 border-b border-slate-700 last:border-0 text-xs"><div class="w-1.5 h-1.5 rounded-full '+c.replace('text-','bg-')+'"></div><span class="text-slate-400 w-9">'+s.n+'</span><span class="font-semibold '+c+' flex-1">'+s.v+'</span><span class="px-1.5 py-0.5 rounded font-medium '+bg+'">'+(s.b>0.1?'看多':s.b<-0.1?'看空':'中性')+'</span></div>';
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// 快速風控
+// ════════════════════════════════════════════════════════════
+function renderQuickRisk(){
+  const el=document.getElementById('quick-risk'); if(!el||!G.twse?.price) return;
+  const {risk,maxLots,margin}=G.cfg, eq=calcEquity();
+  const riskAmt=Math.round(eq*risk/100), p=Math.round(G.twse.price);
+  const t=calcTech(p,G.twse.pct);
+  const sl=t.score>=50?t.s2:t.r2, pts=Math.abs(p-sl);
+  const lots=Math.min(maxLots,Math.max(1,pts>0?Math.floor(riskAmt/(pts*PTF)):1));
+  el.innerHTML='<div class="grid grid-cols-3 gap-3"><div class="bg-slate-700 rounded-lg p-3"><div class="text-xs text-slate-400 mb-1">最大風險 '+risk+'%</div><div class="font-bold text-red-400 font-mono">'+fmtNT(riskAmt)+'</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-xs text-slate-400 mb-1">建議口數</div><div class="font-bold text-2xl">'+lots+'</div><div class="text-xs text-slate-500">停損'+pts+'點</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-xs text-slate-400 mb-1">停損點位</div><div class="font-bold text-red-400 font-mono">'+sl+'</div><div class="text-xs text-slate-500">'+(t.score>=50?'多單S2':'空單R2')+'</div></div></div>';
+}
+
+// ════════════════════════════════════════════════════════════
+// 部位管理
+// ════════════════════════════════════════════════════════════
+function renderPositions(){
+  const eq=calcEquity(), {margin,dangerPct,warnPct,maxLossPct,realized}=G.cfg;
+  let tMgn=0, tPnl=0;
+  G.positions.forEach(p=>{ tMgn+=margin*p.qty; tPnl+=(p.dir==='多'?p.cur-p.entry:p.entry-p.cur)*PTF*p.qty; });
+  const net=eq+tPnl, ratio=tMgn>0?tMgn/net*100:0, day=realized+tPnl;
+  const rc=ratio>=dangerPct?'text-red-400':ratio>=warnPct?'text-yellow-400':'text-green-400';
+  const rb=ratio>=dangerPct?'bg-red-500':ratio>=warnPct?'bg-yellow-500':'bg-green-500';
+  const mEl=document.getElementById('pos-metrics');
+  if(mEl){
+    let al='';
+    if(ratio>=dangerPct) al+='<div class="border border-red-500 bg-red-900 bg-opacity-40 text-red-300 rounded-xl px-4 py-2 text-sm mb-3">🔴 保證金使用率 '+ratio.toFixed(1)+'%，請立即減倉</div>';
+    else if(ratio>=warnPct) al+='<div class="border border-yellow-600 bg-yellow-900 bg-opacity-40 text-yellow-300 rounded-xl px-4 py-2 text-sm mb-3">🟡 保證金使用率 '+ratio.toFixed(1)+'% 達黃燈</div>';
+    if(day<-eq*maxLossPct/100) al+='<div class="border border-red-500 bg-red-900 bg-opacity-40 text-red-300 rounded-xl px-4 py-2 text-sm mb-3">🔴 今日虧損超限，建議停止交易</div>';
+    mEl.innerHTML=al+'<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"><div class="bg-slate-700 rounded-lg p-3"><div class="text-xs text-slate-400 mb-1">帳戶淨值</div><div class="font-bold font-mono text-sm">'+fmtNT(net)+'</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-xs text-slate-400 mb-1">未實現損益</div><div class="font-bold font-mono text-sm '+(tPnl>=0?'text-green-400':'text-red-400')+'">'+(tPnl>=0?'+':'')+fmtNT(tPnl)+'</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-xs text-slate-400 mb-1">保證金使用率</div><div class="font-bold text-sm '+rc+'">'+ratio.toFixed(1)+'%</div><div class="mt-1 bg-slate-600 rounded-full h-1.5 overflow-hidden"><div class="'+rb+' h-1.5 rounded-full" style="width:'+Math.min(100,ratio).toFixed(1)+'%"></div></div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-xs text-slate-400 mb-1">今日損益</div><div class="font-bold font-mono text-sm '+(day>=0?'text-green-400':'text-red-400')+'">'+(day>=0?'+':'')+fmtNT(day)+'</div></div></div>';
+  }
+  const pl=document.getElementById('pos-list');
+  if(!pl) return;
+  if(!G.positions.length){ pl.innerHTML='<tr><td colspan="7" class="px-4 py-6 text-center text-slate-500">尚無部位，點擊「新增部位」</td></tr>'; return; }
+  pl.innerHTML=G.positions.map((p,i)=>{
+    const pnl=(p.dir==='多'?p.cur-p.entry:p.entry-p.cur)*PTF*p.qty;
+    return '<tr class="border-b border-slate-700 text-center"><td class="px-2 py-2"><select onchange="updPos('+i+','dir',this.value)" class="bg-slate-700 text-slate-100 px-2 py-1 rounded border border-slate-600 text-sm"><option '+(p.dir==='多'?'selected':'')+'>多</option><option '+(p.dir==='空'?'selected':'')+'>空</option></select></td><td class="px-2 py-2"><input type="number" value="'+p.qty+'" min="1" max="99" onchange="updPos('+i+','qty',this.value)" class="w-14 bg-slate-700 text-slate-100 px-2 py-1 rounded border border-slate-600 text-sm text-center font-mono"></td><td class="px-2 py-2"><input type="number" value="'+p.entry+'" onchange="updPos('+i+','entry',this.value)" class="w-24 bg-slate-700 text-slate-100 px-2 py-1 rounded border border-slate-600 text-sm font-mono"></td><td class="px-2 py-2"><input type="number" value="'+p.cur+'" onchange="updPos('+i+','cur',this.value)" class="w-24 bg-slate-700 text-slate-100 px-2 py-1 rounded border border-slate-600 text-sm font-mono"></td><td class="px-2 py-2 font-mono font-bold text-sm '+(pnl>=0?'text-green-400':'text-red-400')+'">'+(pnl>=0?'+':'')+fmtNT(pnl)+'</td><td class="px-2 py-2 font-mono text-xs text-slate-300">'+fmtNT(PTF*p.qty)+'/點</td><td class="px-2 py-2"><button onclick="delPos('+i+')" class="text-red-400 hover:text-red-300 text-sm px-2">✕</button></td></tr>';
+  }).join('');
+  renderDeposits();
+}
+
+window.updPos=(i,f,v)=>{ if(!G.positions[i])return; G.positions[i][f]=['qty','entry','cur'].includes(f)?parseFloat(v)||0:v; renderPositions(); renderQuickRisk(); saveFS(); };
+window.delPos=(i)=>{ if(!confirm('確定刪除？'))return; G.positions.splice(i,1); renderPositions(); saveFS(); };
+window.addPos=()=>{ const p=Math.round(G.twse?.price||22500); G.positions.push({dir:'多',qty:1,entry:p,cur:p}); renderPositions(); saveFS(); };
+
+// ════════════════════════════════════════════════════════════
+// 出入金
+// ════════════════════════════════════════════════════════════
+window.selectDepType = mode => {
+  const isF = mode==='fund';
+  document.getElementById('dep-fund-area')?.classList.toggle('hidden', !isF);
+  document.getElementById('dep-trade-area')?.classList.toggle('hidden', isF);
+  document.getElementById('dtype-fund').className  = 'dep-type px-4 py-2 rounded-lg text-sm font-semibold '+(isF?'bg-blue-600 text-white':'bg-slate-700 text-slate-300 hover:bg-slate-600');
+  document.getElementById('dtype-trade').className = 'dep-type px-4 py-2 rounded-lg text-sm font-semibold '+(!isF?'bg-blue-600 text-white':'bg-slate-700 text-slate-300 hover:bg-slate-600');
+};
+
+window.addDeposit = type => {
+  const amt  = parseFloat(document.getElementById('dep-amount')?.value)||0;
+  const note = document.getElementById('dep-note')?.value||'';
+  const date = document.getElementById('dep-date')?.value||today();
+  if(!amt||amt<=0){ alert('請輸入金額'); return; }
+  G.deposits.push({date,type,amount:amt,note,id:Date.now().toString()});
+  G.deposits.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  document.getElementById('dep-amount').value='';
+  document.getElementById('dep-note').value='';
+  renderPositions(); saveFS();
+};
+
+window.addTrade = type => {
+  const date = document.getElementById('trade-date')?.value||today();
+  const pnl  = parseFloat(document.getElementById('trade-pnl')?.value)||0;
+  const note = document.getElementById('trade-note')?.value||'';
+  const fee  = parseFloat(document.getElementById('trade-fee')?.value)||0;
+  const tax  = parseFloat(document.getElementById('trade-tax')?.value)||0;
+  const entries=[];
+  if(type==='成交') entries.push({date,type:'成交',amount:0,note,id:Date.now()+'s'});
+  else if(pnl!==0)  entries.push({date,type:'平倉',amount:Math.abs(pnl),note:'損益'+(pnl>0?'+':'')+pnl+' '+note,id:Date.now()+'p',pnlSign:pnl>=0?1:-1});
+  if(fee>0) entries.push({date,type:'手續費',amount:fee,note,id:Date.now()+'f'});
+  if(tax>0) entries.push({date,type:'期交稅',amount:tax,note,id:Date.now()+'t'});
+  if(!entries.length){ alert('請填入損益或費用'); return; }
+  G.deposits.push(...entries);
+  G.deposits.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  ['trade-pnl','trade-note'].forEach(id=>{ const e=document.getElementById(id); if(e)e.value=''; });
+  ['trade-fee','trade-tax'].forEach(id=>{ const e=document.getElementById(id); if(e)e.value='0'; });
+  renderPositions(); saveFS();
+};
+
+window.delDeposit = i => { G.deposits.splice(i,1); renderPositions(); saveFS(); };
+
+function renderDeposits(){
+  const eq  = calcEquity(), base = G.cfg.equity;
+  const stats={};
+  Object.keys(TRANS).forEach(k=>stats[k]=0);
+  G.deposits.forEach(d=>{ if(stats[d.type]!==undefined) stats[d.type]+=Math.abs(d.amount); });
+  const sumEl=document.getElementById('equity-summary');
+  if(sumEl) sumEl.innerHTML='<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">'
+    +[['初始權益',base,'text-slate-100',false],['累計入金',stats['入金'],'text-green-400',false],['累計出金',stats['出金'],'text-red-400',false],['目前權益',eq,'text-blue-400',true]]
+    .map(([l,v,c,hl])=>'<div class="bg-slate-700 rounded-lg p-3'+(hl?' border border-blue-500':'')+'"><div class="text-xs text-slate-400 mb-1">'+l+'</div><div class="font-bold font-mono text-sm '+c+'">'+fmtNT(v)+'</div></div>').join('')
+    +'</div>'
+    +'<div class="grid grid-cols-3 gap-2 mb-3">'
+    +[['平倉損益','平倉','text-yellow-400'],['手續費','手續費','text-orange-400'],['期交稅','期交稅','text-orange-400']]
+    .map(([l,k,c])=>'<div class="bg-slate-700 rounded-lg p-2.5"><div class="text-xs text-slate-400 mb-1">'+l+'</div><div class="font-bold font-mono text-xs '+c+'">'+fmtNT(stats[k])+'</div></div>').join('')
+    +'</div>';
+  const el=document.getElementById('deposit-history');
+  if(!el)return;
+  if(!G.deposits.length){ el.innerHTML='<div class="text-slate-500 text-sm text-center py-3">尚無記錄</div>'; return; }
+  let run=base;
+  const rows=G.deposits.slice().reverse().map(d=>{
+    const t=TRANS[d.type]||{sign:0};
+    if(d.type==='平倉'&&d.pnlSign!==undefined) run+=d.pnlSign*Math.abs(d.amount);
+    else run+=t.sign*Math.abs(d.amount);
+    return {...d,eqAfter:run};
+  }).reverse();
+  el.innerHTML='<table class="w-full text-sm"><thead><tr class="bg-slate-900 border-b border-slate-700 text-slate-300 text-xs"><th class="px-3 py-2 text-left">日期</th><th class="px-3 py-2">類別</th><th class="px-3 py-2 text-right">金額</th><th class="px-3 py-2 text-right">累計權益</th><th class="px-3 py-2 text-left">備註</th><th class="px-3 py-2">刪除</th></tr></thead><tbody>'
+    +rows.map((d,i)=>{
+      const t=TRANS[d.type]||{sign:0,cls:'bg-slate-700 text-slate-300'};
+      const aSign=t.sign>0?'+':t.sign<0?'-':'';
+      const aColor=t.sign>0?'text-green-400':t.sign<0?'text-red-400':'text-blue-400';
+      return '<tr class="border-b border-slate-700 text-center"><td class="px-3 py-2 text-left text-slate-400 text-xs">'+d.date+'</td><td class="px-3 py-2"><span class="text-xs px-2 py-0.5 rounded '+t.cls+'">'+d.type+'</span></td><td class="px-3 py-2 text-right font-mono font-bold '+aColor+' text-sm">'+aSign+fmtNT(Math.abs(d.amount))+'</td><td class="px-3 py-2 text-right font-mono text-slate-300 text-sm">'+fmtNT(d.eqAfter)+'</td><td class="px-3 py-2 text-left text-slate-400 text-xs">'+(d.note||'—')+'</td><td class="px-3 py-2"><button onclick="delDeposit('+i+')" class="text-red-400 hover:text-red-300 text-xs">✕</button></td></tr>';
+    }).join('')
+    +'</tbody></table>';
+}
+
+// ════════════════════════════════════════════════════════════
+// 每日損益
+// ════════════════════════════════════════════════════════════
+function renderDayHistory(){
+  const el=document.getElementById('day-history'); if(!el)return;
+  if(!G.dayRecords.length){ el.innerHTML='<tr><td colspan="4" class="px-4 py-4 text-center text-slate-500">尚無記錄</td></tr>'; return; }
+  const total=G.dayRecords.reduce((s,r)=>s+r.pnl,0);
+  const wins=G.dayRecords.filter(r=>r.pnl>0).length;
+  const mEl=document.getElementById('day-summary');
+  if(mEl) mEl.innerHTML='<div class="grid grid-cols-3 gap-3 mb-3"><div class="bg-slate-700 rounded-lg p-3"><div class="text-xs text-slate-400 mb-1">累計損益</div><div class="font-bold font-mono '+(total>=0?'text-green-400':'text-red-400')+'">'+(total>=0?'+':'')+fmtNT(total)+'</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-xs text-slate-400 mb-1">勝率</div><div class="font-bold">'+(G.dayRecords.length>0?Math.round(wins/G.dayRecords.length*100):0)+'%</div></div><div class="bg-slate-700 rounded-lg p-3"><div class="text-xs text-slate-400 mb-1">筆數</div><div class="font-bold">'+G.dayRecords.length+'</div></div></div>';
+  el.innerHTML=G.dayRecords.slice(0,30).map(r=>'<tr class="border-b border-slate-700"><td class="px-3 py-2 text-slate-400 text-sm">'+r.date+'</td><td class="px-3 py-2 font-mono font-bold text-sm '+(r.pnl>=0?'text-green-400':'text-red-400')+'">'+(r.pnl>=0?'+':'')+fmtNT(r.pnl)+'</td><td class="px-3 py-2 text-slate-400 text-sm">'+(r.note||'—')+'</td><td class="px-3 py-2 text-center"><button onclick="delDay(''+r.id+'')" class="text-red-400 hover:text-red-300 text-xs">✕</button></td></tr>').join('');
+}
+
+window.addDayRecord = () => {
+  const date=document.getElementById('rec-date')?.value;
+  const pnl=parseFloat(document.getElementById('rec-pnl')?.value)||0;
+  const note=document.getElementById('rec-note')?.value||'';
+  if(!date){alert('請選擇日期');return;}
+  G.dayRecords.unshift({id:Date.now().toString(),date,pnl,note});
+  G.dayRecords.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  document.getElementById('rec-pnl').value='';
+  document.getElementById('rec-note').value='';
+  renderDayHistory(); saveFS();
+};
+window.delDay = id => { G.dayRecords=G.dayRecords.filter(r=>r.id!==id); renderDayHistory(); saveFS(); };
+
+// ════════════════════════════════════════════════════════════
+// 日曆
+// ════════════════════════════════════════════════════════════
+function getEvents(y,m){
+  const evs=[];
+  const s=thirdWed(y,m);
+  if(s) evs.push({day:s.getDate(),label:'⚡ 台指期結算',color:'bg-red-700'});
+  const fed2026=[[1,28],[3,18],[4,29],[6,10],[7,29],[9,16],[10,28],[12,9]];
+  fed2026.forEach(([fm,fd])=>{ if(y===2026&&fm-1===m) evs.push({day:fd,label:'🇺🇸 Fed 會議',color:'bg-blue-700'}); });
+  return evs;
+}
+
+function renderCalendar(){
+  const today_=new Date(), y=today_.getFullYear(), m=today_.getMonth();
+  const MONTHS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const el=document.getElementById('cal-title'); if(el)el.textContent=y+'年'+MONTHS[m];
+  const firstDay=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate(), todayD=today_.getDate();
+  const evMap={}, evs=getEvents(y,m);
+  evs.forEach(e=>{ if(!evMap[e.day])evMap[e.day]=[]; evMap[e.day].push(e); });
+  const grid=document.getElementById('cal-grid'); if(!grid)return;
+  let html='';
+  for(let i=0;i<firstDay;i++) html+='<div class="h-20"></div>';
+  for(let d=1;d<=days;d++){
+    const isToday=d===todayD, devs=evMap[d]||[], dow=new Date(y,m,d).getDay();
+    const isWknd=dow===0||dow===6;
+    html+='<div class="'+(isToday?'bg-blue-800 border-2 border-blue-400':devs.length?'bg-slate-700':'bg-slate-800')+' rounded-lg p-1.5 h-20 flex flex-col">';
+    html+='<div class="text-xs '+(isToday?'text-white font-bold':isWknd?'text-red-400':'text-slate-300')+' mb-1">'+d+'</div>';
+    devs.forEach(e=>{ html+='<div class="'+e.color+' text-white text-xs rounded px-1 py-0.5 mb-0.5 leading-tight">'+e.label+'</div>'; });
+    html+='</div>';
+  }
+  grid.innerHTML=html;
+  const upEl=document.getElementById('upcoming-events'); if(!upEl)return;
+  const up=evs.filter(e=>e.day>=todayD).sort((a,b)=>a.day-b.day);
+  upEl.innerHTML=up.length?up.map(e=>{
+    const diff=e.day-todayD;
+    return '<div class="flex items-center gap-2 py-2 border-b border-slate-700 last:border-0"><span class="'+e.color+' text-white text-xs rounded px-2 py-0.5">'+e.label+'</span><span class="text-sm text-slate-300">'+y+'/'+(m+1)+'/'+e.day+'</span><span class="text-xs text-slate-400 ml-auto">'+(diff===0?'今天':diff===1?'明天':diff+'天後')+'</span></div>';
+  }).join(''):'<div class="text-slate-500 text-sm">本月無重要事件</div>';
+}
+
+// ════════════════════════════════════════════════════════════
+// 設定
+// ════════════════════════════════════════════════════════════
+const CFG_FIELDS=[
+  ['cfg-equity','equity','帳戶初始權益數 (NT$)','10000','從截圖：權益數 353,421（出入金會自動加減）'],
+  ['cfg-margin','margin','保證金/口 (NT$)','1000','微台指每口保證金，依期交所規定'],
+  ['cfg-risk','risk','風險 % (每筆)','0.5','每筆最大虧損佔帳戶比例'],
+  ['cfg-maxlots','maxLots','最大進場口數','1','單次進場口數上限'],
+  ['cfg-maxloss','maxLossPct','最大單日虧損 %','0.5','達到此比例顯示紅色警示'],
+  ['cfg-realized','realized','今日已實現損益 (NT$)','100','今日已平倉的損益'],
+  ['cfg-warn','warnPct','黃燈閾值 %','1','保證金使用率超過此值顯示黃燈'],
+  ['cfg-danger','dangerPct','紅燈閾值 %','1','保證金使用率超過此值顯示紅燈'],
+];
+
+function renderSettings(){
+  const el=document.getElementById('settings-fields'); if(!el)return;
+  el.innerHTML=CFG_FIELDS.map(([id,key,label,step,hint])=>{
+    const val=G.cfg[key]??0;
+    return '<div><div class="flex items-center justify-between mb-1"><label class="text-slate-300 text-sm font-medium">'+label+'</label><input type="number" id="'+id+'" value="'+val+'" step="'+step+'" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none w-36 text-right font-mono text-sm"></div><div class="text-xs text-slate-500">'+hint+'</div></div>';
+  }).join('');
+}
+
+window.saveSettings = () => {
+  CFG_FIELDS.forEach(([id,key])=>{ const e=document.getElementById(id); if(e)G.cfg[key]=parseFloat(e.value)||0; });
+  renderPositions(); renderQuickRisk(); saveFS();
+  const s=document.getElementById('cfg-saved'); if(s){s.classList.remove('hidden');setTimeout(()=>s.classList.add('hidden'),2000);}
+};
+
+// ════════════════════════════════════════════════════════════
+// AI 分析
+// ════════════════════════════════════════════════════════════
+window.doAnalyze = async () => {
+  const btn=document.getElementById('ai-btn'), area=document.getElementById('ai-result');
+  if(!G.twse?.price){ area.innerHTML='<div class="text-yellow-400 text-sm text-center py-4">請先更新報價</div>'; return; }
+  btn.disabled=true; btn.textContent='⏳ 分析中...';
+  area.innerHTML='<div class="flex items-center gap-2 py-6 justify-center text-slate-400 text-sm"><div class="flex gap-1"><div class="w-2 h-2 rounded-full bg-blue-400 animate-bounce"></div><div class="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style="animation-delay:.2s"></div><div class="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style="animation-delay:.4s"></div></div>AI 分析中...</div>';
+  const t=calcTech(G.twse.price,G.twse.pct), eq=calcEquity(), next=nextSettle();
+  const diff=next?Math.round((next-new Date())/864e5):99;
+  const prompt='你是專業微台指分析師。只回覆JSON（無其他文字）：{"score":<0-100>,"trend":"<強多|偏多|中性|偏空|強空>","context":"<2句>","dir":"<long|short|wait>","entry":"<區間>","sl":<數>,"tp1":<數>,"tp2":<數>,"lots":<數>,"rr":"<比>","note":"<1句>","risk":"<1句>"}
+數據：加權'+Math.round(G.twse.price)+'點 今日'+fmtPct(G.twse.pct)+' 技術分'+t.score+'/100 S1='+t.s1+' S2='+t.s2+' R1='+t.r1+' R2='+t.r2+' 台積電'+(G.tsmc?Math.round(G.tsmc.price)+' '+fmtPct(G.tsmc.pct):'N/A')+' 結算'+diff+'天後 帳戶'+fmtNT(eq)+' 風險'+G.cfg.risk+'% 最大'+G.cfg.maxLots+'口';
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    const raw=data.content?.find(c=>c.type==='text')?.text||'';
+    const a=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    const isL=a.dir==='long',isS=a.dir==='short',isW=!isL&&!isS;
+    const sc=Math.min(100,Math.max(0,a.score||50));
+    const scC=sc>=65?'text-green-400':sc<=35?'text-red-400':'text-yellow-400';
+    const scBg=sc>=65?'border-green-500 bg-green-900 bg-opacity-30':sc<=35?'border-red-500 bg-red-900 bg-opacity-30':'border-yellow-600 bg-yellow-900 bg-opacity-30';
+    const eBg=isL?'border-green-500 bg-green-900 bg-opacity-30':isS?'border-red-500 bg-red-900 bg-opacity-30':'border-slate-600 bg-slate-700 bg-opacity-50';
+    const eC=isL?'text-green-400':isS?'text-red-400':'text-slate-400';
+    const lots=Math.min(G.cfg.maxLots,a.lots||1);
+    area.innerHTML='<div class="space-y-3"><div class="border '+scBg+' rounded-xl p-4"><div class="flex items-center gap-4 mb-2"><div class="text-5xl font-bold '+scC+'">'+sc+'</div><div><div class="font-bold text-lg">'+(a.trend||'')+'</div><div class="w-40 bg-slate-600 rounded-full h-2 mt-1 overflow-hidden"><div class="h-2 rounded-full '+(sc>=65?'bg-green-500':sc<=35?'bg-red-500':'bg-yellow-500')+'" style="width:'+sc+'%"></div></div></div></div><p class="text-slate-300 text-sm">'+(a.context||'')+'</p></div>'
+      +'<div class="border '+eBg+' rounded-xl p-4"><div class="font-bold text-sm mb-1 '+eC+'">'+(isW?'觀望':isL?'多單進場':'空單進場')+'</div>'
+      +(isW?'':('<div class="grid grid-cols-3 gap-2 mb-2 text-sm"><div class="bg-slate-800 rounded-lg p-2"><div class="text-xs text-slate-400">進場區間</div><div class="font-semibold font-mono">'+(a.entry||'—')+'</div></div><div class="bg-slate-800 rounded-lg p-2"><div class="text-xs text-slate-400">口數/風報</div><div class="font-semibold">'+lots+'口 '+(a.rr||'—')+'</div></div><div class="bg-slate-800 rounded-lg p-2"><div class="text-xs text-slate-400">停損</div><div class="font-bold text-red-400 font-mono">'+(a.sl||'—')+'</div></div></div><div class="grid grid-cols-2 gap-2 text-sm"><div class="bg-slate-800 rounded-lg p-2"><div class="text-xs text-slate-400">TP1</div><div class="font-bold text-green-400 font-mono">'+(a.tp1||'—')+'</div></div><div class="bg-slate-800 rounded-lg p-2"><div class="text-xs text-slate-400">TP2</div><div class="font-bold text-green-400 font-mono">'+(a.tp2||'—')+'</div></div></div>'))
+      +'</div>'
+      +(a.note?'<div class="border border-blue-700 bg-blue-900 bg-opacity-30 text-blue-300 rounded-xl px-4 py-2 text-sm">'+a.note+'</div>':'')
+      +(a.risk?'<div class="border border-red-700 bg-red-900 bg-opacity-30 text-red-300 rounded-xl px-4 py-2 text-sm">⚠️ '+a.risk+'</div>':'')
+      +'</div>';
+  }catch(e){ area.innerHTML='<div class="text-red-400 text-sm text-center py-4">分析失敗：'+e.message+'</div>'; }
+  btn.disabled=false; btn.textContent='🤖 AI 分析';
+};
+
+// ════════════════════════════════════════════════════════════
+// 全域渲染 & Tab 切換
+// ════════════════════════════════════════════════════════════
+function today(){ return new Date().toISOString().slice(0,10); }
+
+function renderAll(){
+  renderSettleBanner();
+  renderQuotes();
+  renderQuickRisk();
+  renderPositions();
+  renderDayHistory();
+  renderCalendar();
+  renderSettings();
+  ['rec-date','dep-date','trade-date'].forEach(id=>{ const e=document.getElementById(id); if(e)e.value=today(); });
+}
+
+// ★★★ 關鍵修正：暴露所有需要從 HTML onclick 呼叫的函數到 window ★★★
+window.switchTab = name => {
+  ['live','positions','calendar','settings'].forEach(t=>{
+    const btn=document.getElementById('tab-'+t);
+    const pane=document.getElementById('pane-'+t);
+    if(btn){ btn.classList.toggle('active',t===name); btn.classList.toggle('text-slate-400',t!==name); }
+    if(pane){ pane.classList.toggle('hidden',t!==name); }
+  });
+  if(name==='calendar') renderCalendar();
+  if(name==='positions'){ renderPositions(); renderDayHistory(); }
+};
+
+window.goHome   = () => location.href='index.html';
+window.doSignOut= async () => { await signOut(auth); location.href='index.html'; };
+
 </script>
 </body>
 </html>
