@@ -611,59 +611,81 @@
 
             <!-- 現金流分頁 -->
             <div id="cashflowTab" class="tab-content">
-              <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 mb-6">
-                <h2 class="text-2xl font-bold text-slate-100 mb-1">💰 全家現金流</h2>
-                <p class="text-slate-400 text-sm mb-5">收入／支出每月自動折算，單次收入不計入月均</p>
+              <div style="background:#fff;border:1px solid rgba(26,25,22,.12);border-radius:10px;padding:1.5rem;margin-bottom:1.5rem;color:#1a1916">
+                <div style="font-size:18px;font-weight:500;color:#1a1916;margin-bottom:.25rem">全家現金流</div>
+                <div style="font-size:12px;color:#9a9890;margin-bottom:1.5rem">所有金額單位 TWD · 月均自動換算 · 投資交易連動計算</div>
 
-                <div class="cf-sec" style="margin-top:0"><span class="cf-dot" style="background:#378ADD"></span>家庭成員</div>
-                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:.5rem" id="cf-member-tags"></div>
-                <div style="display:flex;gap:6px;margin-bottom:.25rem">
-                  <input id="cf-new-member" placeholder="新增成員名稱" class="bg-slate-700 text-slate-100 text-sm px-3 py-1.5 rounded border border-slate-600 focus:outline-none flex-1" onkeydown="if(event.key==='Enter')cfAddMember()">
-                  <button onclick="cfAddMember()" class="bg-slate-700 text-slate-300 text-sm px-3 py-1.5 rounded border border-slate-600 hover:bg-slate-600">+ 新增</button>
+                <div class="cf-sec" style="margin-top:0"><span class="cf-sec-lbl">家庭成員</span><div class="cf-sec-bar"></div></div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:.5rem" id="cf-member-tags"></div>
+                <div style="display:flex;gap:6px">
+                  <input id="cf-new-member" placeholder="新增成員名稱" style="flex:1;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 8px;border-radius:4px;outline:none" onkeydown="if(event.key==='Enter')cfAddMember()">
+                  <button onclick="cfAddMember()" style="background:#f5f4f0;border:1px solid rgba(26,25,22,.18);color:#5a5852;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增</button>
                 </div>
 
-                <div class="cf-sec"><span class="cf-dot" style="background:#1D9E75"></span>收入</div>
+                <div class="cf-sec"><span class="cf-sec-lbl">收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-income">—</span></div>
                 <table class="cf-tbl">
-                  <thead><tr>
-                    <th style="width:32%">項目名稱</th><th style="width:14%">負責人</th><th style="width:13%">頻率</th>
-                    <th style="width:16%;text-align:right">金額（TWD）</th><th style="width:15%;text-align:right">月均（TWD）</th><th style="width:8%"></th>
-                  </tr></thead>
+                  <colgroup><col style="width:29%"><col style="width:13%"><col style="width:12%"><col style="width:17%"><col style="width:16%"><col style="width:9%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>項目名稱</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-income-body"></tbody>
                 </table>
-                <button class="cf-add-btn" onclick="cfAddRow('income')"><span style="font-size:15px">+</span> 新增收入</button>
+                <button class="cf-add-btn" onclick="cfAddRow('income')">+ 新增收入項目</button>
 
-                <div class="cf-sec"><span class="cf-dot" style="background:#D85A30"></span>固定支出</div>
+                <div class="cf-sec"><span class="cf-sec-lbl">固定支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-expense">—</span></div>
                 <table class="cf-tbl">
-                  <thead><tr>
-                    <th style="width:30%">項目名稱</th><th style="width:14%">負責人</th><th style="width:13%">頻率</th>
-                    <th style="width:16%;text-align:right">金額（TWD）</th><th style="width:15%;text-align:right">月均（TWD）</th><th style="width:10%"></th>
-                  </tr></thead>
+                  <colgroup><col style="width:24%"><col style="width:12%"><col style="width:12%"><col style="width:11%"><col style="width:16%"><col style="width:16%"><col style="width:5%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>項目名稱</th><th>負責人</th><th>類型</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-expense-body"></tbody>
                 </table>
-                <button class="cf-add-btn" onclick="cfAddRow('expense')"><span style="font-size:15px">+</span> 新增支出</button>
+                <div style="font-size:11px;color:#9a9890;padding:4px;margin-bottom:4px">類型選「房貸」或「信貸」，金額欄自動出現計算按鈕</div>
+                <button class="cf-add-btn" onclick="cfAddRow('expense')">+ 新增支出項目</button>
 
-                <div class="cf-sec"><span class="cf-dot" style="background:#7F77DD"></span>信用卡帳單</div>
+                <div class="cf-sec"><span class="cf-sec-lbl">信用卡帳單</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-card">—</span></div>
                 <table class="cf-tbl">
-                  <thead><tr>
-                    <th style="width:25%">銀行／卡名</th><th style="width:22%">負責人</th>
-                    <th style="width:25%">帳單月份</th><th style="width:20%;text-align:right">金額（TWD）</th><th style="width:8%"></th>
-                  </tr></thead>
+                  <colgroup><col style="width:28%"><col style="width:21%"><col style="width:23%"><col style="width:20%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>銀行／卡名</th><th>負責人</th><th>帳單月份</th><th class="r">金額（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-card-body"></tbody>
                 </table>
-                <button class="cf-add-btn" onclick="cfAddCardRow()"><span style="font-size:15px">+</span> 新增信用卡帳單</button>
+                <button class="cf-add-btn" onclick="cfAddCardRow()">+ 新增信用卡帳單</button>
 
-                <div class="cf-sec"><span class="cf-dot" style="background:#7F77DD"></span>彙總</div>
-                <div class="grid grid-cols-3 gap-3 my-4">
-                  <div class="cf-metric"><div class="cf-metric-lbl">月收入合計</div><div class="cf-metric-val" id="cf-s-in">$0</div></div>
-                  <div class="cf-metric"><div class="cf-metric-lbl">月支出合計</div><div class="cf-metric-val" id="cf-s-out">$0</div></div>
+                <div class="cf-sec"><span class="cf-sec-lbl">投資支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-invest">—</span></div>
+                <div style="font-size:11px;color:#9a9890;margin-bottom:.5rem">買入股票、基金等資金流出 · 含信貸借款投入</div>
+                <table class="cf-tbl">
+                  <colgroup><col style="width:24%"><col style="width:13%"><col style="width:12%"><col style="width:16%"><col style="width:15%"><col style="width:12%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th>資金來源</th><th></th><th></th></tr></thead>
+                  <tbody id="cf-invest-body"></tbody>
+                </table>
+                <button class="cf-add-btn" onclick="cfAddRow('invest')">+ 新增投資支出</button>
+
+                <div class="cf-sec"><span class="cf-sec-lbl">贖回收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-redeem">—</span></div>
+                <div style="font-size:11px;color:#9a9890;margin-bottom:.5rem">賣出股票、基金等資金流入</div>
+                <table class="cf-tbl">
+                  <colgroup><col style="width:28%"><col style="width:13%"><col style="width:12%"><col style="width:17%"><col style="width:16%"><col style="width:6%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th><th></th><th></th></tr></thead>
+                  <tbody id="cf-redeem-body"></tbody>
+                </table>
+                <button class="cf-add-btn" onclick="cfAddRow('redeem')">+ 新增贖回收入</button>
+
+                <div class="cf-sec"><span class="cf-sec-lbl">交易紀錄連動</span><div class="cf-sec-bar"></div></div>
+                <div id="cf-tx-summary" style="background:#f5f4f0;border:1px solid rgba(26,25,22,.1);border-radius:6px;padding:12px 14px;font-size:12px;color:#5a5852;margin-bottom:.5rem">
+                  <span style="color:#9a9890;font-size:11px">尚無資料 · 請點下方按鈕從交易記錄頁面載入本月數據</span>
+                </div>
+                <button onclick="cfLoadTxData()" style="background:#f5f4f0;border:1px solid rgba(26,25,22,.18);color:#5a5852;font-size:12px;padding:6px 14px;border-radius:4px;cursor:pointer">從交易記錄載入本月數據</button>
+
+                <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl">彙總</span><div class="cf-sec-bar"></div></div>
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:1rem 0">
+                  <div class="cf-metric"><div class="cf-metric-lbl">月收入合計</div><div class="cf-metric-val" id="cf-s-in" style="color:#2a7a4b">$0</div></div>
+                  <div class="cf-metric"><div class="cf-metric-lbl">月支出合計</div><div class="cf-metric-val" id="cf-s-out" style="color:#b83030">$0</div></div>
+                  <div class="cf-metric"><div class="cf-metric-lbl">投資淨流出</div><div class="cf-metric-val" id="cf-s-invest-net">$0</div></div>
                   <div class="cf-metric"><div class="cf-metric-lbl">月自由現金流</div><div class="cf-metric-val" id="cf-s-fcf">$0</div></div>
                 </div>
-                <div class="bg-slate-700 rounded-lg p-4 flex flex-col gap-3">
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;color:#64748b;width:52px">收入</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-in" style="width:0%;background:#1D9E75"></div></div><span style="font-size:12px;font-family:monospace;color:#94a3b8;min-width:88px;text-align:right" id="cf-b-in-v">$0</span></div>
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;color:#64748b;width:52px">支出</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-out" style="width:0%;background:#D85A30"></div></div><span style="font-size:12px;font-family:monospace;color:#94a3b8;min-width:88px;text-align:right" id="cf-b-out-v">$0</span></div>
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;color:#64748b;width:52px">結餘率</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-fcf" style="width:0%;background:#7F77DD"></div></div><span style="font-size:12px;font-family:monospace;color:#94a3b8;min-width:88px;text-align:right" id="cf-b-fcf-p">0%</span></div>
+                <div style="background:#f5f4f0;border-radius:6px;padding:14px 16px;border:1px solid rgba(26,25,22,.1);display:flex;flex-direction:column;gap:10px;margin-bottom:.5rem">
+                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">收入</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-in" style="width:0%;background:#2a7a4b"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#5a5852;min-width:88px;text-align:right" id="cf-b-in-v">$0</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">固定支出</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-exp" style="width:0%;background:#b83030"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#5a5852;min-width:88px;text-align:right" id="cf-b-exp-v">$0</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">信用卡</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-card" style="width:0%;background:#5a5852"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#5a5852;min-width:88px;text-align:right" id="cf-b-card-v">$0</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">投資流出</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-inv" style="width:0%;background:#9a9890"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#5a5852;min-width:88px;text-align:right" id="cf-b-inv-v">$0</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">結餘率</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-fcf" style="width:0%;background:#1a1916"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#5a5852;min-width:88px;text-align:right" id="cf-b-fcf-p">0%</span></div>
                 </div>
-                <p class="text-slate-500 text-xs mt-3">資料自動存於本機瀏覽器，不會上傳至伺服器。</p>
+                <p style="font-size:11px;color:#9a9890">資料存於本機瀏覽器 · 不上傳伺服器</p>
               </div>
             </div>
 
@@ -1828,7 +1850,11 @@
     <!-- ===== 現金流模組 ===== -->
     <script>
     (function(){
-    const CF_STORE='cf_v5';
+    const CF_STORE='cf_v8';
+    const FREQS={weekly:'每週',monthly:'每月',quarterly:'每季',yearly:'每年',once:'單次'};
+    const ETYPES={general:'一般',loan_mortgage:'房貸',loan_credit:'信貸',loan_other:'其他貸款'};
+    const LOAN_TYPES=['loan_mortgage','loan_credit','loan_other'];
+    const FUND_SOURCES=['薪資','信貸','信用額度','其他'];
     let cfMembers=['Rebecca','Eric','Ian','弟弟'];
     let cfIncome=[
       {id:'i1',name:'Rebecca 薪資',owner:'Rebecca',freq:'monthly',amt:''},
@@ -1838,14 +1864,14 @@
       {id:'i5',name:'年終獎金',owner:'Eric',freq:'yearly',amt:''},
     ];
     let cfExpense=[
-      {id:'e1',name:'禾川琚房貸',owner:'Rebecca',freq:'monthly',amt:'',isLoan:true,loanData:null},
-      {id:'e2',name:'上城房貸',owner:'Eric',freq:'monthly',amt:'',isLoan:true,loanData:null},
-      {id:'e3',name:'信貸還款',owner:'Rebecca',freq:'monthly',amt:'',isLoan:true,loanData:null},
-      {id:'e4',name:'水電瓦斯網路',owner:'Rebecca',freq:'monthly',amt:''},
-      {id:'e5',name:'學費／安親班',owner:'Rebecca',freq:'monthly',amt:''},
-      {id:'e6',name:'才藝課外活動',owner:'Rebecca',freq:'monthly',amt:''},
-      {id:'e7',name:'嬰幼兒耗材',owner:'Rebecca',freq:'monthly',amt:''},
-      {id:'e8',name:'保險費',owner:'Rebecca',freq:'yearly',amt:''},
+      {id:'e1',name:'禾川琚房貸',owner:'Rebecca',etype:'loan_mortgage',freq:'monthly',amt:'',loanData:null},
+      {id:'e2',name:'上城房貸',owner:'Eric',etype:'loan_mortgage',freq:'monthly',amt:'',loanData:null},
+      {id:'e3',name:'信貸還款',owner:'Rebecca',etype:'loan_credit',freq:'monthly',amt:'',loanData:null},
+      {id:'e4',name:'水電瓦斯網路',owner:'Rebecca',etype:'general',freq:'monthly',amt:''},
+      {id:'e5',name:'學費／安親班',owner:'Rebecca',etype:'general',freq:'monthly',amt:''},
+      {id:'e6',name:'才藝課外活動',owner:'Rebecca',etype:'general',freq:'monthly',amt:''},
+      {id:'e7',name:'嬰幼兒耗材',owner:'Rebecca',etype:'general',freq:'monthly',amt:''},
+      {id:'e8',name:'保險費',owner:'Rebecca',etype:'general',freq:'yearly',amt:''},
     ];
     let cfCards=[
       {id:'cr1',bank:'台新',owner:'Rebecca',month:'',amt:''},
@@ -1853,11 +1879,18 @@
       {id:'cr3',bank:'中信',owner:'Eric',month:'',amt:''},
       {id:'cr4',bank:'玉山',owner:'Rebecca',month:'',amt:''},
     ];
-    let cfCtr=100;
+    let cfInvest=[
+      {id:'iv1',name:'信貸投入股市',owner:'Rebecca',freq:'once',amt:'',src:'信貸'},
+      {id:'iv2',name:'定期定額',owner:'Rebecca',freq:'monthly',amt:'',src:'薪資'},
+    ];
+    let cfRedeem=[
+      {id:'rd1',name:'股票賣出回收',owner:'Rebecca',freq:'once',amt:'',src:'tx'},
+    ];
+    let cfCtr=200;
     function nid(p){return p+(++cfCtr);}
-    const FREQS={monthly:'每月',quarterly:'每季',yearly:'每年',once:'單次'};
     function toMo(amt,freq){
       const a=parseFloat(amt)||0;
+      if(freq==='weekly')return a*52/12;
       if(freq==='monthly')return a;
       if(freq==='quarterly')return a/3;
       if(freq==='yearly')return a/12;
@@ -1866,10 +1899,16 @@
     function cfFmt(n){return (n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString();}
     function mOpts(sel){return [...cfMembers,'共同'].map(m=>`<option value="${m}"${m===sel?' selected':''}>${m}</option>`).join('');}
     function fOpts(sel){return Object.entries(FREQS).map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');}
+    function eOpts(sel){return Object.entries(ETYPES).map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');}
+    function srcOpts(sel){return FUND_SOURCES.map(s=>`<option value="${s}"${s===sel?' selected':''}>${s}</option>`).join('');}
+    function isLoan(et){return LOAN_TYPES.includes(et);}
+
+    const CF_CSS=`.cf-tbl{width:100%;border-collapse:collapse;table-layout:fixed}.cf-tbl th{font-size:10px;color:#9a9890;font-weight:400;padding:3px 5px;text-align:left;border-bottom:1px solid rgba(26,25,22,.1);letter-spacing:.04em}.cf-tbl th.r{text-align:right}.cf-tbl td{border-bottom:1px solid rgba(26,25,22,.08);padding:0 2px;vertical-align:middle}.cf-tbl tr:last-child td{border-bottom:none}.cf-tbl tr.cf-sub td{background:#f5f4f0;border-top:1px solid rgba(26,25,22,.15);border-bottom:none}.cf-te{width:100%;border:none;background:transparent;font-size:13px;color:#1a1916;outline:none;padding:7px 4px;font-family:inherit}.cf-te:focus{background:#f5f4f0;border-radius:4px}.cf-te.r{text-align:right;font-family:'Courier New',monospace}.cf-sel{width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:11px;padding:4px 3px;border-radius:4px;outline:none;font-family:inherit}.cf-del{width:18px;height:18px;border-radius:50%;border:1px solid rgba(26,25,22,.18);background:transparent;color:#9a9890;cursor:pointer;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;margin:auto;flex-shrink:0}.cf-del:hover{background:#b83030;color:#fff;border-color:#b83030}.cf-add-btn{display:flex;align-items:center;gap:5px;font-size:11px;color:#9a9890;cursor:pointer;padding:6px 4px;background:none;border:none;width:100%;font-family:inherit;letter-spacing:.02em}.cf-add-btn:hover{color:#5a5852}.cf-loan-btn{background:none;border:1px solid rgba(26,25,22,.18);color:#9a9890;font-size:10px;padding:2px 5px;border-radius:3px;cursor:pointer;white-space:nowrap;font-family:inherit;flex-shrink:0}.cf-loan-btn:hover{background:#f5f4f0;color:#5a5852}.cf-sec{display:flex;align-items:center;gap:10px;margin:1.5rem 0 .5rem;padding-bottom:5px;border-bottom:1px solid rgba(26,25,22,.15)}.cf-sec-lbl{font-size:10px;font-weight:500;color:#9a9890;letter-spacing:.1em;text-transform:uppercase}.cf-sec-bar{flex:1;height:1px;background:rgba(26,25,22,.08)}.cf-sec-tot{font-size:11px;font-family:'Courier New',monospace;color:#5a5852}.cf-metric{background:#f5f4f0;border-radius:6px;padding:12px 14px;border:1px solid rgba(26,25,22,.1)}.cf-metric-lbl{font-size:10px;color:#9a9890;margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase}.cf-metric-val{font-size:17px;font-weight:500;font-family:'Courier New',monospace}.cf-bar-track{flex:1;height:5px;background:#eceae4;border-radius:3px;overflow:hidden}.cf-bar-fill{height:100%;border-radius:3px;transition:width .4s ease}.cf-mtag{display:inline-flex;align-items:center;gap:4px;background:#f5f4f0;border:1px solid rgba(26,25,22,.15);border-radius:20px;padding:3px 10px;font-size:12px;color:#5a5852}.cf-mdel{background:none;border:none;cursor:pointer;color:#9a9890;font-size:12px;line-height:1;padding:0 0 0 2px;font-family:inherit}.cf-mdel:hover{color:#b83030}.cf-sub-lbl{font-size:11px;color:#9a9890;padding:7px 5px;text-align:right}.cf-sub-val{font-size:12px;font-weight:500;font-family:'Courier New',monospace;text-align:right;padding:7px 5px;color:#1a1916}`;
+    if(!document.getElementById('cf-style')){const st=document.createElement('style');st.id='cf-style';st.textContent=CF_CSS;document.head.appendChild(st);}
 
     function cfRenderMembers(){
       const el=document.getElementById('cf-member-tags');if(!el)return;
-      el.innerHTML=cfMembers.map(m=>`<span class="cf-member-tag">${m}<button class="cf-mdel" onclick="cfDelMember('${m}')">×</button></span>`).join('');
+      el.innerHTML=cfMembers.map(m=>`<span class="cf-mtag">${m}<button class="cf-mdel" onclick="cfDelMember('${m}')">×</button></span>`).join('');
       cfRenderAll();
     }
     window.cfDelMember=function(m){cfMembers=cfMembers.filter(x=>x!==m);cfSave();cfRenderMembers();};
@@ -1878,81 +1917,104 @@
       if(v&&!cfMembers.includes(v)){cfMembers.push(v);el.value='';cfSave();cfRenderMembers();}
     };
 
+    function incomeRow(r){
+      const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
+      return `<tr><td><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('income','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('income','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('income','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSa('income','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td></td><td><button class="cf-del" onclick="cfDelRow('income','${r.id}')">×</button></td></tr>`;
+    }
+    function expenseRow(r){
+      const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
+      const loan=isLoan(r.etype||'general');
+      return `<tr id="tr-${r.id}"><td><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('expense','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('expense','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfEtype('${r.id}',this.value)">${eOpts(r.etype||'general')}</select></td><td><select class="cf-sel" onchange="cfSfq('expense','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><div style="display:flex;align-items:center;gap:3px"><input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${r.amt}" placeholder="0" style="flex:1;min-width:0" oninput="cfSa('expense','${r.id}',this.value)">${loan?`<button class="cf-loan-btn" onclick="cfOpenLoan('${r.id}')">計算</button>`:''}</div></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td><button class="cf-del" onclick="cfDelRow('expense','${r.id}')">×</button></td></tr>`;
+    }
+    function investRow(r,type){
+      const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
+      const srcCol=type==='invest'?`<td><select class="cf-sel" onchange="cfSf('${type}','${r.id}','src',this.value)">${srcOpts(r.src||'薪資')}</select></td>`:`<td></td>`;
+      return `<tr><td><input class="cf-te" value="${r.name}" placeholder="項目說明" oninput="cfSf('${type}','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('${type}','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('${type}','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSa('${type}','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td>${srcCol}<td><button class="cf-del" onclick="cfDelRow('${type}','${r.id}')">×</button></td></tr>`;
+    }
+    function subRow(val,label,colspan,extra){
+      return `<tr class="cf-sub"><td colspan="${colspan}" class="cf-sub-lbl">${label}</td><td class="cf-sub-val">${cfFmt(val)}</td>${extra||''}</tr>`;
+    }
+
     function cfRenderIncome(){
       const el=document.getElementById('cf-income-body');if(!el)return;
-      el.innerHTML=cfIncome.map(r=>`
-        <tr>
-          <td><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSetField('income','${r.id}','name',this.value)"></td>
-          <td><select class="cf-sel" onchange="cfSetField('income','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
-          <td><select class="cf-sel" onchange="cfSetFreq('income','${r.id}',this.value)">${fOpts(r.freq)}</select></td>
-          <td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSetAmt('income','${r.id}',this.value)"></td>
-          <td style="text-align:right;font-size:12px;font-family:monospace;color:#64748b;padding:6px 4px" id="cf-mo-${r.id}">${r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq))}</td>
-          <td style="text-align:center"><button class="cf-del" onclick="cfDelRow('income','${r.id}')">×</button></td>
-        </tr>`).join('');
+      const tot=cfIncome.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      el.innerHTML=cfIncome.map(r=>incomeRow(r)).join('')+subRow(tot,'月收入小計',4,'<td colspan="2"></td>');
+      const st=document.getElementById('cf-st-income');if(st)st.textContent=cfFmt(tot)+'/月';
     }
-
     function cfRenderExpense(){
       const el=document.getElementById('cf-expense-body');if(!el)return;
-      el.innerHTML=cfExpense.map(r=>`
-        <tr>
-          <td><div style="display:flex;align-items:center;gap:4px">
-            <input class="cf-te" style="flex:1;min-width:0" value="${r.name}" placeholder="項目名稱" oninput="cfSetField('expense','${r.id}','name',this.value)">
-            ${r.isLoan?`<button class="cf-loan-btn" onclick="cfOpenLoan('${r.id}')">計算</button>`:''}
-          </div></td>
-          <td><select class="cf-sel" onchange="cfSetField('expense','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
-          <td><select class="cf-sel" onchange="cfSetFreq('expense','${r.id}',this.value)">${fOpts(r.freq)}</select></td>
-          <td><input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${r.amt}" placeholder="0" oninput="cfSetAmt('expense','${r.id}',this.value)"></td>
-          <td style="text-align:right;font-size:12px;font-family:monospace;color:#64748b;padding:6px 4px" id="cf-mo-${r.id}">${r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq))}</td>
-          <td style="text-align:center"><button class="cf-del" onclick="cfDelRow('expense','${r.id}')">×</button></td>
-        </tr>`).join('');
+      const tot=cfExpense.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      el.innerHTML=cfExpense.map(r=>expenseRow(r)).join('')+subRow(tot,'月支出小計',5,'<td colspan="2"></td>');
+      const st=document.getElementById('cf-st-expense');if(st)st.textContent=cfFmt(tot)+'/月';
     }
-
     function cfRenderCards(){
       const el=document.getElementById('cf-card-body');if(!el)return;
       const now=new Date();
       const thisMonth=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-      el.innerHTML=cfCards.map(r=>`
-        <tr>
-          <td><input class="cf-te" value="${r.bank}" placeholder="台新、富邦..." oninput="cfSetCard('${r.id}','bank',this.value)"></td>
-          <td><select class="cf-sel" onchange="cfSetCard('${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
-          <td><input class="cf-te" type="month" value="${r.month||thisMonth}" style="font-size:12px" oninput="cfSetCard('${r.id}','month',this.value)"></td>
-          <td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSetCardAmt('${r.id}',this.value)"></td>
-          <td style="text-align:center"><button class="cf-del" onclick="cfDelCard('${r.id}')">×</button></td>
-        </tr>`).join('');
+      const tot=cfCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+      el.innerHTML=cfCards.map(r=>`<tr><td><input class="cf-te" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfScf('${r.id}','bank',this.value)"></td><td><select class="cf-sel" onchange="cfScf('${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><input class="cf-te" type="month" value="${r.month||thisMonth}" style="font-size:11px" oninput="cfScf('${r.id}','month',this.value)"></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSca('${r.id}',this.value)"></td><td></td><td><button class="cf-del" onclick="cfDelCard('${r.id}')">×</button></td></tr>`).join('')+subRow(tot,'月帳單小計',3,'<td colspan="3"></td>');
+      const st=document.getElementById('cf-st-card');if(st)st.textContent=cfFmt(tot)+'/月';
     }
+    function cfRenderInvest(){
+      const el=document.getElementById('cf-invest-body');if(!el)return;
+      const tot=cfInvest.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      el.innerHTML=cfInvest.map(r=>investRow(r,'invest')).join('')+subRow(tot,'月均小計',4,'<td colspan="3"></td>');
+      const st=document.getElementById('cf-st-invest');if(st)st.textContent=cfFmt(tot)+'/月';
+    }
+    function cfRenderRedeem(){
+      const el=document.getElementById('cf-redeem-body');if(!el)return;
+      const tot=cfRedeem.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      el.innerHTML=cfRedeem.map(r=>investRow(r,'redeem')).join('')+subRow(tot,'月均小計',4,'<td colspan="3"></td>');
+      const st=document.getElementById('cf-st-redeem');if(st)st.textContent=cfFmt(tot)+'/月';
+    }
+    function cfRenderAll(){cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfRenderRedeem();cfCalc();}
 
-    function cfRenderAll(){cfRenderIncome();cfRenderExpense();cfRenderCards();cfCalc();}
-
-    window.cfSetField=function(type,id,field,v){
-      const arr=type==='income'?cfIncome:cfExpense;
-      const r=arr.find(x=>x.id===id);if(r)r[field]=v;cfSave();
+    function cfGetArr(type){return{income:cfIncome,expense:cfExpense,invest:cfInvest,redeem:cfRedeem}[type]||[];}
+    window.cfSf=function(type,id,field,v){const r=cfGetArr(type).find(x=>x.id===id);if(r)r[field]=v;cfSave();};
+    window.cfSfq=function(type,id,v){
+      const r=cfGetArr(type).find(x=>x.id===id);if(r)r.freq=v;
+      const mo=document.getElementById('cf-mo-'+id);if(mo&&r)mo.textContent=v==='once'?'—':cfFmt(toMo(r.amt,v));
+      cfUpdateSubtotal(type);cfCalc();cfSave();
     };
-    window.cfSetFreq=function(type,id,v){
-      const arr=type==='income'?cfIncome:cfExpense;
-      const r=arr.find(x=>x.id===id);if(r)r.freq=v;
-      const mo=document.getElementById('cf-mo-'+id);
-      if(mo&&r)mo.textContent=v==='once'?'—':cfFmt(toMo(r.amt,v));
-      cfCalc();cfSave();
+    window.cfSa=function(type,id,v){
+      const r=cfGetArr(type).find(x=>x.id===id);if(r)r.amt=v;
+      const mo=document.getElementById('cf-mo-'+id);if(mo&&r)mo.textContent=r.freq==='once'?'—':cfFmt(toMo(v,r.freq));
+      cfUpdateSubtotal(type);cfCalc();cfSave();
     };
-    window.cfSetAmt=function(type,id,v){
-      const arr=type==='income'?cfIncome:cfExpense;
-      const r=arr.find(x=>x.id===id);if(r)r.amt=v;
-      const mo=document.getElementById('cf-mo-'+id);
-      if(mo&&r)mo.textContent=r.freq==='once'?'—':cfFmt(toMo(v,r.freq));
-      cfCalc();cfSave();
+    window.cfEtype=function(id,v){
+      const r=cfExpense.find(x=>x.id===id);if(!r)return;
+      r.etype=v;if(!isLoan(v))r.loanData=null;
+      cfRenderExpense();cfCalc();cfSave();
     };
-    window.cfSetCard=function(id,field,v){const r=cfCards.find(x=>x.id===id);if(r)r[field]=v;cfCalc();cfSave();};
-    window.cfSetCardAmt=function(id,v){const r=cfCards.find(x=>x.id===id);if(r)r.amt=v;cfCalc();cfSave();};
+    window.cfScf=function(id,field,v){const r=cfCards.find(x=>x.id===id);if(r)r[field]=v;cfSave();};
+    window.cfSca=function(id,v){
+      const r=cfCards.find(x=>x.id===id);if(r)r.amt=v;
+      cfUpdateSubtotal('card');cfCalc();cfSave();
+    };
+    function cfUpdateSubtotal(type){
+      if(type==='card'){
+        const tot=cfCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+        const sub=document.querySelector('#cf-card-body tr.cf-sub td.cf-sub-val');if(sub)sub.textContent=cfFmt(tot);
+        const st=document.getElementById('cf-st-card');if(st)st.textContent=cfFmt(tot)+'/月';return;
+      }
+      const arr=cfGetArr(type);const tot=arr.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      const sub=document.querySelector(`#cf-${type}-body tr.cf-sub td.cf-sub-val`);if(sub)sub.textContent=cfFmt(tot);
+      const st=document.getElementById(`cf-st-${type}`);if(st)st.textContent=cfFmt(tot)+'/月';
+    }
     window.cfAddRow=function(type){
-      const row={id:nid(type==='income'?'i':'e'),name:'',owner:cfMembers[0]||'Rebecca',freq:'monthly',amt:''};
-      if(type==='expense')row.isLoan=false;
-      if(type==='income')cfIncome.push(row);else cfExpense.push(row);
-      type==='income'?cfRenderIncome():cfRenderExpense();cfSave();
+      const row={id:nid(type[0]),name:'',owner:cfMembers[0]||'Rebecca',freq:'monthly',amt:''};
+      if(type==='expense'){row.etype='general';row.loanData=null;}
+      if(type==='invest')row.src='薪資';
+      if(type==='redeem')row.src='manual';
+      cfGetArr(type).push(row);
+      const renders={income:cfRenderIncome,expense:cfRenderExpense,invest:cfRenderInvest,redeem:cfRenderRedeem};
+      if(renders[type])renders[type]();cfSave();
     };
     window.cfDelRow=function(type,id){
-      if(type==='income')cfIncome=cfIncome.filter(x=>x.id!==id);
-      else cfExpense=cfExpense.filter(x=>x.id!==id);
-      type==='income'?cfRenderIncome():cfRenderExpense();cfCalc();cfSave();
+      const m={income:()=>cfIncome=cfIncome.filter(x=>x.id!==id),expense:()=>cfExpense=cfExpense.filter(x=>x.id!==id),invest:()=>cfInvest=cfInvest.filter(x=>x.id!==id),redeem:()=>cfRedeem=cfRedeem.filter(x=>x.id!==id)};
+      if(m[type])m[type]();
+      const renders={income:cfRenderIncome,expense:cfRenderExpense,invest:cfRenderInvest,redeem:cfRenderRedeem};
+      if(renders[type])renders[type]();cfCalc();cfSave();
     };
     window.cfAddCardRow=function(){
       const now=new Date();
@@ -1961,129 +2023,93 @@
     };
     window.cfDelCard=function(id){cfCards=cfCards.filter(x=>x.id!==id);cfRenderCards();cfCalc();cfSave();};
 
+    window.cfLoadTxData=function(){
+      const el=document.getElementById('cf-tx-summary');
+      try{
+        const raw=localStorage.getItem('transactions')||localStorage.getItem('txData');
+        if(!raw){if(el)el.innerHTML='<span style="color:#9a9890;font-size:11px">找不到交易紀錄資料</span>';return;}
+        const txs=JSON.parse(raw);
+        const now=new Date();
+        const curYM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        const usdRate=parseFloat(localStorage.getItem('usdRate'))||31.5;
+        const buys=txs.filter(t=>t.date?.slice(0,7)===curYM&&t.type==='買入');
+        const sells=txs.filter(t=>t.date?.slice(0,7)===curYM&&t.type==='賣出');
+        const buyTot=buys.reduce((s,t)=>{const a=parseFloat(t.amount)||0;return s+(t.region==='美股'?a*usdRate:a);},0);
+        const sellTot=sells.reduce((s,t)=>{const a=parseFloat(t.amount)||0;return s+(t.region==='美股'?a*usdRate:a);},0);
+        if(buyTot>0){const ex=cfInvest.find(r=>r.src==='tx');if(ex){ex.amt=String(Math.round(buyTot));ex.freq='once';ex.name=`${curYM} 買入合計`;}else cfInvest.push({id:nid('iv'),name:`${curYM} 買入合計`,owner:'共同',freq:'once',amt:String(Math.round(buyTot)),src:'tx'});cfRenderInvest();}
+        if(sellTot>0){const ex=cfRedeem.find(r=>r.src==='tx');if(ex){ex.amt=String(Math.round(sellTot));ex.freq='once';ex.name=`${curYM} 賣出合計`;}else cfRedeem.push({id:nid('rd'),name:`${curYM} 賣出合計`,owner:'共同',freq:'once',amt:String(Math.round(sellTot)),src:'tx'});cfRenderRedeem();}
+        if(el)el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em;text-transform:uppercase">${curYM} 買入</div><div style="font-size:14px;font-weight:500;font-family:'Courier New',monospace;color:#b83030">${cfFmt(buyTot)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${buys.length} 筆</div></div><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em;text-transform:uppercase">${curYM} 賣出</div><div style="font-size:14px;font-weight:500;font-family:'Courier New',monospace;color:#2a7a4b">${cfFmt(sellTot)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${sells.length} 筆</div></div><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em;text-transform:uppercase">淨流出</div><div style="font-size:14px;font-weight:500;font-family:'Courier New',monospace;color:${buyTot-sellTot>0?'#b83030':'#2a7a4b'}">${cfFmt(buyTot-sellTot)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">匯率 ${usdRate}</div></div></div>`;
+        cfCalc();cfSave();
+      }catch(e){if(el)el.innerHTML=`<span style="color:#9a9890;font-size:11px">載入失敗：${e.message}</span>`;}
+    };
+
     function cfCalc(){
-      let totalIn=0,totalOut=0;
-      cfIncome.forEach(r=>{totalIn+=toMo(r.amt,r.freq);});
-      cfExpense.forEach(r=>{totalOut+=toMo(r.amt,r.freq);});
-      cfCards.forEach(r=>{totalOut+=parseFloat(r.amt)||0;});
-      const fcf=totalIn-totalOut;
-      const pct=totalIn>0?Math.round((fcf/totalIn)*100):0;
-      const s=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
-      s('cf-s-in',cfFmt(totalIn));s('cf-s-out',cfFmt(totalOut));
-      s('cf-b-in-v',cfFmt(totalIn));s('cf-b-out-v',cfFmt(totalOut));s('cf-b-fcf-p',pct+'%');
-      const fe=document.getElementById('cf-s-fcf');
-      if(fe){fe.textContent=cfFmt(fcf);fe.style.color=fcf>0?'#4ade80':fcf<0?'#f87171':'#e2e8f0';}
-      const max=Math.max(totalIn,totalOut,1);
-      const sw=(id,p)=>{const el=document.getElementById(id);if(el)el.style.width=Math.max(0,p)+'%';};
-      sw('cf-b-in',Math.round((totalIn/max)*100));
-      sw('cf-b-out',Math.round((totalOut/max)*100));
-      sw('cf-b-fcf',Math.max(0,pct));
+      const moIn=cfIncome.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      const moExp=cfExpense.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      const moCard=cfCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+      const moInv=cfInvest.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      const moRed=cfRedeem.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      const totalOut=moExp+moCard;const investNet=moInv-moRed;const fcf=moIn-(totalOut+investNet);
+      const pct=moIn>0?Math.round((fcf/moIn)*100):0;
+      const set=(id,v,c)=>{const el=document.getElementById(id);if(el){el.textContent=v;if(c)el.style.color=c;}};
+      set('cf-s-in',cfFmt(moIn),'#2a7a4b');set('cf-s-out',cfFmt(totalOut),'#b83030');
+      set('cf-s-invest-net',cfFmt(investNet),investNet>0?'#b83030':'#2a7a4b');
+      set('cf-s-fcf',cfFmt(fcf),fcf>0?'#2a7a4b':fcf<0?'#b83030':'#1a1916');
+      set('cf-b-in-v',cfFmt(moIn));set('cf-b-exp-v',cfFmt(moExp));set('cf-b-card-v',cfFmt(moCard));set('cf-b-inv-v',cfFmt(moInv));set('cf-b-fcf-p',pct+'%');
+      const max=Math.max(moIn,totalOut,moCard,moInv,1);
+      const sw=(id,p)=>{const el=document.getElementById(id);if(el)el.style.width=Math.max(0,Math.round(p))+'%';};
+      sw('cf-b-in',Math.round((moIn/max)*100));sw('cf-b-exp',Math.round((moExp/max)*100));sw('cf-b-card',Math.round((moCard/max)*100));sw('cf-b-inv',Math.round((moInv/max)*100));sw('cf-b-fcf',Math.max(0,pct));
     }
 
     window.cfOpenLoan=function(rowId){
-      const row=cfExpense.find(r=>r.id===rowId);
-      const ld=row&&row.loanData?row.loanData:{};
+      const row=cfExpense.find(r=>r.id===rowId);const ld=row?.loanData||{};
+      const typeName=(ETYPES[row?.etype]||'貸款');
       const wrap=document.createElement('div');
-      wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999';
-      wrap.innerHTML=`
-        <div style="background:#1e293b;border:1px solid rgba(148,163,184,.2);border-radius:12px;padding:1.25rem;width:360px;max-width:94vw;max-height:90vh;overflow-y:auto">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <span style="font-size:14px;font-weight:600;color:#e2e8f0">${row?row.name:'貸款'} 試算</span>
-            <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;line-height:1">×</button>
-          </div>
-          ${[['lc-principal','貸款金額（TWD）','number','例：8000000'],['lc-rate','年利率（%）','number','例：2.06'],['lc-start','貸款起始日','date',''],['lc-end','貸款截止日','date',''],['lc-first','第一次還款日','date','']].map(([id,label,type,ph])=>`
-            <div style="margin-bottom:10px">
-              <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">${label}</div>
-              <input id="${id}" type="${type}" value="${ld[id]||''}" placeholder="${ph}" style="width:100%;border:1px solid rgba(148,163,184,.2);background:#0f172a;color:#e2e8f0;font-size:13px;padding:6px 8px;border-radius:8px;outline:none;font-family:monospace" oninput="cfLoanCalc()">
-            </div>`).join('')}
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-            <div>
-              <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">寬限期（月）</div>
-              <input id="lc-grace" type="number" value="${ld['lc-grace']||''}" placeholder="例：24" style="width:100%;border:1px solid rgba(148,163,184,.2);background:#0f172a;color:#e2e8f0;font-size:13px;padding:6px 8px;border-radius:8px;outline:none;font-family:monospace" oninput="cfLoanCalc()">
-            </div>
-            <div>
-              <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">還款方式</div>
-              <select id="lc-method" style="width:100%;border:1px solid rgba(148,163,184,.2);background:#0f172a;color:#e2e8f0;font-size:13px;padding:6px 8px;border-radius:8px;outline:none" onchange="cfLoanCalc()">
-                <option value="equal_payment"${(ld['lc-method']||'equal_payment')==='equal_payment'?' selected':''}>本利均攤</option>
-                <option value="equal_principal"${ld['lc-method']==='equal_principal'?' selected':''}>本金均攤</option>
-              </select>
-            </div>
-          </div>
-          <div id="lc-result" style="background:#0f172a;border-radius:8px;padding:12px;font-size:12px;color:#94a3b8;min-height:50px"></div>
-          <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
-            <button onclick="this.closest('[style*=fixed]').remove()" style="background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,.3);border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer">取消</button>
-            <button id="lc-apply" onclick="cfApplyLoan('${rowId}')" disabled style="background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;opacity:.4">套用月付金</button>
-          </div>
-        </div>`;
-      document.body.appendChild(wrap);
-      if(row&&row.loanData)cfLoanCalc();
+      wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999';
+      wrap.innerHTML=`<div style="background:#fff;border:1px solid rgba(26,25,22,.18);border-radius:8px;padding:1.25rem;width:360px;max-width:94vw;max-height:90vh;overflow-y:auto;font-family:inherit"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div><div style="font-size:13px;font-weight:500;color:#1a1916">${row?.name||typeName} 試算</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${typeName}</div></div><button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1">×</button></div>${[['lc-p','貸款金額（TWD）','number','例：8,000,000'],['lc-r','年利率（%）','number','例：2.06'],['lc-s','貸款起始日','date',''],['lc-e','貸款截止日','date',''],['lc-f','第一次還款日','date','']].map(([id,lb,tp,ph])=>`<div style="margin-bottom:9px"><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">${lb}</div><input id="${id}" type="${tp}" value="${ld[id]||''}" placeholder="${ph}" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:'Courier New',monospace" oninput="cfLoanCalc()"></div>`).join('')}<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px"><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">寬限期（月）</div><input id="lc-grace" type="number" value="${ld['lc-grace']||''}" placeholder="例：24" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:'Courier New',monospace" oninput="cfLoanCalc()"></div><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">還款方式</div><select id="lc-method" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:inherit" onchange="cfLoanCalc()"><option value="ep"${(ld['lc-method']||'ep')==='ep'?' selected':''}>本利均攤</option><option value="pp"${ld['lc-method']==='pp'?' selected':''}>本金均攤</option></select></div></div><div id="lc-result" style="background:#f5f4f0;border-radius:6px;padding:12px;font-size:11px;color:#5a5852;min-height:48px"></div><div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end"><button onclick="this.closest('[style*=fixed]').remove()" style="background:transparent;color:#5a5852;border:1px solid rgba(26,25,22,.18);border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit">取消</button><button id="lc-apply" onclick="cfApplyLoan('${rowId}')" disabled style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;opacity:.35;font-family:inherit">套用月付金</button></div></div>`;
+      document.body.appendChild(wrap);if(row?.loanData)cfLoanCalc();
     };
-
     window.cfLoanCalc=function(){
       const g=id=>document.getElementById(id);
-      const principal=parseFloat(g('lc-principal')?.value)||0;
-      const rate=parseFloat(g('lc-rate')?.value)||0;
-      const startStr=g('lc-start')?.value;
-      const endStr=g('lc-end')?.value;
-      const firstStr=g('lc-first')?.value;
-      const graceMonths=parseFloat(g('lc-grace')?.value)||0;
+      const p=parseFloat(g('lc-p')?.value)||0,r=parseFloat(g('lc-r')?.value)||0;
+      const ss=g('lc-s')?.value,es=g('lc-e')?.value,fs=g('lc-f')?.value;
+      const gm=parseFloat(g('lc-grace')?.value)||0;
       const res=g('lc-result'),btn=g('lc-apply');
-      if(!principal||!rate||!startStr||!endStr){
-        if(res)res.innerHTML='<span style="color:#475569">請填入貸款金額、年利率、起始日、截止日</span>';return;
-      }
-      const start=new Date(startStr),end=new Date(endStr);
-      const totalMonths=Math.round((end-start)/(1000*60*60*24*30.44));
-      const repayMonths=Math.max(0,totalMonths-graceMonths);
-      const mr=rate/100/12;
-      const gracePayment=principal*mr;
-      let monthlyPayment=0;
-      if(repayMonths>0&&mr>0){monthlyPayment=principal*mr*Math.pow(1+mr,repayMonths)/(Math.pow(1+mr,repayMonths)-1);}
-      else if(repayMonths>0){monthlyPayment=principal/repayMonths;}
-      const now=new Date();
-      const first=firstStr?new Date(firstStr):null;
-      const elapsedMonths=first?Math.max(0,Math.round((now-first)/(1000*60*60*24*30.44))):0;
-      const inGrace=elapsedMonths<graceMonths;
-      const currentPayment=inGrace?gracePayment:monthlyPayment;
-      let bal=principal;
-      for(let i=0;i<Math.min(elapsedMonths,graceMonths);i++)bal*=(1+mr);
-      const postE=Math.max(0,elapsedMonths-graceMonths);
-      for(let i=0;i<postE;i++)bal=bal*(1+mr)-monthlyPayment;
-      bal=Math.max(0,bal);
-      const remainMonths=Math.max(0,totalMonths-elapsedMonths);
-      if(res)res.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div><div style="color:#475569;font-size:10px;margin-bottom:2px">目前月付金</div><div style="font-size:15px;font-weight:700;color:#e2e8f0;font-family:monospace">${cfFmt(currentPayment)}</div><div style="font-size:10px;color:#475569;margin-top:2px">${inGrace?'寬限期（利息）':'本利均攤'}</div></div>
-        <div><div style="color:#475569;font-size:10px;margin-bottom:2px">剩餘本金</div><div style="font-size:15px;font-weight:700;color:#e2e8f0;font-family:monospace">${cfFmt(bal)}</div></div>
-        <div><div style="color:#475569;font-size:10px;margin-bottom:2px">借款總期數</div><div style="font-family:monospace;color:#94a3b8">${totalMonths} 個月</div></div>
-        <div><div style="color:#475569;font-size:10px;margin-bottom:2px">剩餘期數</div><div style="font-family:monospace;color:#94a3b8">${remainMonths} 個月</div></div>
-        <div><div style="color:#475569;font-size:10px;margin-bottom:2px">寬限後月付</div><div style="font-family:monospace;color:#94a3b8">${cfFmt(monthlyPayment)}</div></div>
-        <div><div style="color:#475569;font-size:10px;margin-bottom:2px">已還期數</div><div style="font-family:monospace;color:#94a3b8">${elapsedMonths} 個月</div></div>
-      </div>`;
-      if(btn){btn.disabled=false;btn.style.opacity='1';btn.dataset.payment=Math.round(currentPayment);}
-      window._cfPendingLoan={'lc-principal':g('lc-principal')?.value,'lc-rate':g('lc-rate')?.value,'lc-start':g('lc-start')?.value,'lc-end':g('lc-end')?.value,'lc-first':g('lc-first')?.value,'lc-grace':g('lc-grace')?.value,'lc-method':g('lc-method')?.value,payment:Math.round(currentPayment)};
+      if(!p||!r||!ss||!es){if(res)res.innerHTML='<span style="color:#9a9890">請填入貸款金額、年利率、起始日、截止日</span>';return;}
+      const tm=Math.round((new Date(es)-new Date(ss))/(1000*60*60*24*30.44));
+      const rm=Math.max(0,tm-gm),mr=r/100/12,gPay=p*mr;
+      let mPay=0;if(rm>0&&mr>0)mPay=p*mr*Math.pow(1+mr,rm)/(Math.pow(1+mr,rm)-1);else if(rm>0)mPay=p/rm;
+      const first=fs?new Date(fs):null;
+      const elapsed=first?Math.max(0,Math.round((new Date()-first)/(1000*60*60*24*30.44))):0;
+      const inG=elapsed<gm,cur=inG?gPay:mPay;
+      let bal=p;for(let i=0;i<Math.min(elapsed,gm);i++)bal*=(1+mr);for(let i=0;i<Math.max(0,elapsed-gm);i++)bal=bal*(1+mr)-mPay;bal=Math.max(0,bal);
+      if(res)res.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">目前月付金</div><div style="font-size:15px;font-weight:500;font-family:'Courier New',monospace;color:#1a1916">${cfFmt(cur)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${inG?'寬限期（利息）':'本利均攤'}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">剩餘本金</div><div style="font-size:15px;font-weight:500;font-family:'Courier New',monospace;color:#1a1916">${cfFmt(bal)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">借款總期數</div><div style="font-family:'Courier New',monospace;color:#5a5852">${tm} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">剩餘期數</div><div style="font-family:'Courier New',monospace;color:#5a5852">${Math.max(0,tm-elapsed)} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">寬限後月付</div><div style="font-family:'Courier New',monospace;color:#5a5852">${cfFmt(mPay)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">已還期數</div><div style="font-family:'Courier New',monospace;color:#5a5852">${elapsed} 個月</div></div></div>`;
+      if(btn){btn.disabled=false;btn.style.opacity='1';btn.dataset.pay=Math.round(cur);}
+      window._cfPendingLoan={'lc-p':g('lc-p')?.value,'lc-r':g('lc-r')?.value,'lc-s':g('lc-s')?.value,'lc-e':g('lc-e')?.value,'lc-f':g('lc-f')?.value,'lc-grace':g('lc-grace')?.value,'lc-method':g('lc-method')?.value};
     };
-
     window.cfApplyLoan=function(rowId){
-      const btn=document.getElementById('lc-apply');
-      const payment=parseFloat(btn?.dataset.payment)||0;if(!payment)return;
+      const btn=document.getElementById('lc-apply'),pay=parseFloat(btn?.dataset.pay)||0;if(!pay)return;
       const row=cfExpense.find(r=>r.id===rowId);
-      if(row){row.amt=String(payment);row.freq='monthly';row.loanData=window._cfPendingLoan;}
-      const inp=document.getElementById('cf-amt-'+rowId);if(inp)inp.value=payment;
-      cfRenderExpense();cfCalc();cfSave();
-      document.querySelector('div[style*="position:fixed"]')?.remove();
+      if(row){row.amt=String(pay);row.freq='monthly';row.loanData=window._cfPendingLoan;}
+      const inp=document.getElementById('cf-amt-'+rowId);if(inp)inp.value=pay;
+      cfRenderExpense();cfCalc();cfSave();document.querySelector('div[style*="position:fixed"]')?.remove();
     };
 
     function cfSave(){
-      try{localStorage.setItem(CF_STORE,JSON.stringify({members:cfMembers,income:cfIncome,expense:cfExpense,cards:cfCards}));}catch(e){}
+      try{localStorage.setItem(CF_STORE,JSON.stringify({members:cfMembers,income:cfIncome,expense:cfExpense,cards:cfCards,invest:cfInvest,redeem:cfRedeem}));}catch(e){}
     }
     window.cfLoad=function(){
       try{
         const raw=localStorage.getItem(CF_STORE);if(!raw){cfRenderMembers();return;}
         const d=JSON.parse(raw);
-        if(d.members&&d.members.length)cfMembers=d.members;
-        if(d.income&&d.income.length)cfIncome=d.income;
-        if(d.expense&&d.expense.length)cfExpense=d.expense;
-        if(d.cards&&d.cards.length)cfCards=d.cards;
-        cfCtr=Math.max(cfCtr,...[...cfIncome,...cfExpense,...cfCards].map(r=>parseInt(r.id.replace(/\D/g,''))||0));
+        if(d.members?.length)cfMembers=d.members;
+        if(d.income?.length)cfIncome=d.income;
+        if(d.expense?.length)cfExpense=d.expense.map(r=>({...r,etype:r.etype||(r.isLoan?'loan_mortgage':'general')}));
+        if(d.cards?.length)cfCards=d.cards;
+        if(d.invest?.length)cfInvest=d.invest;
+        if(d.redeem?.length)cfRedeem=d.redeem;
+        const all=[...cfIncome,...cfExpense,...cfCards,...cfInvest,...cfRedeem];
+        cfCtr=Math.max(cfCtr,...all.map(r=>parseInt(r.id.replace(/\D/g,''))||0));
       }catch(e){}
       cfRenderMembers();
     };
