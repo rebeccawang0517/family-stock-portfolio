@@ -38,154 +38,197 @@
     </script>
     
     <style>
-        @media print {
-            .no-print { display: none !important; }
+        /* ===== 大地色系 CSS 變數 ===== */
+        :root {
+            --ink:  #1a1916;
+            --ink2: #3d3c38;
+            --ink3: #6b6a64;
+            --ink4: #9a9890;
+            --paper:  #ffffff;
+            --paper2: #f5f4f0;
+            --paper3: #eceae3;
+            --border: rgba(26,25,22,.12);
+            --border2: rgba(26,25,22,.22);
+            --green: #1e6b3a;
+            --red:   #9b2626;
+            --mono: 'Courier New', monospace;
         }
-        .loading-spinner {
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #3b82f6;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-left: 8px;
+
+        /* ===== 全站底色 & 字色 ===== */
+        body { background: #1a1916 !important; color: var(--ink); }
+
+        /* ===== 卡片 / 容器 ===== */
+        .bg-slate-800, .bg-slate-900 {
+            background-color: #2c2b27 !important;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .bg-slate-700 { background-color: #3d3c38 !important; }
+        .border-slate-700, .border-slate-600 {
+            border-color: rgba(255,255,255,.1) !important;
         }
-        
-        .tab-button {
-            position: relative;
-            transition: all 0.3s ease;
-        }
+
+        /* ===== 文字 ===== */
+        .text-slate-100, .text-slate-200 { color: #f0ede6 !important; }
+        .text-slate-300 { color: #ccc9bf !important; }
+        .text-slate-400, .text-slate-500 { color: #9a9890 !important; }
+        .text-blue-400  { color: #c8b89a !important; }
+        .text-blue-300  { color: #d4c5a8 !important; }
+
+        /* ===== 標題加粗放大 ===== */
+        h1.text-3xl { font-size: 2rem !important; font-weight: 800 !important; letter-spacing: -.02em; color: #f0ede6 !important; }
+        h2.text-xl, h2.text-2xl { font-size: 1.35rem !important; font-weight: 700 !important; color: #f0ede6 !important; }
+        h3.text-xl { font-size: 1.15rem !important; font-weight: 700 !important; color: #f0ede6 !important; }
+
+        /* ===== Tab 按鈕 ===== */
+        .tab-button { position: relative; transition: all 0.2s ease; color: #9a9890; }
         .tab-button.active {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            color: white;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            background: #f0ede6 !important;
+            color: #1a1916 !important;
+            font-weight: 700;
+            box-shadow: none;
         }
-        .tab-button:not(.active):hover {
-            background: rgba(59, 130, 246, 0.1);
+        .tab-button:not(.active):hover { background: rgba(240,237,230,.08) !important; color: #d4c5a8 !important; }
+
+        /* ===== 分頁內容 ===== */
+        .tab-content { display: none; animation: fadeIn 0.25s ease-in; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ===== 表格 ===== */
+        thead tr { background: #3d3c38 !important; }
+        th { color: #ccc9bf !important; font-weight: 600 !important; font-size: 12px !important; letter-spacing: .02em; }
+        td { color: #ccc9bf; }
+        .border-b, .border-slate-700 { border-color: rgba(255,255,255,.08) !important; }
+
+        /* ===== 入力 / 選單 ===== */
+        input, select, textarea {
+            background: #3d3c38 !important;
+            color: #f0ede6 !important;
+            border-color: rgba(255,255,255,.12) !important;
         }
-        
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease-in;
+        input::placeholder { color: #6b6a64 !important; }
+        input:focus, select:focus { border-color: rgba(255,255,255,.3) !important; outline: none; }
+
+        /* ===== 按鈕 ===== */
+        .bg-blue-600, .hover\:bg-blue-700:hover { background-color: #4a3f2f !important; }
+        .bg-green-600, .hover\:bg-green-700:hover { background-color: #1e4a2a !important; }
+        .bg-purple-600, .hover\:bg-purple-700:hover { background-color: #3d2f4a !important; }
+        .bg-orange-600, .hover\:bg-orange-700:hover { background-color: #4a2f1a !important; }
+
+        /* ===== 損益色 ===== */
+        .text-green-400, .text-green-300 { color: #4aad6e !important; }
+        .text-red-400, .text-red-300 { color: #d9534f !important; }
+
+        /* ===== 漸層背景改為純色 ===== */
+        .bg-gradient-to-br { background: #1a1916 !important; }
+        .bg-gradient-to-r { background: #2c2b27 !important; }
+        .analysis-content { background: #2c2b27 !important; border-color: rgba(255,255,255,.12) !important; box-shadow: none !important; }
+
+        /* ===== Modal ===== */
+        .analysis-modal {
+            position: fixed; top:0; left:0; right:0; bottom:0;
+            background: rgba(0,0,0,.75);
+            z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px;
         }
-        .tab-content.active {
-            display: block;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
+        @keyframes slideIn { from { opacity:0; transform: scale(0.95); } to { opacity:1; transform: scale(1); } }
+        .analysis-content { animation: slideIn 0.2s ease-out; border-radius: 12px !important; }
+
+        /* ===== 手機 fab ===== */
         @media (max-width: 768px) {
             .desktop-add-row { display: none !important; }
             table { font-size: 12px; }
             .mobile-fab {
-                position: fixed;
-                bottom: 20px;
-                right: 20px;
-                width: 60px;
-                height: 60px;
-                border-radius: 50%;
-                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-                color: white;
-                font-size: 28px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-                z-index: 1000;
-                border: none;
-                cursor: pointer;
+                position: fixed; bottom: 20px; right: 20px;
+                width: 56px; height: 56px; border-radius: 50%;
+                background: #f0ede6; color: #1a1916;
+                font-size: 26px; display: flex; align-items: center; justify-content: center;
+                z-index: 1000; border: none; cursor: pointer;
             }
             .mobile-form-overlay {
-                position: fixed;
-                top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0, 0, 0, 0.8);
-                z-index: 2000;
-                display: flex;
-                align-items: flex-end;
-                padding: 0;
+                position: fixed; top:0; left:0; right:0; bottom:0;
+                background: rgba(0,0,0,.8); z-index: 2000; display: flex; align-items: flex-end;
             }
             .mobile-form-container {
-                background: #1e293b;
-                border-radius: 20px 20px 0 0;
-                width: 100%;
-                max-height: 90vh;
-                overflow-y: auto;
-                padding: 20px;
-                animation: slideUp 0.3s ease-out;
+                background: #2c2b27; border-radius: 16px 16px 0 0;
+                width: 100%; max-height: 90vh; overflow-y: auto; padding: 20px;
+                animation: slideUp 0.25s ease-out;
             }
-            @keyframes slideUp {
-                from { transform: translateY(100%); }
-                to { transform: translateY(0); }
-            }
+            @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         }
-        
-        @media (min-width: 769px) {
-            .mobile-fab { display: none !important; }
-            .mobile-only { display: none !important; }
-        }
-        
-        .analysis-modal {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 3000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .analysis-content {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 20px;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(59, 130, 246, 0.5);
-            animation: slideIn 0.3s ease-out;
-        }
-        @keyframes slideIn {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
-        }
+        @media (min-width: 769px) { .mobile-fab { display: none !important; } .mobile-only { display: none !important; } }
 
-        /* 補登表單收合動畫 */
-        #toggleImportIcon {
-            transition: transform 0.3s ease;
+        /* ===== loading spinner ===== */
+        .loading-spinner {
+            border: 2px solid rgba(255,255,255,.15);
+            border-top: 2px solid #d4c5a8;
+            border-radius: 50%; width: 16px; height: 16px;
+            animation: spin 1s linear infinite; display: inline-block; margin-left: 8px;
         }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* ===== 現金流分頁樣式 ===== */
-        .cf-tbl{width:100%;border-collapse:collapse}
-        .cf-tbl th{font-size:10px;color:#94a3b8;font-weight:500;padding:4px 6px;text-align:left;border-bottom:1px solid rgba(148,163,184,.15)}
-        .cf-tbl th.r{text-align:right}
-        .cf-tbl td{border-bottom:1px solid rgba(148,163,184,.08);padding:2px 4px;vertical-align:middle}
-        .cf-tbl tr:last-child td{border-bottom:none}
-        .cf-te{width:100%;border:none;background:transparent;font-size:13px;color:#e2e8f0;outline:none;padding:6px 4px}
-        .cf-te:focus{background:rgba(148,163,184,.1);border-radius:6px}
-        .cf-te.r{text-align:right;font-family:monospace}
-        .cf-sel{width:100%;border:1px solid rgba(148,163,184,.2);background:#1e293b;color:#e2e8f0;font-size:12px;padding:5px 4px;border-radius:6px;outline:none}
-        .cf-del{width:22px;height:22px;border-radius:50%;border:1px solid rgba(148,163,184,.3);background:transparent;color:#64748b;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-        .cf-del:hover{background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.4)}
-        .cf-add-btn{display:flex;align-items:center;gap:6px;font-size:12px;color:#64748b;cursor:pointer;padding:8px 4px;background:none;border:none;width:100%;transition:color .15s}
-        .cf-add-btn:hover{color:#94a3b8}
-        .cf-loan-btn{background:none;border:1px solid rgba(148,163,184,.3);color:#64748b;font-size:10px;padding:2px 6px;border-radius:6px;cursor:pointer;white-space:nowrap}
-        .cf-loan-btn:hover{background:rgba(148,163,184,.1);color:#94a3b8}
-        .cf-sec{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin:1.25rem 0 .6rem;padding-bottom:6px;border-bottom:1px solid rgba(148,163,184,.15)}
-        .cf-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-        .cf-metric{background:#1e293b;border-radius:8px;padding:12px 14px}
-        .cf-metric-lbl{font-size:11px;color:#64748b;margin-bottom:3px}
-        .cf-metric-val{font-size:18px;font-weight:700;font-family:monospace;color:#e2e8f0}
-        .cf-bar-track{flex:1;height:7px;background:rgba(148,163,184,.15);border-radius:4px;overflow:hidden}
-        .cf-bar-fill{height:100%;border-radius:4px;transition:width .3s}
-        .cf-member-tag{display:inline-flex;align-items:center;gap:4px;background:#1e293b;border:1px solid rgba(148,163,184,.2);border-radius:20px;padding:3px 10px;font-size:12px;color:#94a3b8}
-        .cf-mdel{background:none;border:none;cursor:pointer;color:#64748b;font-size:13px;line-height:1;padding:0 0 0 2px}
-        .cf-mdel:hover{color:#f87171}
+        #toggleImportIcon { transition: transform 0.3s ease; }
+
+        /* ===== 現金流分頁專用 ===== */
+        /* table-layout:fixed 確保所有 section 欄寬對齊 */
+        .cf-tbl { width:100%; border-collapse:collapse; table-layout:fixed; }
+        .cf-tbl th {
+            font-size:10px; color:#9a9890; font-weight:600; padding:4px 5px;
+            text-align:left; border-bottom:1px solid rgba(255,255,255,.1);
+            letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden;
+        }
+        .cf-tbl th.r { text-align:right; }
+        .cf-tbl td { border-bottom:1px solid rgba(255,255,255,.06); padding:0 2px; vertical-align:middle; overflow:hidden; }
+        .cf-tbl tr:last-child td { border-bottom:none; }
+        .cf-tbl tr.cf-sub td { background:#3d3c38; border-top:1px solid rgba(255,255,255,.12); border-bottom:none; }
+        .cf-te {
+            width:100%; border:none; background:transparent;
+            font-size:13px; color:#f0ede6; outline:none; padding:7px 4px; font-family:inherit;
+        }
+        .cf-te:focus { background:rgba(255,255,255,.06); border-radius:4px; }
+        .cf-te.r { text-align:right; font-family:var(--mono); }
+        .cf-sel {
+            width:100%; border:1px solid rgba(255,255,255,.12);
+            background:#3d3c38; color:#f0ede6; font-size:11px;
+            padding:4px 3px; border-radius:4px; outline:none; font-family:inherit;
+        }
+        .cf-del {
+            width:18px; height:18px; border-radius:50%;
+            border:1px solid rgba(255,255,255,.15); background:transparent;
+            color:#6b6a64; cursor:pointer; font-size:12px; line-height:1;
+            display:flex; align-items:center; justify-content:center; margin:auto; flex-shrink:0;
+        }
+        .cf-del:hover { background:#9b2626; color:#fff; border-color:#9b2626; }
+        .cf-add-btn {
+            display:flex; align-items:center; gap:5px; font-size:11px; color:#6b6a64;
+            cursor:pointer; padding:7px 4px; background:none; border:none; width:100%; font-family:inherit;
+        }
+        .cf-add-btn:hover { color:#9a9890; }
+        .cf-loan-btn {
+            background:none; border:1px solid rgba(255,255,255,.18); color:#9a9890;
+            font-size:10px; padding:2px 5px; border-radius:3px; cursor:pointer;
+            white-space:nowrap; font-family:inherit; flex-shrink:0;
+        }
+        .cf-loan-btn:hover { background:rgba(255,255,255,.06); color:#ccc9bf; }
+        .cf-sec {
+            display:flex; align-items:center; gap:8px; margin:1.5rem 0 .5rem;
+            padding-bottom:5px; border-bottom:1px solid rgba(255,255,255,.15);
+        }
+        .cf-sec-lbl { font-size:11px; font-weight:700; color:#ccc9bf; letter-spacing:.08em; text-transform:uppercase; }
+        .cf-sec-bar { flex:1; height:1px; background:rgba(255,255,255,.06); }
+        .cf-sec-tot { font-size:11px; font-family:var(--mono); color:#9a9890; }
+        .cf-metric { background:#3d3c38; border-radius:6px; padding:12px 14px; border:1px solid rgba(255,255,255,.08); }
+        .cf-metric-lbl { font-size:10px; color:#9a9890; margin-bottom:4px; letter-spacing:.04em; text-transform:uppercase; }
+        .cf-metric-val { font-size:18px; font-weight:700; font-family:var(--mono); color:#f0ede6; }
+        .cf-bar-track { flex:1; height:5px; background:rgba(255,255,255,.1); border-radius:3px; overflow:hidden; }
+        .cf-bar-fill { height:100%; border-radius:3px; transition:width .4s ease; }
+        .cf-mtag {
+            display:inline-flex; align-items:center; gap:4px;
+            background:#3d3c38; border:1px solid rgba(255,255,255,.12);
+            border-radius:20px; padding:3px 10px; font-size:12px; color:#9a9890;
+        }
+        .cf-mdel { background:none; border:none; cursor:pointer; color:#6b6a64; font-size:12px; line-height:1; padding:0 0 0 2px; }
+        .cf-mdel:hover { color:#d9534f; }
+        .cf-sub-lbl { font-size:11px; color:#9a9890; padding:7px 5px; text-align:right; letter-spacing:.02em; }
+        .cf-sub-val { font-size:12px; font-weight:600; font-family:var(--mono); text-align:right; padding:7px 5px; color:#f0ede6; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
@@ -611,79 +654,87 @@
 
             <!-- 現金流分頁 -->
             <div id="cashflowTab" class="tab-content">
-              <div style="background:#fff;border:1px solid rgba(26,25,22,.12);border-radius:10px;padding:1.5rem;margin-bottom:1.5rem;color:#1a1916">
-                <div style="font-size:18px;font-weight:500;color:#1a1916;margin-bottom:.25rem">全家現金流</div>
-                <div style="font-size:12px;color:#9a9890;margin-bottom:1.5rem">所有金額單位 TWD · 月均自動換算 · 投資交易連動計算</div>
+              <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 mb-6">
+                <h2 class="text-2xl font-bold text-slate-100 mb-1">全家現金流</h2>
+                <p style="font-size:12px;color:#9a9890;margin-bottom:1.5rem">所有金額單位 TWD · 月均自動換算 · 投資交易連動計算</p>
 
                 <div class="cf-sec" style="margin-top:0"><span class="cf-sec-lbl">家庭成員</span><div class="cf-sec-bar"></div></div>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:.5rem" id="cf-member-tags"></div>
                 <div style="display:flex;gap:6px">
-                  <input id="cf-new-member" placeholder="新增成員名稱" style="flex:1;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 8px;border-radius:4px;outline:none" onkeydown="if(event.key==='Enter')cfAddMember()">
-                  <button onclick="cfAddMember()" style="background:#f5f4f0;border:1px solid rgba(26,25,22,.18);color:#5a5852;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增</button>
+                  <input id="cf-new-member" placeholder="新增成員名稱" style="flex:1;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none" onkeydown="if(event.key==='Enter')cfAddMember()">
+                  <button onclick="cfAddMember()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增</button>
                 </div>
 
+                <!-- 統一 colgroup：名稱30% 負責人13% 類型/月份12% 頻率11% 金額16% 月均14% 操作4% -->
+                <!-- 收入 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-income">—</span></div>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:29%"><col style="width:13%"><col style="width:12%"><col style="width:17%"><col style="width:16%"><col style="width:9%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>項目名稱</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
+                  <colgroup><col style="width:30%"><col style="width:13%"><col style="width:12%"><col style="width:17%"><col style="width:20%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>項目名稱</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th></tr></thead>
                   <tbody id="cf-income-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('income')">+ 新增收入項目</button>
 
+                <!-- 固定支出 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">固定支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-expense">—</span></div>
+                <p style="font-size:11px;color:#9a9890;padding:0 0 6px">類型選「房貸」或「信貸」，金額欄自動出現計算按鈕</p>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:24%"><col style="width:12%"><col style="width:12%"><col style="width:11%"><col style="width:16%"><col style="width:16%"><col style="width:5%"><col style="width:4%"></colgroup>
+                  <colgroup><col style="width:25%"><col style="width:13%"><col style="width:12%"><col style="width:11%"><col style="width:15%"><col style="width:16%"><col style="width:4%"><col style="width:4%"></colgroup>
                   <thead><tr><th>項目名稱</th><th>負責人</th><th>類型</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-expense-body"></tbody>
                 </table>
-                <div style="font-size:11px;color:#9a9890;padding:4px;margin-bottom:4px">類型選「房貸」或「信貸」，金額欄自動出現計算按鈕</div>
                 <button class="cf-add-btn" onclick="cfAddRow('expense')">+ 新增支出項目</button>
 
+                <!-- 信用卡帳單 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">信用卡帳單</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-card">—</span></div>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:28%"><col style="width:21%"><col style="width:23%"><col style="width:20%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <colgroup><col style="width:30%"><col style="width:13%"><col style="width:23%"><col style="width:26%"><col style="width:4%"><col style="width:4%"></colgroup>
                   <thead><tr><th>銀行／卡名</th><th>負責人</th><th>帳單月份</th><th class="r">金額（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-card-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddCardRow()">+ 新增信用卡帳單</button>
 
+                <!-- 投資支出（無資金來源欄） -->
                 <div class="cf-sec"><span class="cf-sec-lbl">投資支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-invest">—</span></div>
-                <div style="font-size:11px;color:#9a9890;margin-bottom:.5rem">買入股票、基金等資金流出 · 含信貸借款投入</div>
+                <p style="font-size:11px;color:#9a9890;padding:0 0 6px">買入股票、基金等資金流出</p>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:24%"><col style="width:13%"><col style="width:12%"><col style="width:16%"><col style="width:15%"><col style="width:12%"><col style="width:4%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th>資金來源</th><th></th><th></th></tr></thead>
+                  <colgroup><col style="width:30%"><col style="width:13%"><col style="width:12%"><col style="width:17%"><col style="width:20%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th></tr></thead>
                   <tbody id="cf-invest-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('invest')">+ 新增投資支出</button>
 
+                <!-- 贖回收入 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">贖回收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-redeem">—</span></div>
-                <div style="font-size:11px;color:#9a9890;margin-bottom:.5rem">賣出股票、基金等資金流入</div>
+                <p style="font-size:11px;color:#9a9890;padding:0 0 6px">賣出股票、基金等資金流入</p>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:28%"><col style="width:13%"><col style="width:12%"><col style="width:17%"><col style="width:16%"><col style="width:6%"><col style="width:4%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th><th></th><th></th></tr></thead>
+                  <colgroup><col style="width:30%"><col style="width:13%"><col style="width:12%"><col style="width:17%"><col style="width:20%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th></tr></thead>
                   <tbody id="cf-redeem-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('redeem')">+ 新增贖回收入</button>
 
+                <!-- 交易紀錄連動 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">交易紀錄連動</span><div class="cf-sec-bar"></div></div>
-                <div id="cf-tx-summary" style="background:#f5f4f0;border:1px solid rgba(26,25,22,.1);border-radius:6px;padding:12px 14px;font-size:12px;color:#5a5852;margin-bottom:.5rem">
+                <div id="cf-tx-summary" style="background:#3d3c38;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:12px 14px;font-size:12px;color:#ccc9bf;margin-bottom:.5rem">
                   <span style="color:#9a9890;font-size:11px">尚無資料 · 請點下方按鈕從交易記錄頁面載入本月數據</span>
                 </div>
-                <button onclick="cfLoadTxData()" style="background:#f5f4f0;border:1px solid rgba(26,25,22,.18);color:#5a5852;font-size:12px;padding:6px 14px;border-radius:4px;cursor:pointer">從交易記錄載入本月數據</button>
+                <button onclick="cfLoadTxData()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:6px 14px;border-radius:4px;cursor:pointer">從交易記錄載入本月數據</button>
 
+                <!-- 彙總 -->
                 <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl">彙總</span><div class="cf-sec-bar"></div></div>
                 <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:1rem 0">
-                  <div class="cf-metric"><div class="cf-metric-lbl">月收入合計</div><div class="cf-metric-val" id="cf-s-in" style="color:#2a7a4b">$0</div></div>
-                  <div class="cf-metric"><div class="cf-metric-lbl">月支出合計</div><div class="cf-metric-val" id="cf-s-out" style="color:#b83030">$0</div></div>
+                  <div class="cf-metric"><div class="cf-metric-lbl">月收入合計</div><div class="cf-metric-val" id="cf-s-in" style="color:#4aad6e">$0</div></div>
+                  <div class="cf-metric"><div class="cf-metric-lbl">月支出合計</div><div class="cf-metric-val" id="cf-s-out" style="color:#d9534f">$0</div></div>
                   <div class="cf-metric"><div class="cf-metric-lbl">投資淨流出</div><div class="cf-metric-val" id="cf-s-invest-net">$0</div></div>
                   <div class="cf-metric"><div class="cf-metric-lbl">月自由現金流</div><div class="cf-metric-val" id="cf-s-fcf">$0</div></div>
                 </div>
-                <div style="background:#f5f4f0;border-radius:6px;padding:14px 16px;border:1px solid rgba(26,25,22,.1);display:flex;flex-direction:column;gap:10px;margin-bottom:.5rem">
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">收入</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-in" style="width:0%;background:#2a7a4b"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#5a5852;min-width:88px;text-align:right" id="cf-b-in-v">$0</span></div>
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">固定支出</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-exp" style="width:0%;background:#b83030"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#5a5852;min-width:88px;text-align:right" id="cf-b-exp-v">$0</span></div>
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">信用卡</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-card" style="width:0%;background:#5a5852"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#5a5852;min-width:88px;text-align:right" id="cf-b-card-v">$0</span></div>
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">投資流出</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-inv" style="width:0%;background:#9a9890"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#5a5852;min-width:88px;text-align:right" id="cf-b-inv-v">$0</span></div>
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">結餘率</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-fcf" style="width:0%;background:#1a1916"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#5a5852;min-width:88px;text-align:right" id="cf-b-fcf-p">0%</span></div>
+                <div style="background:#3d3c38;border-radius:6px;padding:14px 16px;border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:10px;margin-bottom:.5rem">
+                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">收入</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-in" style="width:0%;background:#4aad6e"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-in-v">$0</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">固定支出</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-exp" style="width:0%;background:#d9534f"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-exp-v">$0</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">信用卡</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-card" style="width:0%;background:#6b6a64"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-card-v">$0</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">投資流出</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-inv" style="width:0%;background:#9a9890"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-inv-v">$0</span></div>
+                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">結餘率</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-fcf" style="width:0%;background:#f0ede6"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-fcf-p">0%</span></div>
                 </div>
                 <p style="font-size:11px;color:#9a9890">資料存於本機瀏覽器 · 不上傳伺服器</p>
               </div>
@@ -1850,11 +1901,13 @@
     <!-- ===== 現金流模組 ===== -->
     <script>
     (function(){
-    const CF_STORE='cf_v8';
+    const CF_STORE='cf_v9';
     const FREQS={weekly:'每週',monthly:'每月',quarterly:'每季',yearly:'每年',once:'單次'};
     const ETYPES={general:'一般',loan_mortgage:'房貸',loan_credit:'信貸',loan_other:'其他貸款'};
     const LOAN_TYPES=['loan_mortgage','loan_credit','loan_other'];
     const FUND_SOURCES=['薪資','信貸','信用額度','其他'];
+    const FREQS_LIST=Object.entries(FREQS);
+    const ETYPES_LIST=Object.entries(ETYPES);
     let cfMembers=['Rebecca','Eric','Ian','弟弟'];
     let cfIncome=[
       {id:'i1',name:'Rebecca 薪資',owner:'Rebecca',freq:'monthly',amt:''},
@@ -1898,8 +1951,8 @@
     }
     function cfFmt(n){return (n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString();}
     function mOpts(sel){return [...cfMembers,'共同'].map(m=>`<option value="${m}"${m===sel?' selected':''}>${m}</option>`).join('');}
-    function fOpts(sel){return Object.entries(FREQS).map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');}
-    function eOpts(sel){return Object.entries(ETYPES).map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');}
+    function fOpts(sel){return FREQS_LIST.map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');}
+    function eOpts(sel){return ETYPES_LIST.map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');}
     function srcOpts(sel){return FUND_SOURCES.map(s=>`<option value="${s}"${s===sel?' selected':''}>${s}</option>`).join('');}
     function isLoan(et){return LOAN_TYPES.includes(et);}
 
@@ -1923,13 +1976,25 @@
     }
     function expenseRow(r){
       const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
-      const loan=isLoan(r.etype||'general');
-      return `<tr id="tr-${r.id}"><td><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('expense','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('expense','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfEtype('${r.id}',this.value)">${eOpts(r.etype||'general')}</select></td><td><select class="cf-sel" onchange="cfSfq('expense','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><div style="display:flex;align-items:center;gap:3px"><input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${r.amt}" placeholder="0" style="flex:1;min-width:0" oninput="cfSa('expense','${r.id}',this.value)">${loan?`<button class="cf-loan-btn" onclick="cfOpenLoan('${r.id}')">計算</button>`:''}</div></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td><button class="cf-del" onclick="cfDelRow('expense','${r.id}')">×</button></td></tr>`;
+      const et=r.etype||'general';
+      const loan=isLoan(et);
+      return `<tr id="tr-${r.id}">
+        <td><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('expense','${r.id}','name',this.value)"></td>
+        <td><select class="cf-sel" onchange="cfSf('expense','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
+        <td><select class="cf-sel" onchange="cfEtype('${r.id}',this.value)">${eOpts(et)}</select></td>
+        <td><select class="cf-sel" onchange="cfSfq('expense','${r.id}',this.value)">${fOpts(r.freq)}</select></td>
+        <td><div style="display:flex;align-items:center;gap:3px">
+          <input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${r.amt}" placeholder="0" style="flex:1;min-width:0" oninput="cfSa('expense','${r.id}',this.value)">
+          ${loan?`<button class="cf-loan-btn" onclick="cfOpenLoan('${r.id}')">計算</button>`:''}
+        </div></td>
+        <td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td>
+        <td></td>
+        <td><button class="cf-del" onclick="cfDelRow('expense','${r.id}')">×</button></td>
+      </tr>`;
     }
     function investRow(r,type){
       const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
-      const srcCol=type==='invest'?`<td><select class="cf-sel" onchange="cfSf('${type}','${r.id}','src',this.value)">${srcOpts(r.src||'薪資')}</select></td>`:`<td></td>`;
-      return `<tr><td><input class="cf-te" value="${r.name}" placeholder="項目說明" oninput="cfSf('${type}','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('${type}','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('${type}','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSa('${type}','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td>${srcCol}<td><button class="cf-del" onclick="cfDelRow('${type}','${r.id}')">×</button></td></tr>`;
+      return `<tr><td><input class="cf-te" value="${r.name}" placeholder="項目說明" oninput="cfSf('${type}','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('${type}','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('${type}','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSa('${type}','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td><button class="cf-del" onclick="cfDelRow('${type}','${r.id}')">×</button></td></tr>`;
     }
     function subRow(val,label,colspan,extra){
       return `<tr class="cf-sub"><td colspan="${colspan}" class="cf-sub-lbl">${label}</td><td class="cf-sub-val">${cfFmt(val)}</td>${extra||''}</tr>`;
@@ -1938,7 +2003,7 @@
     function cfRenderIncome(){
       const el=document.getElementById('cf-income-body');if(!el)return;
       const tot=cfIncome.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      el.innerHTML=cfIncome.map(r=>incomeRow(r)).join('')+subRow(tot,'月收入小計',4,'<td colspan="2"></td>');
+      el.innerHTML=cfIncome.map(r=>incomeRow(r)).join('')+subRow(tot,'月收入小計',4,'<td colspan="1"></td>');
       const st=document.getElementById('cf-st-income');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderExpense(){
@@ -1952,19 +2017,19 @@
       const now=new Date();
       const thisMonth=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
       const tot=cfCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
-      el.innerHTML=cfCards.map(r=>`<tr><td><input class="cf-te" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfScf('${r.id}','bank',this.value)"></td><td><select class="cf-sel" onchange="cfScf('${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><input class="cf-te" type="month" value="${r.month||thisMonth}" style="font-size:11px" oninput="cfScf('${r.id}','month',this.value)"></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSca('${r.id}',this.value)"></td><td></td><td><button class="cf-del" onclick="cfDelCard('${r.id}')">×</button></td></tr>`).join('')+subRow(tot,'月帳單小計',3,'<td colspan="3"></td>');
+      el.innerHTML=cfCards.map(r=>`<tr><td><input class="cf-te" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfScf('${r.id}','bank',this.value)"></td><td><select class="cf-sel" onchange="cfScf('${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><input class="cf-te" type="month" value="${r.month||thisMonth}" style="font-size:11px" oninput="cfScf('${r.id}','month',this.value)"></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSca('${r.id}',this.value)"></td><td></td><td><button class="cf-del" onclick="cfDelCard('${r.id}')">×</button></td></tr>`).join('')+subRow(tot,'月帳單小計',3,'<td colspan="2"></td>');
       const st=document.getElementById('cf-st-card');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderInvest(){
       const el=document.getElementById('cf-invest-body');if(!el)return;
       const tot=cfInvest.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      el.innerHTML=cfInvest.map(r=>investRow(r,'invest')).join('')+subRow(tot,'月均小計',4,'<td colspan="3"></td>');
+      el.innerHTML=cfInvest.map(r=>investRow(r,'invest')).join('')+subRow(tot,'月均小計',4,'<td colspan="1"></td>');
       const st=document.getElementById('cf-st-invest');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderRedeem(){
       const el=document.getElementById('cf-redeem-body');if(!el)return;
       const tot=cfRedeem.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      el.innerHTML=cfRedeem.map(r=>investRow(r,'redeem')).join('')+subRow(tot,'月均小計',4,'<td colspan="3"></td>');
+      el.innerHTML=cfRedeem.map(r=>investRow(r,'redeem')).join('')+subRow(tot,'月均小計',4,'<td colspan="1"></td>');
       const st=document.getElementById('cf-st-redeem');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderAll(){cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfRenderRedeem();cfCalc();}
