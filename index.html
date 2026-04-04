@@ -1283,9 +1283,13 @@
                     <td class="px-3 py-3 text-center text-slate-300">${stock.platform}</td>
                     <td class="px-3 py-3 text-center no-print">
                         <div class="flex gap-2 justify-center flex-wrap">
-                            <button onclick="openBuyModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares}, ${calc.costPrice})" class="text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-blue-900 hover:bg-opacity-20 transition-colors text-sm">🛒 買入</button>
-                            <button onclick="openSellModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares})" class="text-green-400 hover:text-green-300 px-2 py-1 rounded hover:bg-green-900 hover:bg-opacity-20 transition-colors text-sm">💰 賣出</button>
-                            <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm">✕ 刪除</button>
+                            <button onclick="openBuyModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares}, ${calc.costPrice})" style="display:inline-flex;align-items:center;gap:4px;background:#2d5a1b;color:#7ed957;border:1px solid #4a8a2a;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em" title="買入">
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1L9 8H1L5 1Z" fill="#7ed957"/></svg>BUY
+                            </button>
+                            <button onclick="openSellModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares})" style="display:inline-flex;align-items:center;gap:4px;background:#5a1b1b;color:#f05a7e;border:1px solid #8a2a3a;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em" title="賣出">
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 9L9 2H1L5 9Z" fill="#f05a7e"/></svg>SELL
+                            </button>
+                            <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm">✕</button>
                         </div>
                     </td>
                 `;
@@ -1798,6 +1802,9 @@
                 tr.className = 'border-b border-slate-700 hover:bg-slate-800 transition-colors';
                 const date = new Date(tx.date).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
                 const typeColor = tx.type === '買入' ? 'text-blue-400' : 'text-green-400';
+                const typeBadge = tx.type === '買入'
+                    ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#2d5a1b;color:#7ed957;border:1px solid #4a8a2a;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;letter-spacing:.04em"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M5 1L9 8H1L5 1Z" fill="#7ed957"/></svg>BUY</span>`
+                    : `<span style="display:inline-flex;align-items:center;gap:3px;background:#5a1b1b;color:#f05a7e;border:1px solid #8a2a3a;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;letter-spacing:.04em"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M5 9L9 2H1L5 9Z" fill="#f05a7e"/></svg>SELL</span>`;
                 const profitCell = tx.type === '賣出' && tx.realizedProfit !== undefined
                     ? (() => {
                         const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
@@ -1814,7 +1821,7 @@
                     : '<td class="px-3 py-3 text-center text-slate-500">-</td>';
                 tr.innerHTML = `
                     <td class="px-3 py-3 text-center text-slate-300 text-xs">${date}</td>
-                    <td class="px-3 py-3 text-center ${typeColor} font-bold">${tx.type}</td>
+                    <td class="px-3 py-3 text-center ${typeColor} font-bold">${typeBadge}</td>
                     <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${tx.symbol}</td>
                     <td class="px-3 py-3 text-center text-slate-300">${tx.companyName || tx.symbol}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono">${tx.shares.toLocaleString()}</td>
@@ -1827,7 +1834,16 @@
                     <td class="px-3 py-3 text-center text-slate-300">${tx.platform}</td>
                     <td class="px-3 py-3 text-center no-print">
                         <div class="flex gap-2 justify-center flex-wrap">
-                            <button onclick="openEditTransactionModal('${tx.id}')" class="text-purple-400 hover:text-purple-300 px-2 py-1 rounded hover:bg-purple-900 hover:bg-opacity-20 transition-colors text-sm">✏️</button>
+                            <button onclick="openEditTransactionModal('${tx.id}')" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:transparent;border:1px solid rgba(255,255,255,.15);border-radius:6px;cursor:pointer;padding:0" title="編輯">
+                              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="11" y="1" width="6" height="3" rx="1" transform="rotate(45 11 1)" fill="#e05252"/>
+                                <rect x="9.5" y="2.5" width="6" height="9" rx="0.5" transform="rotate(45 9.5 2.5)" fill="#f5a623"/>
+                                <rect x="9.5" y="2.5" width="2" height="9" rx="0.5" transform="rotate(45 9.5 2.5)" fill="#f7c26b"/>
+                                <path d="M3 14.5L4.5 17L2 18L3 14.5Z" fill="#7a7a7a"/>
+                                <path d="M3 14.5L5.5 12L8 14.5L5.5 17L3 14.5Z" fill="#f5a623"/>
+                                <line x1="2" y1="18.5" x2="8" y2="18.5" stroke="#ccc9bf" stroke-width="1" stroke-linecap="round"/>
+                              </svg>
+                            </button>
                             <button onclick="deleteTransaction('${tx.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm">✕</button>
                         </div>
                     </td>
@@ -2373,7 +2389,7 @@
     <!-- 買入模態框 -->
     <div id="buyModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='buyModal') closeBuyModal()">
         <div class="bg-slate-800 border-2 border-blue-500 rounded-lg max-w-md w-full mx-4 p-6" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-blue-400">🛒 買入股票</h3><button onclick="closeBuyModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
+            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold" style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;gap:5px;background:#2d5a1b;color:#7ed957;border:1px solid #4a8a2a;border-radius:7px;padding:4px 12px;font-size:14px;letter-spacing:.06em"><svg width="12" height="12" viewBox="0 0 10 10" fill="none"><path d="M5 1L9 8H1L5 1Z" fill="#7ed957"/></svg>BUY</span><span style="color:#ccc9bf">買入股票</span></h3><button onclick="closeBuyModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
             <div class="space-y-4">
                 <div><label class="block text-sm text-slate-300 mb-1">股票</label><div id="buyStockInfo" class="text-lg font-semibold text-slate-100"></div></div>
                 <div><label class="block text-sm text-slate-300 mb-1">目前持有股數</label><div id="buyCurrentShares" class="text-lg font-bold text-blue-400"></div></div>
@@ -2391,7 +2407,7 @@
     <!-- 賣出模態框 -->
     <div id="sellModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='sellModal') closeSellModal()">
         <div class="bg-slate-800 border-2 border-green-500 rounded-lg max-w-md w-full mx-4 p-6" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-green-400">💰 賣出股票</h3><button onclick="closeSellModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
+            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold" style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;gap:5px;background:#5a1b1b;color:#f05a7e;border:1px solid #8a2a3a;border-radius:7px;padding:4px 12px;font-size:14px;letter-spacing:.06em"><svg width="12" height="12" viewBox="0 0 10 10" fill="none"><path d="M5 9L9 2H1L5 9Z" fill="#f05a7e"/></svg>SELL</span><span style="color:#ccc9bf">賣出股票</span></h3><button onclick="closeSellModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
             <div class="space-y-4">
                 <div><label class="block text-sm text-slate-300 mb-1">股票</label><div id="sellStockInfo" class="text-lg font-semibold text-slate-100"></div></div>
                 <div><label class="block text-sm text-slate-300 mb-1">目前持有股數</label><div id="sellCurrentShares" class="text-lg font-bold text-blue-400"></div></div>
@@ -2440,7 +2456,7 @@
     <!-- 編輯交易模態框 -->
     <div id="editTransactionModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='editTransactionModal') closeEditTransactionModal()">
         <div class="bg-slate-800 border-2 border-purple-500 rounded-lg max-w-2xl w-full mx-4 p-6" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-purple-400">✏️ 編輯交易記錄</h3><button onclick="closeEditTransactionModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
+            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold" style="display:flex;align-items:center;gap:8px"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="11" y="1" width="6" height="3" rx="1" transform="rotate(45 11 1)" fill="#e05252"/><rect x="9.5" y="2.5" width="6" height="9" rx="0.5" transform="rotate(45 9.5 2.5)" fill="#f5a623"/><rect x="9.5" y="2.5" width="2" height="9" rx="0.5" transform="rotate(45 9.5 2.5)" fill="#f7c26b"/><path d="M3 14.5L4.5 17L2 18L3 14.5Z" fill="#7a7a7a"/><path d="M3 14.5L5.5 12L8 14.5L5.5 17L3 14.5Z" fill="#f5a623"/><line x1="2" y1="18.5" x2="8" y2="18.5" stroke="#ccc9bf" stroke-width="1" stroke-linecap="round"/></svg><span style="color:#ccc9bf">編輯交易記錄</span></h3><button onclick="closeEditTransactionModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
             <form id="editTransactionForm" class="space-y-4">
                 <input type="hidden" id="editTxId">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
