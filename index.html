@@ -283,7 +283,10 @@
                         交易記錄
                     </button>
                     <button onclick="switchTab('cashflow')" id="tabCashflow" class="tab-button flex-1 px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        💰 現金流
+                        現金流
+                    </button>
+                    <button onclick="switchTab('dashboard')" id="tabDashboard" class="tab-button flex-1 px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
+                        資產儀表板
                     </button>
                 </div>
             </div>
@@ -665,40 +668,40 @@
                   <button onclick="cfAddMember()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增</button>
                 </div>
 
-                <!-- 統一 colgroup：名稱30% 負責人13% 類型/月份12% 頻率11% 金額16% 月均14% 操作4% -->
+                <!-- 統一欄寬基準：名稱28% 類型10% 負責人12% 頻率/月份12% 金額17% 月均17% 刪4% -->
                 <!-- 收入 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-income">—</span></div>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:30%"><col style="width:13%"><col style="width:12%"><col style="width:17%"><col style="width:20%"><col style="width:4%"></colgroup>
+                  <colgroup><col style="width:28%"><col style="width:12%"><col style="width:12%"><col style="width:17%"><col style="width:17%"><col style="width:4%"></colgroup>
                   <thead><tr><th>項目名稱</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th></tr></thead>
                   <tbody id="cf-income-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('income')">+ 新增收入項目</button>
 
-                <!-- 固定支出 -->
+                <!-- 固定支出：類型在負責人之前 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">固定支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-expense">—</span></div>
                 <p style="font-size:11px;color:#9a9890;padding:0 0 6px">類型選「房貸」或「信貸」，金額欄自動出現計算按鈕</p>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:25%"><col style="width:13%"><col style="width:12%"><col style="width:11%"><col style="width:15%"><col style="width:16%"><col style="width:4%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>項目名稱</th><th>負責人</th><th>類型</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
+                  <colgroup><col style="width:24%"><col style="width:10%"><col style="width:12%"><col style="width:12%"><col style="width:15%"><col style="width:15%"><col style="width:8%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>項目名稱</th><th>類型</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-expense-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('expense')">+ 新增支出項目</button>
 
-                <!-- 信用卡帳單 -->
+                <!-- 信用卡帳單：帳單月份寬度同頻率 12% -->
                 <div class="cf-sec"><span class="cf-sec-lbl">信用卡帳單</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-card">—</span></div>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:30%"><col style="width:13%"><col style="width:23%"><col style="width:26%"><col style="width:4%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>銀行／卡名</th><th>負責人</th><th>帳單月份</th><th class="r">金額（TWD）</th><th></th><th></th></tr></thead>
+                  <colgroup><col style="width:28%"><col style="width:12%"><col style="width:12%"><col style="width:40%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>銀行／卡名</th><th>負責人</th><th>帳單月份</th><th class="r">金額（TWD）</th><th></th></tr></thead>
                   <tbody id="cf-card-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddCardRow()">+ 新增信用卡帳單</button>
 
-                <!-- 投資支出（無資金來源欄） -->
+                <!-- 投資支出 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">投資支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-invest">—</span></div>
                 <p style="font-size:11px;color:#9a9890;padding:0 0 6px">買入股票、基金等資金流出</p>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:30%"><col style="width:13%"><col style="width:12%"><col style="width:17%"><col style="width:20%"><col style="width:4%"></colgroup>
+                  <colgroup><col style="width:28%"><col style="width:12%"><col style="width:12%"><col style="width:17%"><col style="width:17%"><col style="width:4%"></colgroup>
                   <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th></tr></thead>
                   <tbody id="cf-invest-body"></tbody>
                 </table>
@@ -708,7 +711,7 @@
                 <div class="cf-sec"><span class="cf-sec-lbl">贖回收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-redeem">—</span></div>
                 <p style="font-size:11px;color:#9a9890;padding:0 0 6px">賣出股票、基金等資金流入</p>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:30%"><col style="width:13%"><col style="width:12%"><col style="width:17%"><col style="width:20%"><col style="width:4%"></colgroup>
+                  <colgroup><col style="width:28%"><col style="width:12%"><col style="width:12%"><col style="width:17%"><col style="width:17%"><col style="width:4%"></colgroup>
                   <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th></tr></thead>
                   <tbody id="cf-redeem-body"></tbody>
                 </table>
@@ -737,6 +740,56 @@
                   <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">結餘率</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-fcf" style="width:0%;background:#f0ede6"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-fcf-p">0%</span></div>
                 </div>
                 <p style="font-size:11px;color:#9a9890">資料存於本機瀏覽器 · 不上傳伺服器</p>
+              </div>
+            </div>
+
+            <!-- 資產儀表板分頁 -->
+            <div id="dashboardTab" class="tab-content">
+              <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 mb-6">
+                <h2 class="text-2xl font-bold text-slate-100 mb-1">家庭資產儀表板</h2>
+                <p style="font-size:12px;color:#9a9890;margin-bottom:1.5rem">整合股票市值 · 現金流 · 固定資產 · 負債</p>
+
+                <!-- 總覽 KPI -->
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.5rem">
+                  <div class="cf-metric"><div class="cf-metric-lbl">總淨資產</div><div class="cf-metric-val" id="db-net" style="color:#4aad6e">$0</div></div>
+                  <div class="cf-metric"><div class="cf-metric-lbl">股票市值</div><div class="cf-metric-val" id="db-stock">$0</div></div>
+                  <div class="cf-metric"><div class="cf-metric-lbl">固定資產</div><div class="cf-metric-val" id="db-fixed">$0</div></div>
+                  <div class="cf-metric"><div class="cf-metric-lbl">負債合計</div><div class="cf-metric-val" id="db-debt" style="color:#d9534f">$0</div></div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.5rem">
+                  <div class="cf-metric"><div class="cf-metric-lbl">月收入</div><div class="cf-metric-val" id="db-mo-in" style="color:#4aad6e">$0</div></div>
+                  <div class="cf-metric"><div class="cf-metric-lbl">月支出</div><div class="cf-metric-val" id="db-mo-out" style="color:#d9534f">$0</div></div>
+                  <div class="cf-metric"><div class="cf-metric-lbl">月自由現金流</div><div class="cf-metric-val" id="db-mo-fcf">$0</div></div>
+                </div>
+
+                <!-- 資產結構橫條 -->
+                <div style="background:#3d3c38;border-radius:6px;padding:14px 16px;border:1px solid rgba(255,255,255,.08);margin-bottom:1.5rem">
+                  <div style="font-size:10px;color:#9a9890;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">資產結構</div>
+                  <div class="cf-bar-row" style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:11px;color:#9a9890;width:60px">股票</span><div class="cf-bar-track"><div class="cf-bar-fill" id="db-bar-stock" style="width:0%;background:#ccc9bf"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:96px;text-align:right" id="db-bar-stock-v">$0</span></div>
+                  <div class="cf-bar-row" style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:11px;color:#9a9890;width:60px">固定資產</span><div class="cf-bar-track"><div class="cf-bar-fill" id="db-bar-fixed" style="width:0%;background:#9a9890"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:96px;text-align:right" id="db-bar-fixed-v">$0</span></div>
+                  <div class="cf-bar-row" style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:60px">負債</span><div class="cf-bar-track"><div class="cf-bar-fill" id="db-bar-debt" style="width:0%;background:#d9534f"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:96px;text-align:right" id="db-bar-debt-v">$0</span></div>
+                </div>
+
+                <!-- 固定資產 -->
+                <div class="cf-sec"><span class="cf-sec-lbl">固定資產</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="db-st-asset">—</span></div>
+                <table class="cf-tbl">
+                  <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>資產名稱</th><th>類別</th><th>負責人</th><th class="r">估值（TWD）</th><th></th><th></th></tr></thead>
+                  <tbody id="db-asset-body"></tbody>
+                </table>
+                <button class="cf-add-btn" onclick="dbAddAsset()">+ 新增固定資產</button>
+
+                <!-- 負債明細 -->
+                <div class="cf-sec"><span class="cf-sec-lbl">負債明細</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="db-st-debt">—</span></div>
+                <div style="font-size:11px;color:#9a9890;padding:0 0 6px">從固定支出貸款類自動讀入，可手動補充</div>
+                <table class="cf-tbl">
+                  <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>負債名稱</th><th>類別</th><th>負責人</th><th class="r">剩餘金額（TWD）</th><th></th><th></th></tr></thead>
+                  <tbody id="db-debt-body"></tbody>
+                </table>
+                <button class="cf-add-btn" onclick="dbAddDebt()">+ 新增負債</button>
+
+                <p style="font-size:11px;color:#9a9890;margin-top:1rem">資料存於本機瀏覽器 · 股票市值從總覽頁面即時讀取</p>
               </div>
             </div>
 
@@ -1113,6 +1166,11 @@
                 document.getElementById('tabCashflow').classList.add('active');
                 document.getElementById('tabCashflow').classList.remove('text-slate-400');
                 cfLoad();
+            } else if (tabName === 'dashboard') {
+                document.getElementById('dashboardTab').classList.add('active');
+                document.getElementById('tabDashboard').classList.add('active');
+                document.getElementById('tabDashboard').classList.remove('text-slate-400');
+                dbRender();
             }
         };
 
@@ -1980,8 +2038,8 @@
       const loan=isLoan(et);
       return `<tr id="tr-${r.id}">
         <td><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('expense','${r.id}','name',this.value)"></td>
-        <td><select class="cf-sel" onchange="cfSf('expense','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
         <td><select class="cf-sel" onchange="cfEtype('${r.id}',this.value)">${eOpts(et)}</select></td>
+        <td><select class="cf-sel" onchange="cfSf('expense','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
         <td><select class="cf-sel" onchange="cfSfq('expense','${r.id}',this.value)">${fOpts(r.freq)}</select></td>
         <td><div style="display:flex;align-items:center;gap:3px">
           <input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${r.amt}" placeholder="0" style="flex:1;min-width:0" oninput="cfSa('expense','${r.id}',this.value)">
@@ -2017,7 +2075,7 @@
       const now=new Date();
       const thisMonth=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
       const tot=cfCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
-      el.innerHTML=cfCards.map(r=>`<tr><td><input class="cf-te" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfScf('${r.id}','bank',this.value)"></td><td><select class="cf-sel" onchange="cfScf('${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><input class="cf-te" type="month" value="${r.month||thisMonth}" style="font-size:11px" oninput="cfScf('${r.id}','month',this.value)"></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSca('${r.id}',this.value)"></td><td></td><td><button class="cf-del" onclick="cfDelCard('${r.id}')">×</button></td></tr>`).join('')+subRow(tot,'月帳單小計',3,'<td colspan="2"></td>');
+      el.innerHTML=cfCards.map(r=>`<tr><td><input class="cf-te" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfScf('${r.id}','bank',this.value)"></td><td><select class="cf-sel" onchange="cfScf('${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><input class="cf-te" type="month" value="${r.month||thisMonth}" style="font-size:11px" oninput="cfScf('${r.id}','month',this.value)"></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSca('${r.id}',this.value)"></td><td><button class="cf-del" onclick="cfDelCard('${r.id}')">×</button></td></tr>`).join('')+subRow(tot,'月帳單小計',3,'<td colspan="1"></td>');
       const st=document.getElementById('cf-st-card');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderInvest(){
@@ -2180,8 +2238,134 @@
     };
     })();
     </script>
-    
-    <!-- 分析模態框 -->
+
+    <!-- ===== 資產儀表板模組 ===== -->
+    <script>
+    (function(){
+    const DB_STORE='db_v1';
+    const ASSET_TYPES=['不動產','車輛','現金存款','其他'];
+    const DEBT_TYPES=['房貸','信貸','車貸','其他'];
+    let dbAssets=[
+      {id:'a1',name:'禾川琚（自住）',cat:'不動產',owner:'Rebecca',val:''},
+      {id:'a2',name:'上城（出租）',cat:'不動產',owner:'Eric',val:''},
+    ];
+    let dbDebts=[
+      {id:'d1',name:'禾川琚房貸',cat:'房貸',owner:'Rebecca',val:'',auto:false},
+      {id:'d2',name:'上城房貸',cat:'房貸',owner:'Eric',val:'',auto:false},
+      {id:'d3',name:'信貸',cat:'信貸',owner:'Rebecca',val:'',auto:false},
+    ];
+    let dbCtr=50;
+    function nid(p){return p+(++dbCtr);}
+    function fmt(n){return (n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString();}
+    function aOpts(sel,list){return list.map(c=>`<option value="${c}"${c===sel?' selected':''}>${c}</option>`).join('');}
+    function mOpts(sel){
+      const ms=window.cfMembersRef||['Rebecca','Eric','Ian','弟弟'];
+      return [...ms,'共同'].map(m=>`<option value="${m}"${m===sel?' selected':''}>${m}</option>`).join('');
+    }
+
+    function dbRenderAssets(){
+      const el=document.getElementById('db-asset-body');if(!el)return;
+      const tot=dbAssets.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
+      el.innerHTML=dbAssets.map(r=>`<tr>
+        <td><input class="cf-te" value="${r.name}" placeholder="資產名稱" oninput="dbSf('asset','${r.id}','name',this.value)"></td>
+        <td><select class="cf-sel" onchange="dbSf('asset','${r.id}','cat',this.value)">${aOpts(r.cat,ASSET_TYPES)}</select></td>
+        <td><select class="cf-sel" onchange="dbSf('asset','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
+        <td><input class="cf-te r" type="number" value="${r.val}" placeholder="0" oninput="dbSa('asset','${r.id}',this.value)"></td>
+        <td></td>
+        <td><button class="cf-del" onclick="dbDel('asset','${r.id}')">×</button></td>
+      </tr>`).join('')+
+      `<tr class="cf-sub"><td colspan="3" class="cf-sub-lbl">固定資產合計</td><td class="cf-sub-val">${fmt(tot)}</td><td colspan="2"></td></tr>`;
+      const st=document.getElementById('db-st-asset');if(st)st.textContent=fmt(tot);
+      dbCalc();
+    }
+
+    function dbRenderDebts(){
+      const el=document.getElementById('db-debt-body');if(!el)return;
+      const tot=dbDebts.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
+      el.innerHTML=dbDebts.map(r=>`<tr>
+        <td><input class="cf-te" value="${r.name}" placeholder="負債名稱" oninput="dbSf('debt','${r.id}','name',this.value)"></td>
+        <td><select class="cf-sel" onchange="dbSf('debt','${r.id}','cat',this.value)">${aOpts(r.cat,DEBT_TYPES)}</select></td>
+        <td><select class="cf-sel" onchange="dbSf('debt','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
+        <td><input class="cf-te r" type="number" value="${r.val}" placeholder="0" oninput="dbSa('debt','${r.id}',this.value)"></td>
+        <td></td>
+        <td><button class="cf-del" onclick="dbDel('debt','${r.id}')">×</button></td>
+      </tr>`).join('')+
+      `<tr class="cf-sub"><td colspan="3" class="cf-sub-lbl">負債合計</td><td class="cf-sub-val" style="color:#d9534f">${fmt(tot)}</td><td colspan="2"></td></tr>`;
+      const st=document.getElementById('db-st-debt');if(st)st.textContent=fmt(tot);
+      dbCalc();
+    }
+
+    window.dbRender=function(){dbRenderAssets();dbRenderDebts();dbCalc();};
+
+    window.dbSf=function(type,id,field,v){
+      const arr=type==='asset'?dbAssets:dbDebts;
+      const r=arr.find(x=>x.id===id);if(r)r[field]=v;dbSave();
+    };
+    window.dbSa=function(type,id,v){
+      const arr=type==='asset'?dbAssets:dbDebts;
+      const r=arr.find(x=>x.id===id);if(r)r.val=v;
+      if(type==='asset')dbRenderAssets();else dbRenderDebts();
+      dbSave();
+    };
+    window.dbDel=function(type,id){
+      if(type==='asset')dbAssets=dbAssets.filter(x=>x.id!==id);
+      else dbDebts=dbDebts.filter(x=>x.id!==id);
+      if(type==='asset')dbRenderAssets();else dbRenderDebts();
+      dbSave();
+    };
+    window.dbAddAsset=function(){
+      dbAssets.push({id:nid('a'),name:'',cat:'不動產',owner:'Rebecca',val:''});
+      dbRenderAssets();dbSave();
+    };
+    window.dbAddDebt=function(){
+      dbDebts.push({id:nid('d'),name:'',cat:'房貸',owner:'Rebecca',val:'',auto:false});
+      dbRenderDebts();dbSave();
+    };
+
+    function dbCalc(){
+      const assetTot=dbAssets.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
+      const debtTot=dbDebts.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
+      const stockVal=parseFloat(document.getElementById('totalValue')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
+      const fixedTot=assetTot;
+      const totalAsset=stockVal+fixedTot;
+      const netAsset=totalAsset-debtTot;
+      const set=(id,v,color)=>{const el=document.getElementById(id);if(el){el.textContent=v;if(color)el.style.color=color;}};
+      set('db-net',fmt(netAsset),netAsset>=0?'#4aad6e':'#d9534f');
+      set('db-stock',fmt(stockVal));
+      set('db-fixed',fmt(fixedTot));
+      set('db-debt',fmt(debtTot),'#d9534f');
+      const cfIn=parseFloat(document.getElementById('cf-s-in')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
+      const cfOut=parseFloat(document.getElementById('cf-s-out')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
+      const cfFcf=cfIn-cfOut;
+      set('db-mo-in',fmt(cfIn),'#4aad6e');
+      set('db-mo-out',fmt(cfOut),'#d9534f');
+      set('db-mo-fcf',fmt(cfFcf),cfFcf>=0?'#4aad6e':'#d9534f');
+      const maxBar=Math.max(stockVal,fixedTot,debtTot,1);
+      const sw=(id,p)=>{const el=document.getElementById(id);if(el)el.style.width=Math.max(0,Math.round(p))+'%';};
+      sw('db-bar-stock',Math.round((stockVal/maxBar)*100));
+      sw('db-bar-fixed',Math.round((fixedTot/maxBar)*100));
+      sw('db-bar-debt',Math.round((debtTot/maxBar)*100));
+      const setV=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+      setV('db-bar-stock-v',fmt(stockVal));
+      setV('db-bar-fixed-v',fmt(fixedTot));
+      setV('db-bar-debt-v',fmt(debtTot));
+    }
+
+    function dbSave(){
+      try{localStorage.setItem(DB_STORE,JSON.stringify({assets:dbAssets,debts:dbDebts}));}catch(e){}
+    }
+    function dbLoad(){
+      try{
+        const raw=localStorage.getItem(DB_STORE);if(!raw)return;
+        const d=JSON.parse(raw);
+        if(d.assets?.length)dbAssets=d.assets;
+        if(d.debts?.length)dbDebts=d.debts;
+        dbCtr=Math.max(dbCtr,...[...dbAssets,...dbDebts].map(r=>parseInt(r.id.replace(/\D/g,''))||0));
+      }catch(e){}
+    }
+    dbLoad();
+    })();
+    </script>
     <div id="analysisModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='analysisModal') closeAnalysisModal()">
         <div id="analysisContent" class="analysis-content bg-slate-800 border-2 border-blue-500 rounded-lg max-w-5xl w-full mx-4" onclick="event.stopPropagation()"></div>
     </div>
