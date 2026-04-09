@@ -2906,6 +2906,32 @@
       </div>`;
       document.body.appendChild(wrap);if(row?.loanData)cfLoanCalc();
     };
+    // 用日曆月計算兩個日期之間經過的月數（以還款日為基準）
+    function loanMonthDiff(fromDate,toDate){
+      const f=new Date(fromDate),t=new Date(toDate);
+      let months=(t.getFullYear()-f.getFullYear())*12+(t.getMonth()-f.getMonth());
+      if(t.getDate()<f.getDate())months--; // 還沒到當月還款日，不算這期
+      return Math.max(0,months);
+    }
+    // 計算貸款剩餘本金（共用邏輯，彈窗和同步都用）
+    function loanCalcBalance(principal,rate,startDate,endDate,firstPayDate,graceMo){
+      const mr=rate/100/12;
+      const tm=loanMonthDiff(startDate,endDate);
+      const rm=Math.max(0,tm-graceMo);
+      const gPay=principal*mr;
+      let mPay=0;
+      if(rm>0&&mr>0)mPay=principal*mr*Math.pow(1+mr,rm)/(Math.pow(1+mr,rm)-1);
+      else if(rm>0)mPay=principal/rm;
+      const elapsed=firstPayDate?loanMonthDiff(firstPayDate,new Date()):0;
+      const inGrace=elapsed<graceMo;
+      const curPay=inGrace?gPay:mPay;
+      let bal=principal;
+      for(let i=0;i<Math.min(elapsed,graceMo);i++)bal*=(1+mr);
+      for(let i=0;i<Math.max(0,elapsed-graceMo);i++)bal=bal*(1+mr)-mPay;
+      bal=Math.max(0,bal);
+      const remaining=Math.max(0,tm-elapsed);
+      return {bal,mPay,gPay,curPay,inGrace,tm,elapsed,remaining};
+    }
     window.cfLoanCalc=function(){
       const g=id=>document.getElementById(id);
       const p=parseFloat(g('lc-p')?.value)||0,r=parseFloat(g('lc-r')?.value)||0;
@@ -2913,15 +2939,19 @@
       const gm=parseFloat(g('lc-grace')?.value)||0;
       const res=g('lc-result'),btn=g('lc-apply');
       if(!p||!r||!ss||!es){if(res)res.innerHTML='<span style="color:#9a9890">請填入貸款金額、年利率、起始日、截止日</span>';return;}
-      const tm=Math.round((new Date(es)-new Date(ss))/(1000*60*60*24*30.44));
-      const rm=Math.max(0,tm-gm),mr=r/100/12,gPay=p*mr;
-      let mPay=0;if(rm>0&&mr>0)mPay=p*mr*Math.pow(1+mr,rm)/(Math.pow(1+mr,rm)-1);else if(rm>0)mPay=p/rm;
-      const first=fs?new Date(fs):null;
-      const elapsed=first?Math.max(0,Math.round((new Date()-first)/(1000*60*60*24*30.44))):0;
-      const inG=elapsed<gm,cur=inG?gPay:mPay;
-      let bal=p;for(let i=0;i<Math.min(elapsed,gm);i++)bal*=(1+mr);for(let i=0;i<Math.max(0,elapsed-gm);i++)bal=bal*(1+mr)-mPay;bal=Math.max(0,bal);
-      if(res)res.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">目前月付金</div><div style="font-size:15px;font-weight:500;font-family:var(--mono);color:#1a1916">${cfFmt(cur)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${inG?'寬限期（利息）':'本利均攤'}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">剩餘本金</div><div style="font-size:15px;font-weight:500;font-family:var(--mono);color:#1a1916">${cfFmt(bal)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">借款總期數</div><div style="font-family:var(--mono);color:#5a5852">${tm} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">剩餘期數</div><div style="font-family:var(--mono);color:#5a5852">${Math.max(0,tm-elapsed)} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">寬限後月付</div><div style="font-family:var(--mono);color:#5a5852">${cfFmt(mPay)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">已還期數</div><div style="font-family:var(--mono);color:#5a5852">${elapsed} 個月</div></div></div>`;
-      if(btn){btn.disabled=false;btn.style.opacity='1';btn.dataset.pay=Math.round(cur);}
+      const lc=loanCalcBalance(p,r,ss,es,fs,gm);
+      // 下次還款日
+      let nextPayStr='—';
+      if(fs){
+        const fd=new Date(fs);const payDay=fd.getDate();
+        const now=new Date();let ny=now.getFullYear(),nm=now.getMonth();
+        if(now.getDate()>=payDay)nm++;
+        if(nm>11){nm=0;ny++;}
+        const nd=new Date(ny,nm,Math.min(payDay,new Date(ny,nm+1,0).getDate()));
+        nextPayStr=`${nd.getFullYear()}/${String(nd.getMonth()+1).padStart(2,'0')}/${String(nd.getDate()).padStart(2,'0')}`;
+      }
+      if(res)res.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">目前月付金</div><div style="font-size:15px;font-weight:500;font-family:var(--mono);color:#1a1916">${cfFmt(lc.curPay)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${lc.inGrace?'寬限期（利息）':'本利均攤'}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">剩餘本金</div><div style="font-size:15px;font-weight:500;font-family:var(--mono);color:#1a1916">${cfFmt(lc.bal)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">借款總期數</div><div style="font-family:var(--mono);color:#5a5852">${lc.tm} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">剩餘期數</div><div style="font-family:var(--mono);color:#5a5852">${lc.remaining} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">下次還款日</div><div style="font-family:var(--mono);color:#5a5852">${nextPayStr}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">已還期數</div><div style="font-family:var(--mono);color:#5a5852">${lc.elapsed} 個月</div></div></div>`;
+      if(btn){btn.disabled=false;btn.style.opacity='1';btn.dataset.pay=Math.round(lc.curPay);}
       window._cfPendingLoan={'lc-p':g('lc-p')?.value,'lc-r':g('lc-r')?.value,'lc-s':g('lc-s')?.value,'lc-e':g('lc-e')?.value,'lc-f':g('lc-f')?.value,'lc-grace':g('lc-grace')?.value,'lc-method':g('lc-method')?.value};
     };
     window.cfApplyLoan=function(rowId){
@@ -3235,44 +3265,40 @@
         const ld=loan.loanData||{};
         const principal=parseFloat(ld['lc-p'])||0;
         if(!principal)return;
-        // 計算剩餘本金
-        const r=parseFloat(ld['lc-r'])||0, mr=r/100/12;
+        const r=parseFloat(ld['lc-r'])||0;
         const ss=ld['lc-s'],es=ld['lc-e'],fs=ld['lc-f'];
         const gm=parseFloat(ld['lc-grace'])||0;
         let bal=principal;
         if(ss&&es){
-          const tm=Math.round((new Date(es)-new Date(ss))/(1000*60*60*24*30.44));
-          const rm=Math.max(0,tm-gm);
-          let mPay=0;if(rm>0&&mr>0)mPay=principal*mr*Math.pow(1+mr,rm)/(Math.pow(1+mr,rm)-1);else if(rm>0)mPay=principal/rm;
-          const first=fs?new Date(fs):null;
-          const elapsed=first?Math.max(0,Math.round((new Date()-first)/(1000*60*60*24*30.44))):0;
-          for(let i=0;i<Math.min(elapsed,gm);i++)bal*=(1+mr);
-          for(let i=0;i<Math.max(0,elapsed-gm);i++)bal=bal*(1+mr)-mPay;
-          bal=Math.max(0,bal);
+          const lc=loanCalcBalance(principal,r,ss,es,fs,gm);
+          bal=lc.bal;
         }
         // 找到對應的 dbDebts 項目並更新金額
         const match=dbDebts.find(d=>d.name===loan.name&&d.auto!==false);
-        if(match){match.val=String(Math.round(bal));match.auto=true;}
+        if(match){match.val=String(Math.round(bal));match.auto=true;match.loanExpId=loan.id;}
         else{
-          // 找空值的同類別項目
           const catMap={loan_mortgage:'房貸',loan_credit:'信貸',loan_other:'其他'};
           const empty=dbDebts.find(d=>!d.val&&d.cat===(catMap[loan.etype]||'其他'));
-          if(empty){empty.val=String(Math.round(bal));empty.name=loan.name;empty.auto=true;}
+          if(empty){empty.val=String(Math.round(bal));empty.name=loan.name;empty.auto=true;empty.loanExpId=loan.id;}
         }
       });
-      // 重新渲染負債表格
+      // 重新渲染負債表格（名稱可點擊開啟貸款明細）
       const el=document.getElementById('db-debt-body');
       if(el){
         const tot=dbDebts.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
-        el.innerHTML=dbDebts.map(r=>`<tr>
-          <td><input class="cf-te" value="${r.name}" placeholder="負債名稱" oninput="dbSf('debt','${r.id}','name',this.value)" ${r.auto?'style="color:#c8b89a"':''}></td>
+        el.innerHTML=dbDebts.map(r=>{
+          const nameCell=r.loanExpId
+            ?`<span onclick="cfOpenLoan('${r.loanExpId}')" style="cursor:pointer;color:#c8b89a;text-decoration:underline;font-size:13px;display:inline-block;padding:6px 0" title="點擊查看貸款明細">${r.name||'（點擊查看）'}</span>`
+            :`<input class="cf-te" value="${r.name}" placeholder="負債名稱" oninput="dbSf('debt','${r.id}','name',this.value)">`;
+          return `<tr>
+          <td>${nameCell}</td>
           <td><select class="cf-sel" onchange="dbSf('debt','${r.id}','cat',this.value)">${aOpts(r.cat,DEBT_TYPES)}</select></td>
           <td><select class="cf-sel" onchange="dbSf('debt','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
-          <td><input class="cf-te r" type="number" value="${r.val}" placeholder="0" oninput="dbSa('debt','${r.id}',this.value)" ${r.auto?'style="color:#c8b89a"':''}></td>
+          <td style="text-align:right;font-size:13px;font-family:var(--mono);color:${r.auto?'#c8b89a':'#f0ede6'};padding:7px 4px">${r.val?fmt(parseFloat(r.val)):''}</td>
           <td>${r.auto?'<span style="font-size:10px;color:#9a9890">自動</span>':''}</td>
           <td><button class="cf-del" onclick="dbDel('debt','${r.id}')">×</button></td>
-        </tr>`).join('')+
-        `<tr class="cf-sub"><td colspan="3" class="cf-sub-lbl">負債合計</td><td class="cf-sub-val">${fmt(tot)}</td><td colspan="2"></td></tr>`;
+        </tr>`;}).join('')+
+        `<tr class="cf-sub"><td colspan="3" class="cf-sub-lbl">負債合計</td><td class="cf-sub-val" style="color:#e8675a">${fmt(tot)}</td><td colspan="2"></td></tr>`;
         const st=document.getElementById('db-st-debt');if(st)st.textContent=fmt(tot);
       }
     }
