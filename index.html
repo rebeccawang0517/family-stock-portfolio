@@ -1177,29 +1177,14 @@
                   <tbody id="cf-card-body"></tbody>
                   <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfAddCardMonth()">+ 新增月份</button></td></tr></tbody>
 
-                  <!-- ===== 投資支出 ===== -->
+                  <!-- ===== 投資收支（交易連動） ===== -->
                   <tbody>
-                    <tr class="cf-sec-row"><td colspan="8"><div class="cf-sec"><span class="cf-sec-lbl">投資支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-invest">—</span></div><p style="font-size:11px;color:#9a9890;padding:0;margin:0">買入股票、基金等資金流出</p></td></tr>
-                    <tr class="cf-hdr-row"><th colspan="2">項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th><th></th></tr>
+                    <tr class="cf-sec-row"><td colspan="8"><div class="cf-sec"><span class="cf-sec-lbl">投資收支</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-invest">—</span></div><p style="font-size:11px;color:#9a9890;padding:0;margin:0">自動從交易記錄連動，顯示各月買賣金額</p></td></tr>
+                    <tr class="cf-hdr-row"><th colspan="2">月份</th><th>買入筆數</th><th>賣出筆數</th><th class="r">買入（TWD）</th><th class="r">賣出（TWD）</th><th class="r">淨流出</th><th></th></tr>
                   </tbody>
                   <tbody id="cf-invest-body"></tbody>
-                  <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfAddRow('invest')">+ 新增投資支出</button></td></tr></tbody>
-
-                  <!-- ===== 贖回收入 ===== -->
-                  <tbody>
-                    <tr class="cf-sec-row"><td colspan="8"><div class="cf-sec"><span class="cf-sec-lbl">贖回收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-redeem">—</span></div><p style="font-size:11px;color:#9a9890;padding:0;margin:0">賣出股票、基金等資金流入</p></td></tr>
-                    <tr class="cf-hdr-row"><th colspan="2">項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th><th></th></tr>
-                  </tbody>
-                  <tbody id="cf-redeem-body"></tbody>
-                  <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfAddRow('redeem')">+ 新增贖回收入</button></td></tr></tbody>
+                  <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfSyncTxInvest()" style="color:#c8b89a">↻ 更新交易連動</button></td></tr></tbody>
                 </table>
-
-                <!-- 交易紀錄連動 -->
-                <div class="cf-sec"><span class="cf-sec-lbl">交易紀錄連動</span><div class="cf-sec-bar"></div></div>
-                <div id="cf-tx-summary" style="background:#3d3c38;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:12px 14px;font-size:12px;color:#ccc9bf;margin-bottom:.5rem">
-                  <span style="color:#9a9890;font-size:11px">尚無資料 · 請點下方按鈕從交易記錄頁面載入本月數據</span>
-                </div>
-                <button onclick="cfLoadTxData()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:6px 14px;border-radius:4px;cursor:pointer">從交易記錄載入本月數據</button>
 
                 <!-- 年度結餘 -->
                 <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl">年度結餘</span><div class="cf-sec-bar"></div></div>
@@ -1349,7 +1334,8 @@
                     await loadStocks();
                     await loadTransactions();
                     await fetchExchangeRate();
-                    // 預設頁面是資產總覽，載入後渲染
+                    // 先載入收支管理資料，再渲染資產總覽（負債連動需要）
+                    if(typeof cfLoad==='function') await cfLoad();
                     setTimeout(()=>{ if(typeof dbRender==='function') dbRender(); }, 100);
                     if (document.getElementById('autoRefresh').checked) {
                         toggleAutoRefresh(true);
@@ -2675,17 +2661,47 @@
     }
     function cfRenderInvest(){
       const el=document.getElementById('cf-invest-body');if(!el)return;
-      const tot=cfInvest.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      el.innerHTML=cfInvest.map(r=>investRow(r,'invest')).join('')+subRow(tot,'月均小計',5,'<td colspan="2"></td>');
-      const st=document.getElementById('cf-st-invest');if(st)st.textContent=cfFmt(tot)+'/月';
+      const txs=window._cfTransactions||[];
+      const usdRate=parseFloat(document.getElementById('usdRate')?.value)||31.5;
+      // 按月份彙總交易
+      const byMonth={};
+      txs.forEach(t=>{
+        if(!t.date)return;
+        const m=t.date.slice(0,7);
+        if(!byMonth[m])byMonth[m]={buyCnt:0,sellCnt:0,buyAmt:0,sellAmt:0};
+        const amt=(parseFloat(t.shares)||0)*(parseFloat(t.price)||0);
+        const twd=t.region==='美股'?amt*usdRate:amt;
+        if(t.type==='買入'){byMonth[m].buyCnt++;byMonth[m].buyAmt+=twd;}
+        else if(t.type==='賣出'){byMonth[m].sellCnt++;byMonth[m].sellAmt+=twd;}
+      });
+      const months=Object.keys(byMonth).sort().reverse();
+      let totalBuy=0,totalSell=0;
+      let html=months.map(m=>{
+        const d=byMonth[m];totalBuy+=d.buyAmt;totalSell+=d.sellAmt;
+        const net=d.buyAmt-d.sellAmt;
+        const label=m.replace('-','年')+'月';
+        return `<tr>
+          <td colspan="2" style="padding:7px 5px;font-size:13px;color:#ccc9bf">${label}</td>
+          <td style="font-size:12px;color:#9a9890;padding:7px 4px">${d.buyCnt} 筆</td>
+          <td style="font-size:12px;color:#9a9890;padding:7px 4px">${d.sellCnt} 筆</td>
+          <td style="text-align:right;font-size:13px;font-family:var(--mono);color:#e8675a;padding:7px 4px">${d.buyAmt?cfFmt(d.buyAmt):''}</td>
+          <td style="text-align:right;font-size:13px;font-family:var(--mono);color:#4aad6e;padding:7px 4px">${d.sellAmt?cfFmt(d.sellAmt):''}</td>
+          <td style="text-align:right;font-size:13px;font-family:var(--mono);color:${net>0?'#e8675a':'#4aad6e'};padding:7px 4px">${cfFmt(net)}</td>
+          <td></td></tr>`;
+      }).join('');
+      if(!months.length) html=`<tr><td colspan="8" style="padding:12px 5px;font-size:12px;color:#9a9890;text-align:center">尚無交易記錄</td></tr>`;
+      const totalNet=totalBuy-totalSell;
+      html+=`<tr class="cf-sub"><td colspan="4" class="cf-sub-lbl">合計</td><td class="cf-sub-val" style="color:#e8675a">${cfFmt(totalBuy)}</td><td class="cf-sub-val" style="color:#4aad6e">${cfFmt(totalSell)}</td><td class="cf-sub-val" style="color:${totalNet>0?'#e8675a':'#4aad6e'}">${cfFmt(totalNet)}</td><td></td></tr>`;
+      el.innerHTML=html;
+      const st=document.getElementById('cf-st-invest');if(st)st.textContent='淨流出 '+cfFmt(totalNet);
+      // 更新 cfInvest/cfRedeem 給 cfCalc 用（月均化：取最近月份）
+      const now=new Date();const curYM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      const curD=byMonth[curYM]||{buyAmt:0,sellAmt:0};
+      cfInvest=[{id:'iv-auto',name:'交易買入',owner:'共同',freq:'monthly',amt:String(Math.round(curD.buyAmt)),src:'tx'}];
+      cfRedeem=[{id:'rd-auto',name:'交易賣出',owner:'共同',freq:'monthly',amt:String(Math.round(curD.sellAmt)),src:'tx'}];
     }
-    function cfRenderRedeem(){
-      const el=document.getElementById('cf-redeem-body');if(!el)return;
-      const tot=cfRedeem.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      el.innerHTML=cfRedeem.map(r=>investRow(r,'redeem')).join('')+subRow(tot,'月均小計',5,'<td colspan="2"></td>');
-      const st=document.getElementById('cf-st-redeem');if(st)st.textContent=cfFmt(tot)+'/月';
-    }
-    function cfRenderAll(){cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfRenderRedeem();cfCalc();
+    window.cfSyncTxInvest=function(){cfRenderInvest();cfCalc();};
+    function cfRenderAll(){cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfCalc();
       // 暴露給資產總覽提醒系統
       window.cfMembersRef=cfMembers;window.cfExpenseRef=cfExpense;window.cfCardsRef=cfCards;
     }
@@ -2728,14 +2744,14 @@
       if(type==='invest')row.src='薪資';
       if(type==='redeem')row.src='manual';
       cfGetArr(type).push(row);
-      const renders={income:cfRenderIncome,expense:cfRenderExpense,invest:cfRenderInvest,redeem:cfRenderRedeem};
+      const renders={income:cfRenderIncome,expense:cfRenderExpense};
       if(renders[type])renders[type]();cfSave();
     };
     window.cfDelRow=function(type,id){
       if(!confirm('確定要刪除這筆項目嗎？'))return;
-      const m={income:()=>cfIncome=cfIncome.filter(x=>x.id!==id),expense:()=>cfExpense=cfExpense.filter(x=>x.id!==id),invest:()=>cfInvest=cfInvest.filter(x=>x.id!==id),redeem:()=>cfRedeem=cfRedeem.filter(x=>x.id!==id)};
+      const m={income:()=>cfIncome=cfIncome.filter(x=>x.id!==id),expense:()=>cfExpense=cfExpense.filter(x=>x.id!==id)};
       if(m[type])m[type]();
-      const renders={income:cfRenderIncome,expense:cfRenderExpense,invest:cfRenderInvest,redeem:cfRenderRedeem};
+      const renders={income:cfRenderIncome,expense:cfRenderExpense};
       if(renders[type])renders[type]();cfCalc();cfSave();
     };
     window.cfAddCardMonth=function(){
@@ -2822,25 +2838,6 @@
       if(el)el.remove();
     };
 
-    window.cfLoadTxData=function(){
-      const el=document.getElementById('cf-tx-summary');
-      try{
-        // 直接從主程式的 transactions 陣列讀取（Firebase 資料）
-        const txs=window._cfTransactions||[];
-        if(!txs.length){if(el)el.innerHTML='<span style="color:#9a9890;font-size:12px">尚無交易記錄，請先到「交易記錄」頁面確認資料已載入</span>';return;}
-        const now=new Date();
-        const curYM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-        const usdRate=parseFloat(document.getElementById('usdRate')?.value)||31.5;
-        const buys=txs.filter(t=>t.date?.slice(0,7)===curYM&&t.type==='買入');
-        const sells=txs.filter(t=>t.date?.slice(0,7)===curYM&&t.type==='賣出');
-        const buyTot=buys.reduce((s,t)=>{const a=(parseFloat(t.shares)||0)*(parseFloat(t.price)||0);return s+(t.region==='美股'?a*usdRate:a);},0);
-        const sellTot=sells.reduce((s,t)=>{const a=(parseFloat(t.shares)||0)*(parseFloat(t.price)||0);return s+(t.region==='美股'?a*usdRate:a);},0);
-        if(buyTot>0){const ex=cfInvest.find(r=>r.src==='tx');if(ex){ex.amt=String(Math.round(buyTot));ex.freq='once';ex.name=`${curYM} 買入合計`;}else cfInvest.push({id:nid('iv'),name:`${curYM} 買入合計`,owner:'共同',freq:'once',amt:String(Math.round(buyTot)),src:'tx'});cfRenderInvest();}
-        if(sellTot>0){const ex=cfRedeem.find(r=>r.src==='tx');if(ex){ex.amt=String(Math.round(sellTot));ex.freq='once';ex.name=`${curYM} 賣出合計`;}else cfRedeem.push({id:nid('rd'),name:`${curYM} 賣出合計`,owner:'共同',freq:'once',amt:String(Math.round(sellTot)),src:'tx'});cfRenderRedeem();}
-        if(el)el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"><div><div style="font-size:11px;color:#9a9890;margin-bottom:3px;letter-spacing:.04em;text-transform:uppercase">${curYM} 買入</div><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:#e8675a">${cfFmt(buyTot)}</div><div style="font-size:11px;color:#9a9890;margin-top:2px">${buys.length} 筆</div></div><div><div style="font-size:11px;color:#9a9890;margin-bottom:3px;letter-spacing:.04em;text-transform:uppercase">${curYM} 賣出</div><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:#4aad6e">${cfFmt(sellTot)}</div><div style="font-size:11px;color:#9a9890;margin-top:2px">${sells.length} 筆</div></div><div><div style="font-size:11px;color:#9a9890;margin-bottom:3px;letter-spacing:.04em;text-transform:uppercase">淨流出</div><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${buyTot-sellTot>0?'#e8675a':'#4aad6e'}">${cfFmt(buyTot-sellTot)}</div><div style="font-size:11px;color:#9a9890;margin-top:2px">匯率 ${usdRate}</div></div></div>`;
-        cfCalc();cfSave();
-      }catch(e){if(el)el.innerHTML=`<span style="color:#9a9890;font-size:12px">載入失敗：${e.message}</span>`;}
-    };
 
     function cfCalc(){
       const moIn=cfIncome.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
@@ -2969,7 +2966,7 @@
     let cfSaveTimer=null;
     function cfSave(){
       // 同時存 localStorage（備份）和 Firebase
-      try{localStorage.setItem(CF_STORE,JSON.stringify({members:cfMembers,income:cfIncome,expense:cfExpense,cards:cfCards,invest:cfInvest,redeem:cfRedeem}));}catch(e){}
+      try{localStorage.setItem(CF_STORE,JSON.stringify({members:cfMembers,income:cfIncome,expense:cfExpense,cards:cfCards}));}catch(e){}
       // 防抖：500ms 內多次修改只寫一次 Firebase
       clearTimeout(cfSaveTimer);
       cfSaveTimer=setTimeout(()=>{
@@ -2994,9 +2991,7 @@
             if(d.income?.length)cfIncome=d.income;
             if(d.expense?.length)cfExpense=d.expense.map(r=>({...r,etype:r.etype||(r.isLoan?'loan_mortgage':'general')}));
             if(d.cards?.length)cfCards=d.cards;
-            if(d.invest?.length)cfInvest=d.invest;
-            if(d.redeem?.length)cfRedeem=d.redeem;
-            const all=[...cfIncome,...cfExpense,...cfCards,...cfInvest,...cfRedeem];
+            const all=[...cfIncome,...cfExpense,...cfCards];
             cfCtr=Math.max(cfCtr,...all.map(r=>parseInt(r.id.replace(/\D/g,''))||0));
             cfRenderMembers();
             return;
@@ -3011,9 +3006,7 @@
         if(d.income?.length)cfIncome=d.income;
         if(d.expense?.length)cfExpense=d.expense.map(r=>({...r,etype:r.etype||(r.isLoan?'loan_mortgage':'general')}));
         if(d.cards?.length)cfCards=d.cards;
-        if(d.invest?.length)cfInvest=d.invest;
-        if(d.redeem?.length)cfRedeem=d.redeem;
-        const all=[...cfIncome,...cfExpense,...cfCards,...cfInvest,...cfRedeem];
+        const all=[...cfIncome,...cfExpense,...cfCards];
         cfCtr=Math.max(cfCtr,...all.map(r=>parseInt(r.id.replace(/\D/g,''))||0));
       }catch(e){}
       cfRenderMembers();
