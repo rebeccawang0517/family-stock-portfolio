@@ -2657,16 +2657,16 @@
       const tot=cfCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
       // group by month
       const byMonth={};
-      cfCards.forEach(r=>{const m=r.month||'未分類';if(!byMonth[m])byMonth[m]=[];byMonth[m].push(r);});
+      cfCards.forEach(r=>{const m=r.month||'';if(!byMonth[m])byMonth[m]=[];byMonth[m].push(r);});
       const months=Object.keys(byMonth).sort().reverse();
       let html=months.map(m=>{
         const items=byMonth[m];
         const mTot=items.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
-        const label=m.length===7?(m.replace('-','年')+'月'):m;
+        const label=m.length===7?(m.replace('-','年')+'月'):(m||'未分類');
         return `<tr onclick="cfOpenMonth('${m}')" style="cursor:pointer" onmouseover="this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.background=''">
           <td colspan="3" style="padding:8px 5px;font-size:13px;color:#c8b89a;font-weight:500">${label}</td>
           <td style="font-size:12px;color:#9a9890;padding:8px 4px">${items.length} 筆</td>
-          <td colspan="2" style="text-align:right;font-size:13px;font-family:'Courier New',monospace;color:#f0ede6;padding:8px 4px">${cfFmt(mTot)}</td>
+          <td colspan="2" style="text-align:right;font-size:13px;font-family:var(--mono);color:#f0ede6;padding:8px 4px">${cfFmt(mTot)}</td>
           <td></td><td></td></tr>`;
       }).join('');
       html+=subRow(tot,'帳單合計',5,'<td colspan="2"></td>');
@@ -2748,18 +2748,18 @@
     };
     window.cfDelCard=function(id){cfCards=cfCards.filter(x=>x.id!==id);cfRenderCards();cfCalc();cfSave();};
     window.cfOpenMonth=function(month){
-      const items=cfCards.filter(r=>r.month===month);
       const label=month.length===7?(month.replace('-','年')+'月'):month;
       const wrap=document.createElement('div');
+      wrap.id='cf-card-modal-overlay';
       wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999';
-      wrap.onclick=function(e){if(e.target===wrap){cfRenderCards();cfCalc();wrap.remove();}};
+      wrap.onclick=function(e){if(e.target===wrap)cfCloseCardModal();};
       function renderModal(){
-        const curItems=cfCards.filter(r=>r.month===month);
+        const curItems=cfCards.filter(r=>(r.month||'')===(month||''));
         const mTot=curItems.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
         return `<div style="background:#fff;border-radius:8px;padding:1.25rem;width:460px;max-width:94vw;max-height:90vh;overflow-y:auto;font-family:inherit">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
             <div style="font-size:16px;font-weight:600;color:#1a1916">${label} 信用卡帳單</div>
-            <button onclick="cfRenderCards();cfCalc();this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1">×</button>
+            <button onclick="cfCloseCardModal()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1">×</button>
           </div>
           <table style="width:100%;border-collapse:collapse">
             <thead><tr style="border-bottom:1px solid rgba(26,25,22,.12)">
@@ -2771,17 +2771,17 @@
             <tbody>${curItems.map(r=>`<tr style="border-bottom:1px solid rgba(26,25,22,.06)">
               <td style="padding:4px 5px"><input type="text" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfCardModalEdit('${r.id}','bank',this.value)" style="width:100%;border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;font-size:13px;padding:6px 8px;border-radius:4px;outline:none"></td>
               <td style="padding:4px 5px"><select onchange="cfCardModalEdit('${r.id}','owner',this.value)" style="width:100%;border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;font-size:12px;padding:6px 4px;border-radius:4px;outline:none">${mOpts(r.owner)}</select></td>
-              <td style="padding:4px 5px"><input type="number" value="${r.amt}" placeholder="0" oninput="cfCardModalEdit('${r.id}','amt',this.value)" style="width:100%;border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;font-size:13px;padding:6px 8px;border-radius:4px;outline:none;text-align:right;font-family:'Courier New',monospace"></td>
-              <td style="padding:4px 2px;text-align:center"><button onclick="cfCardModalDel('${r.id}','${month}')" style="background:none;border:none;color:#c0392b;font-size:15px;cursor:pointer;padding:2px 6px">×</button></td>
+              <td style="padding:4px 5px"><input type="number" value="${r.amt}" placeholder="0" oninput="cfCardModalEdit('${r.id}','amt',this.value)" style="width:100%;border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;font-size:13px;padding:6px 8px;border-radius:4px;outline:none;text-align:right;font-family:var(--mono)"></td>
+              <td style="padding:4px 2px;text-align:center"><button onclick="cfCardModalDel('${r.id}')" style="background:none;border:none;color:#c0392b;font-size:15px;cursor:pointer;padding:2px 6px">×</button></td>
             </tr>`).join('')}</tbody>
           </table>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(26,25,22,.1)">
-            <button onclick="cfCardModalAdd('${month}')" style="background:transparent;color:#1a1916;border:1px dashed rgba(26,25,22,.25);border-radius:4px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:inherit">+ 新增銀行</button>
-            <div style="font-size:14px;font-weight:600;color:#1a1916;font-family:'Courier New',monospace">合計 ${cfFmt(mTot)}</div>
+            <button onclick="cfCardModalAdd()" style="background:transparent;color:#1a1916;border:1px dashed rgba(26,25,22,.25);border-radius:4px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:inherit">+ 新增銀行</button>
+            <div style="font-size:14px;font-weight:600;color:#1a1916;font-family:var(--mono)" id="cf-card-modal-total">合計 ${cfFmt(mTot)}</div>
           </div>
           <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
-            <button onclick="cfCardModalDelMonth('${month}')" style="background:transparent;color:#c0392b;border:1px solid rgba(192,57,43,.3);border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit">刪除整月</button>
-            <button onclick="cfRenderCards();cfCalc();this.closest('[style*=fixed]').remove()" style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:5px 16px;font-size:12px;cursor:pointer;font-family:inherit">完成</button>
+            <button onclick="cfCardModalDelMonth()" style="background:transparent;color:#c0392b;border:1px solid rgba(192,57,43,.3);border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit">刪除整月</button>
+            <button onclick="cfCloseCardModal()" style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:5px 16px;font-size:12px;cursor:pointer;font-family:inherit">完成</button>
           </div>
         </div>`;
       }
@@ -2791,26 +2791,35 @@
       window._cfCardModalMonth=month;
       window._cfCardModalRender=function(){wrap.innerHTML=renderModal();};
     };
+    window.cfCloseCardModal=function(){
+      cfRenderCards();cfCalc();
+      const el=document.getElementById('cf-card-modal-overlay');
+      if(el)el.remove();
+    };
     window.cfCardModalEdit=function(id,field,v){
       const r=cfCards.find(x=>x.id===id);if(r)r[field]=v;
       cfSave();
-      // update total in modal
       const month=window._cfCardModalMonth;
-      const mTot=cfCards.filter(r=>r.month===month).reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
-      const totEl=window._cfCardModalWrap?.querySelector('div[style*="font-weight:600"][style*="Courier"]');
+      const mTot=cfCards.filter(r=>(r.month||'')===(month||'')).reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+      const totEl=document.getElementById('cf-card-modal-total');
       if(totEl)totEl.textContent='合計 '+cfFmt(mTot);
     };
-    window.cfCardModalAdd=function(month){
+    window.cfCardModalAdd=function(){
+      const month=window._cfCardModalMonth;
       cfCards.push({id:nid('cr'),bank:'',owner:cfMembers[0]||'Rebecca',month:month,amt:''});
       cfSave();window._cfCardModalRender();
     };
-    window.cfCardModalDel=function(id,month){
+    window.cfCardModalDel=function(id){
       cfCards=cfCards.filter(x=>x.id!==id);cfSave();window._cfCardModalRender();
     };
-    window.cfCardModalDelMonth=function(month){
-      if(!confirm('確定要刪除 '+month.replace('-','年')+'月 的所有信用卡帳單嗎？'))return;
-      cfCards=cfCards.filter(x=>x.month!==month);cfRenderCards();cfCalc();cfSave();
-      window._cfCardModalWrap?.remove();
+    window.cfCardModalDelMonth=function(){
+      const month=window._cfCardModalMonth;
+      const label=month.length===7?(month.replace('-','年')+'月'):month;
+      if(!confirm('確定要刪除 '+label+' 的所有信用卡帳單嗎？'))return;
+      cfCards=cfCards.filter(x=>(x.month||'')!==(month||''));
+      cfRenderCards();cfCalc();cfSave();
+      const el=document.getElementById('cf-card-modal-overlay');
+      if(el)el.remove();
     };
 
     window.cfLoadTxData=function(){
@@ -2867,13 +2876,34 @@
       }
     }
 
+    window.cfCloseLoanModal=function(){
+      const el=document.getElementById('cf-loan-modal-overlay');
+      if(el)el.remove();
+    };
     window.cfOpenLoan=function(rowId){
       const row=cfExpense.find(r=>r.id===rowId);const ld=row?.loanData||{};
       const typeName=(ETYPES[row?.etype]||'貸款');
       const wrap=document.createElement('div');
-      wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999';
-      wrap.onclick=function(e){if(e.target===wrap)wrap.remove();};
-      wrap.innerHTML=`<div style="background:#fff;border:1px solid rgba(26,25,22,.18);border-radius:8px;padding:1.25rem;width:400px;max-width:94vw;max-height:90vh;overflow-y:auto;font-family:inherit"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div><div style="font-size:15px;font-weight:600;color:#1a1916">${row?.name||typeName} 貸款明細</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${typeName}</div></div><button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1">×</button></div><div style="margin-bottom:9px"><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">貸款名稱</div><input id="lc-name" type="text" value="${row?.name||''}" placeholder="例：禾川琚房貸" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none"></div>${[['lc-p','貸款金額（TWD）','number','例：8,000,000'],['lc-r','年利率（%）','number','例：2.06'],['lc-s','貸款起始日','date',''],['lc-e','貸款截止日','date',''],['lc-f','還款日（第一次）','date','']].map(([id,lb,tp,ph])=>`<div style="margin-bottom:9px"><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">${lb}</div><input id="${id}" type="${tp}" value="${ld[id]||''}" placeholder="${ph}" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:'Courier New',monospace" oninput="cfLoanCalc()"></div>`).join('')}<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px"><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">寬限期（月）</div><input id="lc-grace" type="number" value="${ld['lc-grace']||''}" placeholder="例：24" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:'Courier New',monospace" oninput="cfLoanCalc()"></div><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">還款方式</div><select id="lc-method" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:inherit" onchange="cfLoanCalc()"><option value="ep"${(ld['lc-method']||'ep')==='ep'?' selected':''}>本利均攤</option><option value="pp"${ld['lc-method']==='pp'?' selected':''}>本金均攤</option></select></div></div><div id="lc-result" style="background:#f5f4f0;border-radius:6px;padding:12px;font-size:11px;color:#5a5852;min-height:48px"></div><div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end"><button onclick="this.closest('[style*=fixed]').remove()" style="background:transparent;color:#5a5852;border:1px solid rgba(26,25,22,.18);border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit">關閉</button><button id="lc-apply" onclick="cfApplyLoan('${rowId}')" disabled style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;opacity:.35;font-family:inherit">套用月付金</button></div></div>`;
+      wrap.id='cf-loan-modal-overlay';
+      wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;padding:12px';
+      wrap.onclick=function(e){if(e.target===wrap)cfCloseLoanModal();};
+      wrap.innerHTML=`<div style="background:#fff;border:1px solid rgba(26,25,22,.18);border-radius:8px;padding:1.25rem;width:420px;max-width:100%;max-height:85vh;overflow-y:auto;font-family:inherit;box-sizing:border-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <div><div style="font-size:15px;font-weight:600;color:#1a1916">${row?.name||typeName} 貸款明細</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${typeName}</div></div>
+          <button onclick="cfCloseLoanModal()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1;padding:4px 8px">×</button>
+        </div>
+        <div style="margin-bottom:9px"><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">貸款名稱</div><input id="lc-name" type="text" value="${row?.name||''}" placeholder="例：禾川琚房貸" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:13px;padding:8px;border-radius:4px;outline:none;box-sizing:border-box"></div>
+        ${[['lc-p','貸款金額（TWD）','number','例：8,000,000'],['lc-r','年利率（%）','number','例：2.06'],['lc-s','貸款起始日','date',''],['lc-e','貸款截止日','date',''],['lc-f','還款日（第一次）','date','']].map(([id,lb,tp,ph])=>`<div style="margin-bottom:9px"><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">${lb}</div><input id="${id}" type="${tp}" value="${ld[id]||''}" placeholder="${ph}" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:13px;padding:8px;border-radius:4px;outline:none;font-family:var(--mono);box-sizing:border-box" oninput="cfLoanCalc()"></div>`).join('')}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px">
+          <div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">寬限期（月）</div><input id="lc-grace" type="number" value="${ld['lc-grace']||''}" placeholder="例：24" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:13px;padding:8px;border-radius:4px;outline:none;font-family:var(--mono);box-sizing:border-box" oninput="cfLoanCalc()"></div>
+          <div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">還款方式</div><select id="lc-method" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:13px;padding:8px;border-radius:4px;outline:none;font-family:inherit;box-sizing:border-box" onchange="cfLoanCalc()"><option value="ep"${(ld['lc-method']||'ep')==='ep'?' selected':''}>本利均攤</option><option value="pp"${ld['lc-method']==='pp'?' selected':''}>本金均攤</option></select></div>
+        </div>
+        <div id="lc-result" style="background:#f5f4f0;border-radius:6px;padding:12px;font-size:11px;color:#5a5852;min-height:48px"></div>
+        <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
+          <button onclick="cfCloseLoanModal()" style="background:transparent;color:#5a5852;border:1px solid rgba(26,25,22,.18);border-radius:4px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit">關閉</button>
+          <button id="lc-apply" onclick="cfApplyLoan('${rowId}')" disabled style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:8px 16px;font-size:13px;cursor:pointer;opacity:.35;font-family:inherit">套用月付金</button>
+        </div>
+      </div>`;
       document.body.appendChild(wrap);if(row?.loanData)cfLoanCalc();
     };
     window.cfLoanCalc=function(){
@@ -2890,7 +2920,7 @@
       const elapsed=first?Math.max(0,Math.round((new Date()-first)/(1000*60*60*24*30.44))):0;
       const inG=elapsed<gm,cur=inG?gPay:mPay;
       let bal=p;for(let i=0;i<Math.min(elapsed,gm);i++)bal*=(1+mr);for(let i=0;i<Math.max(0,elapsed-gm);i++)bal=bal*(1+mr)-mPay;bal=Math.max(0,bal);
-      if(res)res.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">目前月付金</div><div style="font-size:15px;font-weight:500;font-family:'Courier New',monospace;color:#1a1916">${cfFmt(cur)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${inG?'寬限期（利息）':'本利均攤'}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">剩餘本金</div><div style="font-size:15px;font-weight:500;font-family:'Courier New',monospace;color:#1a1916">${cfFmt(bal)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">借款總期數</div><div style="font-family:'Courier New',monospace;color:#5a5852">${tm} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">剩餘期數</div><div style="font-family:'Courier New',monospace;color:#5a5852">${Math.max(0,tm-elapsed)} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">寬限後月付</div><div style="font-family:'Courier New',monospace;color:#5a5852">${cfFmt(mPay)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">已還期數</div><div style="font-family:'Courier New',monospace;color:#5a5852">${elapsed} 個月</div></div></div>`;
+      if(res)res.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">目前月付金</div><div style="font-size:15px;font-weight:500;font-family:var(--mono);color:#1a1916">${cfFmt(cur)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${inG?'寬限期（利息）':'本利均攤'}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">剩餘本金</div><div style="font-size:15px;font-weight:500;font-family:var(--mono);color:#1a1916">${cfFmt(bal)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">借款總期數</div><div style="font-family:var(--mono);color:#5a5852">${tm} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">剩餘期數</div><div style="font-family:var(--mono);color:#5a5852">${Math.max(0,tm-elapsed)} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">寬限後月付</div><div style="font-family:var(--mono);color:#5a5852">${cfFmt(mPay)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">已還期數</div><div style="font-family:var(--mono);color:#5a5852">${elapsed} 個月</div></div></div>`;
       if(btn){btn.disabled=false;btn.style.opacity='1';btn.dataset.pay=Math.round(cur);}
       window._cfPendingLoan={'lc-p':g('lc-p')?.value,'lc-r':g('lc-r')?.value,'lc-s':g('lc-s')?.value,'lc-e':g('lc-e')?.value,'lc-f':g('lc-f')?.value,'lc-grace':g('lc-grace')?.value,'lc-method':g('lc-method')?.value};
     };
@@ -2903,7 +2933,7 @@
         if(nameInput&&nameInput.value.trim())row.name=nameInput.value.trim();
       }
       const inp=document.getElementById('cf-amt-'+rowId);if(inp)inp.value=pay;
-      cfRenderExpense();cfCalc();cfSave();document.querySelector('div[style*="position:fixed"]')?.remove();
+      cfRenderExpense();cfCalc();cfSave();cfCloseLoanModal();
     };
 
     let cfSaveTimer=null;
