@@ -1192,7 +1192,6 @@
                   <table style="width:100%;border-collapse:collapse">
                     <thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)">
                       <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 5px;font-weight:600;letter-spacing:.04em">項目</th>
-                      <th style="text-align:right;font-size:11px;color:#9a9890;padding:6px 5px;font-weight:600;letter-spacing:.04em">月均</th>
                       <th style="text-align:right;font-size:11px;color:#9a9890;padding:6px 5px;font-weight:600;letter-spacing:.04em">年合計</th>
                     </tr></thead>
                     <tbody id="cf-annual-body"></tbody>
@@ -2860,17 +2859,29 @@
       const max=Math.max(moIn,totalOut,moCard,moInv,1);
       const sw=(id,p)=>{const el=document.getElementById(id);if(el)el.style.width=Math.max(0,Math.round(p))+'%';};
       sw('cf-b-in',Math.round((moIn/max)*100));sw('cf-b-exp',Math.round((moExp/max)*100));sw('cf-b-card',Math.round((moCard/max)*100));sw('cf-b-inv',Math.round((moInv/max)*100));sw('cf-b-fcf',Math.max(0,pct));
-      // 年度結餘表
+      // 年度結餘表（投資淨流出用交易實際年合計）
       const annEl=document.getElementById('cf-annual-body');
       if(annEl){
-        const annualBalance=fcf*12;
-        const row=(label,mo,yr,color)=>`<tr style="border-bottom:1px solid rgba(255,255,255,.06)"><td style="padding:7px 5px;font-size:13px;color:#ccc9bf">${label}</td><td style="text-align:right;padding:7px 5px;font-size:13px;font-family:var(--mono);color:${color||'#f0ede6'}">${cfFmt(mo)}</td><td style="text-align:right;padding:7px 5px;font-size:13px;font-family:var(--mono);color:${color||'#f0ede6'}">${cfFmt(yr)}</td></tr>`;
+        const txs=window._cfTransactions||[];
+        const yr=new Date().getFullYear();
+        const usdRate=parseFloat(document.getElementById('usdRate')?.value)||31.5;
+        let yrBuy=0,yrSell=0;
+        txs.forEach(t=>{
+          if(!t.date||!t.date.startsWith(String(yr)))return;
+          const amt=(parseFloat(t.shares)||0)*(parseFloat(t.price)||0);
+          const twd=t.region==='美股'?amt*usdRate:amt;
+          if(t.type==='買入')yrBuy+=twd;else if(t.type==='賣出')yrSell+=twd;
+        });
+        const yrInvestNet=yrBuy-yrSell;
+        const yrIncome=moIn*12, yrExpense=moExp*12, yrCard=moCard*12;
+        const yrBalance=yrIncome-yrExpense-yrCard-yrInvestNet;
+        const row=(label,val,color)=>`<tr style="border-bottom:1px solid rgba(255,255,255,.06)"><td style="padding:7px 5px;font-size:13px;color:#ccc9bf">${label}</td><td style="text-align:right;padding:7px 5px;font-size:13px;font-family:var(--mono);color:${color||'#f0ede6'}">${cfFmt(val)}</td></tr>`;
         annEl.innerHTML=
-          row('收入',moIn,moIn*12,'#4aad6e')+
-          row('固定支出',moExp,moExp*12,'#e8675a')+
-          row('信用卡',moCard,moCard*12,'#e8675a')+
-          row('投資淨流出',investNet,investNet*12,investNet>0?'#e8675a':'#4aad6e')+
-          `<tr style="border-top:2px solid rgba(255,255,255,.15)"><td style="padding:8px 5px;font-size:14px;font-weight:700;color:#f0ede6">年結餘</td><td style="text-align:right;padding:8px 5px;font-size:14px;font-weight:700;font-family:var(--mono);color:${fcf>=0?'#4aad6e':'#e8675a'}">${cfFmt(fcf)}</td><td style="text-align:right;padding:8px 5px;font-size:16px;font-weight:700;font-family:var(--mono);color:${annualBalance>=0?'#4aad6e':'#e8675a'}">${cfFmt(annualBalance)}</td></tr>`;
+          row('年收入',yrIncome,'#4aad6e')+
+          row('年固定支出',yrExpense,'#e8675a')+
+          row('年信用卡',yrCard,'#e8675a')+
+          row('年投資淨流出',yrInvestNet,yrInvestNet>0?'#e8675a':'#4aad6e')+
+          `<tr style="border-top:2px solid rgba(255,255,255,.15)"><td style="padding:8px 5px;font-size:15px;font-weight:700;color:#f0ede6">年結餘</td><td style="text-align:right;padding:8px 5px;font-size:16px;font-weight:700;font-family:var(--mono);color:${yrBalance>=0?'#4aad6e':'#e8675a'}">${cfFmt(yrBalance)}</td></tr>`;
       }
     }
 
