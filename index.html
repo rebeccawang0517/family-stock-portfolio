@@ -1151,7 +1151,7 @@
 
                 <!-- 單一表格確保欄位垂直對齊 -->
                 <table class="cf-tbl" id="cf-master-tbl">
-                  <colgroup><col style="width:25%"><col style="width:10%"><col style="width:11%"><col style="width:11%"><col style="width:16%"><col style="width:16%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <colgroup><col style="width:22%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:16%"><col style="width:16%"><col style="width:12%"><col style="width:4%"></colgroup>
 
                   <!-- ===== 收入 ===== -->
                   <tbody>
@@ -1175,12 +1175,12 @@
                     <tr class="cf-hdr-row"><th colspan="3">帳單月份</th><th>筆數</th><th class="r" colspan="2">月合計（TWD）</th><th></th><th></th></tr>
                   </tbody>
                   <tbody id="cf-card-body"></tbody>
-                  <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfAddCardMonth()">+ 新增月份</button></td></tr></tbody>
+                  <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfAddCard()">+ 新增帳單</button></td></tr></tbody>
 
                   <!-- ===== 投資收支（交易連動） ===== -->
                   <tbody>
                     <tr class="cf-sec-row"><td colspan="8"><div class="cf-sec"><span class="cf-sec-lbl">投資收支</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-invest">—</span></div><p style="font-size:11px;color:#9a9890;padding:0;margin:0">自動從交易記錄連動，顯示各月買賣金額</p></td></tr>
-                    <tr class="cf-hdr-row"><th colspan="2">月份</th><th>買入筆數</th><th>賣出筆數</th><th class="r">買入（TWD）</th><th class="r">賣出（TWD）</th><th class="r">淨流出</th><th></th></tr>
+                    <tr class="cf-hdr-row"><th colspan="2">月份</th><th>買入</th><th>賣出</th><th class="r">買入金額</th><th class="r">賣出金額</th><th class="r">淨流出</th><th></th></tr>
                   </tbody>
                   <tbody id="cf-invest-body"></tbody>
                   <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfSyncTxInvest()" style="color:#c8b89a">↻ 更新交易連動</button></td></tr></tbody>
@@ -2684,9 +2684,9 @@
           <td colspan="2" style="padding:7px 5px;font-size:13px;color:#ccc9bf">${label}</td>
           <td style="font-size:12px;color:#9a9890;padding:7px 4px">${d.buyCnt} 筆</td>
           <td style="font-size:12px;color:#9a9890;padding:7px 4px">${d.sellCnt} 筆</td>
-          <td style="text-align:right;font-size:13px;font-family:var(--mono);color:#e8675a;padding:7px 4px">${d.buyAmt?cfFmt(d.buyAmt):''}</td>
-          <td style="text-align:right;font-size:13px;font-family:var(--mono);color:#4aad6e;padding:7px 4px">${d.sellAmt?cfFmt(d.sellAmt):''}</td>
-          <td style="text-align:right;font-size:13px;font-family:var(--mono);color:${net>0?'#e8675a':'#4aad6e'};padding:7px 4px">${cfFmt(net)}</td>
+          <td style="text-align:right;font-size:12px;font-family:var(--mono);color:#e8675a;padding:7px 2px">${d.buyAmt?cfFmt(d.buyAmt):''}</td>
+          <td style="text-align:right;font-size:12px;font-family:var(--mono);color:#4aad6e;padding:7px 2px">${d.sellAmt?cfFmt(d.sellAmt):''}</td>
+          <td style="text-align:right;font-size:12px;font-family:var(--mono);color:${net>0?'#e8675a':'#4aad6e'};padding:7px 2px">${cfFmt(net)}</td>
           <td></td></tr>`;
       }).join('');
       if(!months.length) html=`<tr><td colspan="8" style="padding:12px 5px;font-size:12px;color:#9a9890;text-align:center">尚無交易記錄</td></tr>`;
@@ -2754,88 +2754,89 @@
       const renders={income:cfRenderIncome,expense:cfRenderExpense};
       if(renders[type])renders[type]();cfCalc();cfSave();
     };
-    window.cfAddCardMonth=function(){
-      const now=new Date();
-      const m=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-      // 如果該月已有資料，直接開啟；否則新增一筆後開啟
-      const exists=cfCards.some(r=>r.month===m);
-      if(!exists){cfCards.push({id:nid('cr'),bank:'',owner:cfMembers[0]||'Rebecca',month:m,amt:''});cfRenderCards();cfSave();}
-      cfOpenMonth(m);
-    };
     window.cfDelCard=function(id){cfCards=cfCards.filter(x=>x.id!==id);cfRenderCards();cfCalc();cfSave();};
-    window.cfOpenMonth=function(month){
-      const label=month.length===7?(month.replace('-','年')+'月'):month;
+    // 新增帳單：開啟統一彈窗
+    window.cfAddCard=function(){
+      const now=new Date();
+      const defMonth=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      cfOpenCardModal(null,defMonth);
+    };
+    // 點月份行：開啟該月所有帳單
+    window.cfOpenMonth=function(month){cfOpenCardModal(month,month);};
+    // 統一信用卡彈窗（filterMonth=null顯示全部，否則篩選該月）
+    function cfOpenCardModal(filterMonth,defMonth){
       const wrap=document.createElement('div');
       wrap.id='cf-card-modal-overlay';
-      wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999';
+      wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;padding:12px';
       wrap.onclick=function(e){if(e.target===wrap)cfCloseCardModal();};
+      window._cfCardFilterMonth=filterMonth;
+      window._cfCardDefMonth=defMonth;
+      function getItems(){
+        if(filterMonth)return cfCards.filter(r=>(r.month||'')===filterMonth);
+        return cfCards;
+      }
       function renderModal(){
-        const curItems=cfCards.filter(r=>(r.month||'')===(month||''));
-        const mTot=curItems.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
-        return `<div style="background:#fff;border-radius:8px;padding:1.25rem;width:460px;max-width:94vw;max-height:90vh;overflow-y:auto;font-family:inherit">
+        const items=getItems();
+        const tot=items.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+        const title=filterMonth?(filterMonth.replace('-','年')+'月 信用卡帳單'):'信用卡帳單';
+        const inputStyle='width:100%;border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;padding:7px 8px;border-radius:4px;outline:none;box-sizing:border-box;font-family:inherit;';
+        return `<div style="background:#fff;border-radius:8px;padding:1.25rem;width:520px;max-width:100%;max-height:85vh;overflow-y:auto;font-family:inherit;box-sizing:border-box">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <div style="font-size:16px;font-weight:600;color:#1a1916">${label} 信用卡帳單</div>
-            <button onclick="cfCloseCardModal()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1">×</button>
+            <div style="font-size:16px;font-weight:600;color:#1a1916">${title}</div>
+            <button onclick="cfCloseCardModal()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1;padding:4px 8px">×</button>
           </div>
           <table style="width:100%;border-collapse:collapse">
             <thead><tr style="border-bottom:1px solid rgba(26,25,22,.12)">
               <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em">銀行／卡名</th>
-              <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em">負責人</th>
-              <th style="text-align:right;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em">金額（TWD）</th>
+              <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em;width:90px">負責人</th>
+              <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em;width:110px">月份</th>
+              <th style="text-align:right;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em;width:120px">金額（TWD）</th>
               <th style="width:32px"></th>
             </tr></thead>
-            <tbody>${curItems.map(r=>`<tr style="border-bottom:1px solid rgba(26,25,22,.06)">
-              <td style="padding:4px 5px"><input type="text" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfCardModalEdit('${r.id}','bank',this.value)" style="width:100%;border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;font-size:13px;padding:6px 8px;border-radius:4px;outline:none"></td>
-              <td style="padding:4px 5px"><select onchange="cfCardModalEdit('${r.id}','owner',this.value)" style="width:100%;border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;font-size:12px;padding:6px 4px;border-radius:4px;outline:none">${mOpts(r.owner)}</select></td>
-              <td style="padding:4px 5px"><input type="number" value="${r.amt}" placeholder="0" oninput="cfCardModalEdit('${r.id}','amt',this.value)" style="width:100%;border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;font-size:13px;padding:6px 8px;border-radius:4px;outline:none;text-align:right;font-family:var(--mono)"></td>
-              <td style="padding:4px 2px;text-align:center"><button onclick="cfCardModalDel('${r.id}')" style="background:none;border:none;color:#c0392b;font-size:15px;cursor:pointer;padding:2px 6px">×</button></td>
+            <tbody>${items.map(r=>`<tr style="border-bottom:1px solid rgba(26,25,22,.06)">
+              <td style="padding:4px 5px"><input type="text" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfCardEdit('${r.id}','bank',this.value)" style="${inputStyle}font-size:13px"></td>
+              <td style="padding:4px 5px"><select onchange="cfCardEdit('${r.id}','owner',this.value)" style="${inputStyle}font-size:12px">${mOpts(r.owner)}</select></td>
+              <td style="padding:4px 5px"><input type="month" value="${r.month||''}" oninput="cfCardEdit('${r.id}','month',this.value)" style="${inputStyle}font-size:12px"></td>
+              <td style="padding:4px 5px"><input type="number" value="${r.amt}" placeholder="0" oninput="cfCardEdit('${r.id}','amt',this.value)" style="${inputStyle}font-size:13px;text-align:right;font-family:var(--mono)"></td>
+              <td style="padding:4px 2px;text-align:center"><button onclick="cfCardDel('${r.id}')" style="background:none;border:none;color:#c0392b;font-size:15px;cursor:pointer;padding:2px 6px">×</button></td>
             </tr>`).join('')}</tbody>
           </table>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(26,25,22,.1)">
-            <button onclick="cfCardModalAdd()" style="background:transparent;color:#1a1916;border:1px dashed rgba(26,25,22,.25);border-radius:4px;padding:5px 14px;font-size:12px;cursor:pointer;font-family:inherit">+ 新增銀行</button>
-            <div style="font-size:14px;font-weight:600;color:#1a1916;font-family:var(--mono)" id="cf-card-modal-total">合計 ${cfFmt(mTot)}</div>
+            <button onclick="cfCardAddRow()" style="background:transparent;color:#1a1916;border:1px dashed rgba(26,25,22,.25);border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit">+ 新增一筆</button>
+            <div style="font-size:14px;font-weight:600;color:#1a1916;font-family:var(--mono)" id="cf-card-modal-total">合計 ${cfFmt(tot)}</div>
           </div>
           <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
-            <button onclick="cfCardModalDelMonth()" style="background:transparent;color:#c0392b;border:1px solid rgba(192,57,43,.3);border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit">刪除整月</button>
-            <button onclick="cfCloseCardModal()" style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:5px 16px;font-size:12px;cursor:pointer;font-family:inherit">完成</button>
+            <button onclick="cfCloseCardModal()" style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:8px 20px;font-size:13px;cursor:pointer;font-family:inherit">完成</button>
           </div>
         </div>`;
       }
       wrap.innerHTML=renderModal();
       document.body.appendChild(wrap);
-      window._cfCardModalWrap=wrap;
-      window._cfCardModalMonth=month;
-      window._cfCardModalRender=function(){wrap.innerHTML=renderModal();};
-    };
+      window._cfCardModalRender=function(){
+        const el=document.getElementById('cf-card-modal-overlay');
+        if(el)el.innerHTML=renderModal();
+      };
+    }
     window.cfCloseCardModal=function(){
       cfRenderCards();cfCalc();
       const el=document.getElementById('cf-card-modal-overlay');
       if(el)el.remove();
     };
-    window.cfCardModalEdit=function(id,field,v){
-      const r=cfCards.find(x=>x.id===id);if(r)r[field]=v;
-      cfSave();
-      const month=window._cfCardModalMonth;
-      const mTot=cfCards.filter(r=>(r.month||'')===(month||'')).reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+    window.cfCardEdit=function(id,field,v){
+      const r=cfCards.find(x=>x.id===id);if(r)r[field]=v;cfSave();
+      // 即時更新合計
+      const items=window._cfCardFilterMonth?cfCards.filter(r=>(r.month||'')===window._cfCardFilterMonth):cfCards;
+      const tot=items.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
       const totEl=document.getElementById('cf-card-modal-total');
-      if(totEl)totEl.textContent='合計 '+cfFmt(mTot);
+      if(totEl)totEl.textContent='合計 '+cfFmt(tot);
     };
-    window.cfCardModalAdd=function(){
-      const month=window._cfCardModalMonth;
-      cfCards.push({id:nid('cr'),bank:'',owner:cfMembers[0]||'Rebecca',month:month,amt:''});
+    window.cfCardAddRow=function(){
+      const m=window._cfCardDefMonth||'';
+      cfCards.push({id:nid('cr'),bank:'',owner:cfMembers[0]||'Rebecca',month:m,amt:''});
       cfSave();window._cfCardModalRender();
     };
-    window.cfCardModalDel=function(id){
+    window.cfCardDel=function(id){
       cfCards=cfCards.filter(x=>x.id!==id);cfSave();window._cfCardModalRender();
-    };
-    window.cfCardModalDelMonth=function(){
-      const month=window._cfCardModalMonth;
-      const label=month.length===7?(month.replace('-','年')+'月'):month;
-      if(!confirm('確定要刪除 '+label+' 的所有信用卡帳單嗎？'))return;
-      cfCards=cfCards.filter(x=>(x.month||'')!==(month||''));
-      cfRenderCards();cfCalc();cfSave();
-      const el=document.getElementById('cf-card-modal-overlay');
-      if(el)el.remove();
     };
 
 
