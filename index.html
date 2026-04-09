@@ -1145,51 +1145,51 @@
                   <button onclick="cfAddMember()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增</button>
                 </div>
 
-                <!-- 統一欄寬：名稱25% 類型10% 負責人11% 頻率/月份11% 金額18% 月均18% 刪4% = 97%+空 -->
-                <!-- 收入（無類型欄，合併到名稱） -->
+                <!-- 統一 8 欄基準：名稱25% 類型10% 負責人11% 頻率11% 金額16% 月均16% 空4% 刪4% -->
+                <!-- 收入（名稱 colspan=2 合併類型欄） -->
                 <div class="cf-sec"><span class="cf-sec-lbl">收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-income">—</span></div>
-                <table class="cf-tbl">
-                  <colgroup><col style="width:32%"><col style="width:11%"><col style="width:11%"><col style="width:17%"><col style="width:17%"><col style="width:8%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>項目名稱</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
+                <table class="cf-tbl cf-tbl-8">
+                  <colgroup><col style="width:25%"><col style="width:10%"><col style="width:11%"><col style="width:11%"><col style="width:16%"><col style="width:16%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <thead><tr><th colspan="2">項目名稱</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-income-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('income')">+ 新增收入項目</button>
 
-                <!-- 固定支出 -->
+                <!-- 固定支出（完整 8 欄） -->
                 <div class="cf-sec"><span class="cf-sec-lbl">固定支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-expense">—</span></div>
                 <p style="font-size:11px;color:#9a9890;padding:0 0 6px">類型選「房貸」或「信貸」後，點擊項目名稱即可查看貸款明細</p>
-                <table class="cf-tbl">
+                <table class="cf-tbl cf-tbl-8">
                   <colgroup><col style="width:25%"><col style="width:10%"><col style="width:11%"><col style="width:11%"><col style="width:16%"><col style="width:16%"><col style="width:4%"><col style="width:4%"></colgroup>
                   <thead><tr><th>項目名稱</th><th>類型</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-expense-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('expense')">+ 新增支出項目</button>
 
-                <!-- 信用卡帳單 -->
+                <!-- 信用卡帳單（名稱 colspan=2，金額 colspan=2） -->
                 <div class="cf-sec"><span class="cf-sec-lbl">信用卡帳單</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-card">—</span></div>
-                <table class="cf-tbl">
-                  <colgroup><col style="width:35%"><col style="width:11%"><col style="width:11%"><col style="width:36%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>銀行／卡名</th><th>負責人</th><th>帳單月份</th><th class="r">金額（TWD）</th><th></th></tr></thead>
+                <table class="cf-tbl cf-tbl-8">
+                  <colgroup><col style="width:25%"><col style="width:10%"><col style="width:11%"><col style="width:11%"><col style="width:16%"><col style="width:16%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <thead><tr><th colspan="2">銀行／卡名</th><th>負責人</th><th>帳單月份</th><th class="r" colspan="2">金額（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-card-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddCardRow()">+ 新增信用卡帳單</button>
 
-                <!-- 投資支出 -->
+                <!-- 投資支出（名稱 colspan=2） -->
                 <div class="cf-sec"><span class="cf-sec-lbl">投資支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-invest">—</span></div>
                 <p style="font-size:11px;color:#9a9890;padding:0 0 6px">買入股票、基金等資金流出</p>
-                <table class="cf-tbl">
-                  <colgroup><col style="width:35%"><col style="width:11%"><col style="width:11%"><col style="width:18%"><col style="width:18%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th></tr></thead>
+                <table class="cf-tbl cf-tbl-8">
+                  <colgroup><col style="width:25%"><col style="width:10%"><col style="width:11%"><col style="width:11%"><col style="width:16%"><col style="width:16%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <thead><tr><th colspan="2">項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-invest-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('invest')">+ 新增投資支出</button>
 
-                <!-- 贖回收入 -->
+                <!-- 贖回收入（名稱 colspan=2） -->
                 <div class="cf-sec"><span class="cf-sec-lbl">贖回收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-redeem">—</span></div>
                 <p style="font-size:11px;color:#9a9890;padding:0 0 6px">賣出股票、基金等資金流入</p>
-                <table class="cf-tbl">
-                  <colgroup><col style="width:35%"><col style="width:11%"><col style="width:11%"><col style="width:18%"><col style="width:18%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th></tr></thead>
+                <table class="cf-tbl cf-tbl-8">
+                  <colgroup><col style="width:25%"><col style="width:10%"><col style="width:11%"><col style="width:11%"><col style="width:16%"><col style="width:16%"><col style="width:4%"><col style="width:4%"></colgroup>
+                  <thead><tr><th colspan="2">項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-redeem-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('redeem')">+ 新增贖回收入</button>
@@ -2599,7 +2599,7 @@
 
     function incomeRow(r){
       const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
-      return `<tr><td><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('income','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('income','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('income','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSa('income','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td></td><td><button class="cf-del" onclick="cfDelRow('income','${r.id}')">×</button></td></tr>`;
+      return `<tr><td colspan="2"><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('income','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('income','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('income','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSa('income','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td></td><td><button class="cf-del" onclick="cfDelRow('income','${r.id}')">×</button></td></tr>`;
     }
     function expenseRow(r){
       const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
@@ -2621,7 +2621,7 @@
     }
     function investRow(r,type){
       const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
-      return `<tr><td><input class="cf-te" value="${r.name}" placeholder="項目說明" oninput="cfSf('${type}','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('${type}','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('${type}','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSa('${type}','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td><button class="cf-del" onclick="cfDelRow('${type}','${r.id}')">×</button></td></tr>`;
+      return `<tr><td colspan="2"><input class="cf-te" value="${r.name}" placeholder="項目說明" oninput="cfSf('${type}','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('${type}','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('${type}','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSa('${type}','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td></td><td><button class="cf-del" onclick="cfDelRow('${type}','${r.id}')">×</button></td></tr>`;
     }
     function subRow(val,label,colspan,extra){
       return `<tr class="cf-sub"><td colspan="${colspan}" class="cf-sub-lbl">${label}</td><td class="cf-sub-val">${cfFmt(val)}</td>${extra||''}</tr>`;
@@ -2630,7 +2630,7 @@
     function cfRenderIncome(){
       const el=document.getElementById('cf-income-body');if(!el)return;
       const tot=cfIncome.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      el.innerHTML=cfIncome.map(r=>incomeRow(r)).join('')+subRow(tot,'月收入小計',4,'<td colspan="2"></td>');
+      el.innerHTML=cfIncome.map(r=>incomeRow(r)).join('')+subRow(tot,'月收入小計',5,'<td colspan="2"></td>');
       const st=document.getElementById('cf-st-income');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderExpense(){
@@ -2644,19 +2644,19 @@
       const now=new Date();
       const thisMonth=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
       const tot=cfCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
-      el.innerHTML=cfCards.map(r=>`<tr><td><input class="cf-te" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfScf('${r.id}','bank',this.value)"></td><td><select class="cf-sel" onchange="cfScf('${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><input class="cf-te" type="month" value="${r.month||thisMonth}" style="font-size:11px" oninput="cfScf('${r.id}','month',this.value)"></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSca('${r.id}',this.value)"></td><td><button class="cf-del" onclick="cfDelCard('${r.id}')">×</button></td></tr>`).join('')+subRow(tot,'月帳單小計',3,'<td colspan="1"></td>');
+      el.innerHTML=cfCards.map(r=>`<tr><td colspan="2"><input class="cf-te" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfScf('${r.id}','bank',this.value)"></td><td><select class="cf-sel" onchange="cfScf('${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><input class="cf-te" type="month" value="${r.month||thisMonth}" style="font-size:11px" oninput="cfScf('${r.id}','month',this.value)"></td><td colspan="2"><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSca('${r.id}',this.value)"></td><td></td><td><button class="cf-del" onclick="cfDelCard('${r.id}')">×</button></td></tr>`).join('')+subRow(tot,'月帳單小計',5,'<td colspan="2"></td>');
       const st=document.getElementById('cf-st-card');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderInvest(){
       const el=document.getElementById('cf-invest-body');if(!el)return;
       const tot=cfInvest.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      el.innerHTML=cfInvest.map(r=>investRow(r,'invest')).join('')+subRow(tot,'月均小計',4,'<td colspan="1"></td>');
+      el.innerHTML=cfInvest.map(r=>investRow(r,'invest')).join('')+subRow(tot,'月均小計',5,'<td colspan="2"></td>');
       const st=document.getElementById('cf-st-invest');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderRedeem(){
       const el=document.getElementById('cf-redeem-body');if(!el)return;
       const tot=cfRedeem.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      el.innerHTML=cfRedeem.map(r=>investRow(r,'redeem')).join('')+subRow(tot,'月均小計',4,'<td colspan="1"></td>');
+      el.innerHTML=cfRedeem.map(r=>investRow(r,'redeem')).join('')+subRow(tot,'月均小計',5,'<td colspan="2"></td>');
       const st=document.getElementById('cf-st-redeem');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderAll(){cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfRenderRedeem();cfCalc();
