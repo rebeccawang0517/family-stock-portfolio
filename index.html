@@ -184,7 +184,7 @@
         /* table-layout:fixed 確保所有 section 欄寬對齊 */
         .cf-tbl { width:100%; border-collapse:collapse; table-layout:fixed; }
         .cf-tbl th {
-            font-size:10px; color:#9a9890; font-weight:600; padding:4px 5px;
+            font-size:12px; color:#ccc9bf; font-weight:600; padding:6px 5px;
             text-align:left; border-bottom:1px solid rgba(255,255,255,.1);
             letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden;
         }
@@ -194,14 +194,14 @@
         .cf-tbl tr.cf-sub td { background:#3d3c38; border-top:1px solid rgba(255,255,255,.12); border-bottom:none; }
         .cf-te {
             width:100%; border:none; background:transparent;
-            font-size:13px; color:#f0ede6; outline:none; padding:7px 4px; font-family:inherit;
+            font-size:14px; color:#f0ede6; outline:none; padding:8px 5px; font-family:inherit;
         }
         .cf-te:focus { background:rgba(255,255,255,.06); border-radius:4px; }
-        .cf-te.r { text-align:right; font-family:var(--mono); }
+        .cf-te.r { text-align:right; font-family:var(--mono); font-weight:600; }
         .cf-sel {
             width:100%; border:1px solid rgba(255,255,255,.12);
-            background:#3d3c38; color:#f0ede6; font-size:11px;
-            padding:4px 3px; border-radius:4px; outline:none; font-family:inherit;
+            background:#3d3c38; color:#f0ede6; font-size:13px;
+            padding:5px 4px; border-radius:4px; outline:none; font-family:inherit;
         }
         .cf-del {
             width:18px; height:18px; border-radius:50%;
@@ -225,9 +225,9 @@
             display:flex; align-items:center; gap:8px; margin:1.5rem 0 .5rem;
             padding-bottom:5px; border-bottom:1px solid rgba(255,255,255,.15);
         }
-        .cf-sec-lbl { font-size:11px; font-weight:700; color:#ccc9bf; letter-spacing:.08em; text-transform:uppercase; }
+        .cf-sec-lbl { font-size:13px; font-weight:700; color:#f0ede6; letter-spacing:.08em; text-transform:uppercase; }
         .cf-sec-bar { flex:1; height:1px; background:rgba(255,255,255,.06); }
-        .cf-sec-tot { font-size:11px; font-family:var(--mono); color:#9a9890; }
+        .cf-sec-tot { font-size:14px; font-weight:700; font-family:var(--mono); color:#f0ede6; }
         .cf-metric { background:#3d3c38; border-radius:6px; padding:12px 14px; border:1px solid rgba(255,255,255,.08); }
         .cf-metric-lbl { font-size:10px; color:#9a9890; margin-bottom:4px; letter-spacing:.04em; text-transform:uppercase; }
         .cf-metric-val { font-size:18px; font-weight:700; font-family:var(--mono); color:#f0ede6; }
@@ -240,8 +240,8 @@
         }
         .cf-mdel { background:none; border:none; cursor:pointer; color:#6b6a64; font-size:12px; line-height:1; padding:0 0 0 2px; }
         .cf-mdel:hover { color:#d9534f; }
-        .cf-sub-lbl { font-size:11px; color:#9a9890; padding:7px 5px; text-align:right; letter-spacing:.02em; }
-        .cf-sub-val { font-size:12px; font-weight:600; font-family:var(--mono); text-align:right; padding:7px 5px; color:#f0ede6; }
+        .cf-sub-lbl { font-size:13px; color:#ccc9bf; padding:8px 5px; text-align:right; letter-spacing:.02em; font-weight:600; }
+        .cf-sub-val { font-size:15px; font-weight:700; font-family:var(--mono); text-align:right; padding:8px 5px; color:#f0ede6; }
 
         /* ===== 資產儀表板 PRO ===== */
         .db-pro-wrap { padding: 0 0 2rem; }
@@ -485,7 +485,7 @@
                         <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
                             <span>📊</span><span>持股統計總覽</span>
                         </h2>
-                        <div class="text-sm text-slate-400">💡 點擊公司名稱查看夏普值分析</div>
+                        <div class="text-sm text-slate-400">💡 點擊公司名稱查看歷史績效分析</div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
@@ -548,12 +548,13 @@
                     </button>
                     <div class="hidden px-4 pb-4">
                         <ul class="list-disc list-inside space-y-1">
-                            <li>查看整體投資組合表現（總成本、總市值、損益、報酬率）</li>
-                            <li>瀏覽各檔股票的合併持股統計（不分持有人和平台）</li>
-                            <li><strong class="text-yellow-300">點擊公司名稱可查看該股票的夏普值分析（3年、5年、10年期）</strong></li>
-                            <li>佔比顯示為該股票現值在整體投資組合中的比重</li>
-                            <li>統計表格按現值由大到小排序</li>
+                            <li>查看整體投資組合表現：總投資成本、總市值、損益、報酬率</li>
+                            <li>本年度與上年度報酬率自動計算</li>
+                            <li>合併持股統計（不分持有人和平台），按現值由大到小排序</li>
+                            <li><strong class="text-yellow-300">點擊公司名稱可查看該股票的歷史績效分析</strong>（債券 ETF 除外）</li>
+                            <li>佔比欄顯示該股票現值在整體投資組合中的比重</li>
                             <li><strong class="text-yellow-300">下方圖表自動更新：持股佔比、持有人分布、台美配置、報酬率排行</strong></li>
+                            <li>匯率自動更新（每小時整點），也可手動調整</li>
                         </ul>
                     </div>
                 </div>
@@ -629,7 +630,7 @@
                             <li>輸入成本價+股數會自動計算投資成本，或輸入投資成本+股數會自動計算成本價</li>
                             <li>系統會自動獲取最新股價（若未開盤則顯示前一收盤價）</li>
                             <li>可使用上方篩選功能查看特定地區、持有人或平台的股票</li>
-                            <li><strong class="text-yellow-300">💡 切換到「總覽」頁面查看整體統計和夏普值分析</strong></li>
+                            <li><strong class="text-yellow-300">💡 切換到「總覽」頁面查看整體投資組合統計與年度報酬率</strong></li>
                         </ul>
                     </div>
                 </div>
@@ -829,10 +830,68 @@
 
             <!-- 現金流分頁 -->
             <div id="cashflowTab" class="tab-content">
-              <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 mb-6">
-                <h2 class="text-2xl font-bold text-slate-100 mb-1">全家現金流</h2>
-                <p style="font-size:12px;color:#9a9890;margin-bottom:1.5rem">所有金額單位 TWD · 月均自動換算 · 投資交易連動計算</p>
+              <div class="db-pro-wrap">
+                <!-- 標題 -->
+                <div class="db-header">
+                  <div>
+                    <h2 class="db-title">全家現金流</h2>
+                    <p class="db-subtitle">所有金額單位 TWD · 月均自動換算 · 投資交易連動</p>
+                  </div>
+                </div>
 
+                <!-- 月/年 KPI -->
+                <div class="db-kpi-grid" style="margin-bottom:1.2rem">
+                  <div class="db-kpi-card">
+                    <div class="db-kpi-icon" style="background:rgba(74,173,110,.12);color:#4aad6e">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">月收入</div>
+                      <div class="db-kpi-value" id="cf-s-in" style="color:#4aad6e">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card">
+                    <div class="db-kpi-icon" style="background:rgba(217,83,79,.12);color:#d9534f">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">月支出</div>
+                      <div class="db-kpi-value" id="cf-s-out" style="color:#e8675a">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card">
+                    <div class="db-kpi-icon" style="background:rgba(200,184,154,.12);color:#c8b89a">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">月自由現金流</div>
+                      <div class="db-kpi-value" id="cf-s-fcf">$0</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="db-kpi-grid db-kpi-grid-3" style="margin-bottom:1.5rem">
+                  <div class="db-kpi-card db-kpi-card-sm">
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">投資淨流出（月）</div>
+                      <div class="db-kpi-value db-kpi-value-sm" id="cf-s-invest-net">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card db-kpi-card-sm">
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">年收入</div>
+                      <div class="db-kpi-value db-kpi-value-sm" id="cf-s-year-in" style="color:#4aad6e">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card db-kpi-card-sm">
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">年自由現金流</div>
+                      <div class="db-kpi-value db-kpi-value-sm" id="cf-s-year-fcf">$0</div>
+                    </div>
+                  </div>
+                </div>
+
+              <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 mb-6">
                 <div class="cf-sec" style="margin-top:0"><span class="cf-sec-lbl">家庭成員</span><div class="cf-sec-bar"></div></div>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:.5rem" id="cf-member-tags"></div>
                 <div style="display:flex;gap:6px">
@@ -896,22 +955,19 @@
                 </div>
                 <button onclick="cfLoadTxData()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:6px 14px;border-radius:4px;cursor:pointer">從交易記錄載入本月數據</button>
 
-                <!-- 彙總 -->
-                <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl">彙總</span><div class="cf-sec-bar"></div></div>
-                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:1rem 0">
-                  <div class="cf-metric"><div class="cf-metric-lbl">月收入合計</div><div class="cf-metric-val" id="cf-s-in" style="color:#4aad6e">$0</div></div>
-                  <div class="cf-metric"><div class="cf-metric-lbl">月支出合計</div><div class="cf-metric-val" id="cf-s-out" style="color:#d9534f">$0</div></div>
-                  <div class="cf-metric"><div class="cf-metric-lbl">投資淨流出</div><div class="cf-metric-val" id="cf-s-invest-net">$0</div></div>
-                  <div class="cf-metric"><div class="cf-metric-lbl">月自由現金流</div><div class="cf-metric-val" id="cf-s-fcf">$0</div></div>
+                <!-- 彙總圖表 -->
+                <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl">收支結構</span><div class="cf-sec-bar"></div></div>
+                <div class="db-section-card" style="margin-bottom:12px">
+                  <div style="display:flex;flex-direction:column;gap:14px">
+                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">收入</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-in" style="width:0%;background:#4aad6e"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-in-v">$0</span></div>
+                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">固定支出</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-exp" style="width:0%;background:#e8675a"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-exp-v">$0</span></div>
+                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">信用卡</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-card" style="width:0%;background:#7a7872"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-card-v">$0</span></div>
+                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">投資流出</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-inv" style="width:0%;background:#c8b89a"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-inv-v">$0</span></div>
+                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">結餘率</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-fcf" style="width:0%;background:#f0ede6"></div></div><span style="font-size:14px;font-weight:700;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-fcf-p">0%</span></div>
+                  </div>
                 </div>
-                <div style="background:#3d3c38;border-radius:6px;padding:14px 16px;border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:10px;margin-bottom:.5rem">
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">收入</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-in" style="width:0%;background:#4aad6e"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-in-v">$0</span></div>
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">固定支出</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-exp" style="width:0%;background:#d9534f"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-exp-v">$0</span></div>
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">信用卡</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-card" style="width:0%;background:#6b6a64"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-card-v">$0</span></div>
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">投資流出</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-inv" style="width:0%;background:#9a9890"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-inv-v">$0</span></div>
-                  <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:56px">結餘率</span><div class="cf-bar-track"><div class="cf-bar-fill" id="cf-b-fcf" style="width:0%;background:#f0ede6"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:88px;text-align:right" id="cf-b-fcf-p">0%</span></div>
-                </div>
-                <p style="font-size:11px;color:#9a9890">資料存於本機瀏覽器 · 不上傳伺服器</p>
+                <p class="db-footer">資料同步至 Firebase 雲端 · 跨裝置共享</p>
+              </div>
               </div>
             </div>
 
@@ -2175,6 +2231,7 @@
                 transactions = [];
                 querySnapshot.forEach((doc) => { transactions.push({ id: doc.id, ...doc.data() }); });
                 transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+                window._cfTransactions = transactions;
                 populateYearFilter();
                 renderTransactions();
             } catch (error) { console.error('載入交易記錄失敗:', error); }
@@ -2587,21 +2644,21 @@
     window.cfLoadTxData=function(){
       const el=document.getElementById('cf-tx-summary');
       try{
-        const raw=localStorage.getItem('transactions')||localStorage.getItem('txData');
-        if(!raw){if(el)el.innerHTML='<span style="color:#9a9890;font-size:11px">找不到交易紀錄資料</span>';return;}
-        const txs=JSON.parse(raw);
+        // 直接從主程式的 transactions 陣列讀取（Firebase 資料）
+        const txs=window._cfTransactions||[];
+        if(!txs.length){if(el)el.innerHTML='<span style="color:#9a9890;font-size:12px">尚無交易記錄，請先到「交易記錄」頁面確認資料已載入</span>';return;}
         const now=new Date();
         const curYM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-        const usdRate=parseFloat(localStorage.getItem('usdRate'))||31.5;
+        const usdRate=parseFloat(document.getElementById('usdRate')?.value)||31.5;
         const buys=txs.filter(t=>t.date?.slice(0,7)===curYM&&t.type==='買入');
         const sells=txs.filter(t=>t.date?.slice(0,7)===curYM&&t.type==='賣出');
-        const buyTot=buys.reduce((s,t)=>{const a=parseFloat(t.amount)||0;return s+(t.region==='美股'?a*usdRate:a);},0);
-        const sellTot=sells.reduce((s,t)=>{const a=parseFloat(t.amount)||0;return s+(t.region==='美股'?a*usdRate:a);},0);
+        const buyTot=buys.reduce((s,t)=>{const a=(parseFloat(t.shares)||0)*(parseFloat(t.price)||0);return s+(t.region==='美股'?a*usdRate:a);},0);
+        const sellTot=sells.reduce((s,t)=>{const a=(parseFloat(t.shares)||0)*(parseFloat(t.price)||0);return s+(t.region==='美股'?a*usdRate:a);},0);
         if(buyTot>0){const ex=cfInvest.find(r=>r.src==='tx');if(ex){ex.amt=String(Math.round(buyTot));ex.freq='once';ex.name=`${curYM} 買入合計`;}else cfInvest.push({id:nid('iv'),name:`${curYM} 買入合計`,owner:'共同',freq:'once',amt:String(Math.round(buyTot)),src:'tx'});cfRenderInvest();}
         if(sellTot>0){const ex=cfRedeem.find(r=>r.src==='tx');if(ex){ex.amt=String(Math.round(sellTot));ex.freq='once';ex.name=`${curYM} 賣出合計`;}else cfRedeem.push({id:nid('rd'),name:`${curYM} 賣出合計`,owner:'共同',freq:'once',amt:String(Math.round(sellTot)),src:'tx'});cfRenderRedeem();}
-        if(el)el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em;text-transform:uppercase">${curYM} 買入</div><div style="font-size:14px;font-weight:500;font-family:'Courier New',monospace;color:#b83030">${cfFmt(buyTot)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${buys.length} 筆</div></div><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em;text-transform:uppercase">${curYM} 賣出</div><div style="font-size:14px;font-weight:500;font-family:'Courier New',monospace;color:#2a7a4b">${cfFmt(sellTot)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${sells.length} 筆</div></div><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em;text-transform:uppercase">淨流出</div><div style="font-size:14px;font-weight:500;font-family:'Courier New',monospace;color:${buyTot-sellTot>0?'#b83030':'#2a7a4b'}">${cfFmt(buyTot-sellTot)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">匯率 ${usdRate}</div></div></div>`;
+        if(el)el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"><div><div style="font-size:11px;color:#9a9890;margin-bottom:3px;letter-spacing:.04em;text-transform:uppercase">${curYM} 買入</div><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:#e8675a">${cfFmt(buyTot)}</div><div style="font-size:11px;color:#9a9890;margin-top:2px">${buys.length} 筆</div></div><div><div style="font-size:11px;color:#9a9890;margin-bottom:3px;letter-spacing:.04em;text-transform:uppercase">${curYM} 賣出</div><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:#4aad6e">${cfFmt(sellTot)}</div><div style="font-size:11px;color:#9a9890;margin-top:2px">${sells.length} 筆</div></div><div><div style="font-size:11px;color:#9a9890;margin-bottom:3px;letter-spacing:.04em;text-transform:uppercase">淨流出</div><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${buyTot-sellTot>0?'#e8675a':'#4aad6e'}">${cfFmt(buyTot-sellTot)}</div><div style="font-size:11px;color:#9a9890;margin-top:2px">匯率 ${usdRate}</div></div></div>`;
         cfCalc();cfSave();
-      }catch(e){if(el)el.innerHTML=`<span style="color:#9a9890;font-size:11px">載入失敗：${e.message}</span>`;}
+      }catch(e){if(el)el.innerHTML=`<span style="color:#9a9890;font-size:12px">載入失敗：${e.message}</span>`;}
     };
 
     function cfCalc(){
@@ -2613,9 +2670,13 @@
       const totalOut=moExp+moCard;const investNet=moInv-moRed;const fcf=moIn-(totalOut+investNet);
       const pct=moIn>0?Math.round((fcf/moIn)*100):0;
       const set=(id,v,c)=>{const el=document.getElementById(id);if(el){el.textContent=v;if(c)el.style.color=c;}};
-      set('cf-s-in',cfFmt(moIn),'#2a7a4b');set('cf-s-out',cfFmt(totalOut),'#b83030');
-      set('cf-s-invest-net',cfFmt(investNet),investNet>0?'#b83030':'#2a7a4b');
-      set('cf-s-fcf',cfFmt(fcf),fcf>0?'#2a7a4b':fcf<0?'#b83030':'#1a1916');
+      set('cf-s-in',cfFmt(moIn),'#4aad6e');set('cf-s-out',cfFmt(totalOut),'#e8675a');
+      set('cf-s-invest-net',cfFmt(investNet),investNet>0?'#e8675a':'#4aad6e');
+      set('cf-s-fcf',cfFmt(fcf),fcf>0?'#4aad6e':fcf<0?'#e8675a':'#f0ede6');
+      // 年現金流
+      set('cf-s-year-in',cfFmt(moIn*12),'#4aad6e');
+      set('cf-s-year-fcf',cfFmt(fcf*12),fcf>0?'#4aad6e':fcf<0?'#e8675a':'#f0ede6');
+      // 橫條圖
       set('cf-b-in-v',cfFmt(moIn));set('cf-b-exp-v',cfFmt(moExp));set('cf-b-card-v',cfFmt(moCard));set('cf-b-inv-v',cfFmt(moInv));set('cf-b-fcf-p',pct+'%');
       const max=Math.max(moIn,totalOut,moCard,moInv,1);
       const sw=(id,p)=>{const el=document.getElementById(id);if(el)el.style.width=Math.max(0,Math.round(p))+'%';};
