@@ -189,19 +189,21 @@
             letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; overflow:hidden;
         }
         .cf-tbl th.r { text-align:right; }
-        .cf-tbl td { border-bottom:1px solid rgba(255,255,255,.06); padding:0 2px; vertical-align:middle; overflow:hidden; }
+        .cf-tbl td { border-bottom:1px solid rgba(255,255,255,.06); padding:2px 4px; vertical-align:middle; overflow:hidden; }
         .cf-tbl tr:last-child td { border-bottom:none; }
         .cf-tbl tr.cf-sub td { background:#3d3c38; border-top:1px solid rgba(255,255,255,.12); border-bottom:none; }
         .cf-te {
             width:100%; border:none; background:transparent;
-            font-size:14px; color:#f0ede6; outline:none; padding:8px 5px; font-family:inherit;
+            font-size:13px; color:#f0ede6; outline:none; padding:7px 4px; font-family:inherit;
+            box-sizing:border-box;
         }
         .cf-te:focus { background:rgba(255,255,255,.06); border-radius:4px; }
         .cf-te.r { text-align:right; font-family:var(--mono); font-weight:600; }
         .cf-sel {
             width:100%; border:1px solid rgba(255,255,255,.12);
-            background:#3d3c38; color:#f0ede6; font-size:13px;
-            padding:5px 4px; border-radius:4px; outline:none; font-family:inherit;
+            background:#3d3c38; color:#f0ede6; font-size:12px;
+            padding:5px 3px; border-radius:4px; outline:none; font-family:inherit;
+            box-sizing:border-box;
         }
         .cf-del {
             width:18px; height:18px; border-radius:50%;
@@ -1143,30 +1145,30 @@
                   <button onclick="cfAddMember()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增</button>
                 </div>
 
-                <!-- 統一欄寬基準：名稱28% 類型10% 負責人12% 頻率/月份12% 金額17% 月均17% 刪4% -->
-                <!-- 收入 -->
+                <!-- 統一欄寬：名稱25% 類型10% 負責人11% 頻率/月份11% 金額18% 月均18% 刪4% = 97%+空 -->
+                <!-- 收入（無類型欄，合併到名稱） -->
                 <div class="cf-sec"><span class="cf-sec-lbl">收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-income">—</span></div>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:28%"><col style="width:12%"><col style="width:12%"><col style="width:17%"><col style="width:17%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>項目名稱</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th></tr></thead>
+                  <colgroup><col style="width:32%"><col style="width:11%"><col style="width:11%"><col style="width:17%"><col style="width:17%"><col style="width:8%"><col style="width:4%"></colgroup>
+                  <thead><tr><th>項目名稱</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-income-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('income')">+ 新增收入項目</button>
 
-                <!-- 固定支出：類型在負責人之前 -->
+                <!-- 固定支出 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">固定支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-expense">—</span></div>
                 <p style="font-size:11px;color:#9a9890;padding:0 0 6px">類型選「房貸」或「信貸」後，點擊項目名稱即可查看貸款明細</p>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:24%"><col style="width:10%"><col style="width:12%"><col style="width:12%"><col style="width:15%"><col style="width:15%"><col style="width:8%"><col style="width:4%"></colgroup>
+                  <colgroup><col style="width:25%"><col style="width:10%"><col style="width:11%"><col style="width:11%"><col style="width:16%"><col style="width:16%"><col style="width:4%"><col style="width:4%"></colgroup>
                   <thead><tr><th>項目名稱</th><th>類型</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
                   <tbody id="cf-expense-body"></tbody>
                 </table>
                 <button class="cf-add-btn" onclick="cfAddRow('expense')">+ 新增支出項目</button>
 
-                <!-- 信用卡帳單：帳單月份寬度同頻率 12% -->
+                <!-- 信用卡帳單 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">信用卡帳單</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-card">—</span></div>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:28%"><col style="width:12%"><col style="width:12%"><col style="width:40%"><col style="width:4%"></colgroup>
+                  <colgroup><col style="width:35%"><col style="width:11%"><col style="width:11%"><col style="width:36%"><col style="width:4%"></colgroup>
                   <thead><tr><th>銀行／卡名</th><th>負責人</th><th>帳單月份</th><th class="r">金額（TWD）</th><th></th></tr></thead>
                   <tbody id="cf-card-body"></tbody>
                 </table>
@@ -1176,7 +1178,7 @@
                 <div class="cf-sec"><span class="cf-sec-lbl">投資支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-invest">—</span></div>
                 <p style="font-size:11px;color:#9a9890;padding:0 0 6px">買入股票、基金等資金流出</p>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:28%"><col style="width:12%"><col style="width:12%"><col style="width:17%"><col style="width:17%"><col style="width:4%"></colgroup>
+                  <colgroup><col style="width:35%"><col style="width:11%"><col style="width:11%"><col style="width:18%"><col style="width:18%"><col style="width:4%"></colgroup>
                   <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th></tr></thead>
                   <tbody id="cf-invest-body"></tbody>
                 </table>
@@ -1186,7 +1188,7 @@
                 <div class="cf-sec"><span class="cf-sec-lbl">贖回收入</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-redeem">—</span></div>
                 <p style="font-size:11px;color:#9a9890;padding:0 0 6px">賣出股票、基金等資金流入</p>
                 <table class="cf-tbl">
-                  <colgroup><col style="width:28%"><col style="width:12%"><col style="width:12%"><col style="width:17%"><col style="width:17%"><col style="width:4%"></colgroup>
+                  <colgroup><col style="width:35%"><col style="width:11%"><col style="width:11%"><col style="width:18%"><col style="width:18%"><col style="width:4%"></colgroup>
                   <thead><tr><th>項目說明</th><th>負責人</th><th>頻率</th><th class="r">金額（TWD）</th><th class="r">月均（TWD）</th><th></th></tr></thead>
                   <tbody id="cf-redeem-body"></tbody>
                 </table>
@@ -2628,7 +2630,7 @@
     function cfRenderIncome(){
       const el=document.getElementById('cf-income-body');if(!el)return;
       const tot=cfIncome.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      el.innerHTML=cfIncome.map(r=>incomeRow(r)).join('')+subRow(tot,'月收入小計',4,'<td colspan="1"></td>');
+      el.innerHTML=cfIncome.map(r=>incomeRow(r)).join('')+subRow(tot,'月收入小計',4,'<td colspan="2"></td>');
       const st=document.getElementById('cf-st-income');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderExpense(){
