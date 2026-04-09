@@ -6,6 +6,7 @@
     <title>家族股票投資組合管理系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -229,6 +230,123 @@
         .cf-mdel:hover { color:#d9534f; }
         .cf-sub-lbl { font-size:11px; color:#9a9890; padding:7px 5px; text-align:right; letter-spacing:.02em; }
         .cf-sub-val { font-size:12px; font-weight:600; font-family:var(--mono); text-align:right; padding:7px 5px; color:#f0ede6; }
+
+        /* ===== 資產儀表板 PRO ===== */
+        .db-pro-wrap { padding: 0 0 2rem; }
+
+        .db-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.8rem; flex-wrap:wrap; gap:12px; }
+        .db-title { font-size:1.8rem !important; font-weight:800 !important; color:#f0ede6 !important; letter-spacing:-.02em; margin:0; line-height:1.2; }
+        .db-subtitle { font-size:13px; color:#7a7872; margin-top:4px; letter-spacing:.02em; }
+        .db-header-badges { display:flex; gap:8px; flex-wrap:wrap; }
+        .db-badge {
+            font-size:12px; font-weight:600; font-family:var(--mono);
+            padding:6px 14px; border-radius:20px;
+            background:#2c2b27; border:1px solid rgba(255,255,255,.1); color:#9a9890;
+        }
+
+        .db-hero-card {
+            background: linear-gradient(135deg, #2c2b27 0%, #343330 100%);
+            border:1px solid rgba(255,255,255,.1); border-radius:16px;
+            padding:28px 32px; margin-bottom:1.2rem; text-align:center;
+        }
+        .db-hero-label {
+            font-size:12px; font-weight:700; color:#7a7872;
+            letter-spacing:.15em; text-transform:uppercase; margin-bottom:8px;
+        }
+        .db-hero-val {
+            font-size:3rem; font-weight:800; font-family:var(--mono);
+            color:#4aad6e; line-height:1.1; margin-bottom:10px;
+        }
+        .db-hero-sub { font-size:14px; color:#9a9890; }
+        .db-hero-sub strong { color:#ccc9bf; font-weight:600; }
+        .db-hero-sep { margin:0 6px; opacity:.4; }
+
+        .db-kpi-grid {
+            display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:12px;
+        }
+        .db-kpi-card {
+            background:#2c2b27; border:1px solid rgba(255,255,255,.08);
+            border-radius:12px; padding:18px 16px; display:flex; align-items:center; gap:14px;
+        }
+        .db-kpi-card-sm { padding:14px 14px; }
+        .db-kpi-icon {
+            width:44px; height:44px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center; flex-shrink:0;
+        }
+        .db-kpi-icon-sm { width:36px; height:36px; border-radius:8px; }
+        .db-kpi-body { min-width:0; }
+        .db-kpi-label {
+            font-size:11px; font-weight:600; color:#7a7872;
+            letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px;
+        }
+        .db-kpi-value {
+            font-size:1.4rem; font-weight:700; font-family:var(--mono);
+            color:#f0ede6; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .db-kpi-value-sm { font-size:1.15rem; }
+
+        .db-section-card {
+            background:#2c2b27; border:1px solid rgba(255,255,255,.08);
+            border-radius:12px; padding:20px 22px; margin-bottom:12px;
+        }
+        .db-section-header {
+            display:flex; justify-content:space-between; align-items:center;
+            margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,.08);
+        }
+        .db-section-title {
+            font-size:14px !important; font-weight:700 !important; color:#ccc9bf !important;
+            letter-spacing:.1em; text-transform:uppercase; margin:0;
+        }
+        .db-section-total {
+            font-size:1.1rem; font-weight:700; font-family:var(--mono); color:#f0ede6;
+        }
+
+        .db-alloc-wrap { display:flex; align-items:center; gap:30px; flex-wrap:wrap; }
+        .db-donut-wrap { flex-shrink:0; position:relative; width:180px; height:180px; margin:0 auto; }
+        .db-bars-wrap { flex:1; min-width:220px; }
+        .db-bar-item { margin-bottom:16px; }
+        .db-bar-item:last-child { margin-bottom:0; }
+        .db-bar-header { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+        .db-bar-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+        .db-bar-label { font-size:14px; font-weight:600; color:#ccc9bf; }
+        .db-bar-pct { font-size:13px; font-weight:700; font-family:var(--mono); color:#9a9890; }
+        .db-bar-amt { font-size:14px; font-weight:600; font-family:var(--mono); color:#f0ede6; margin-left:auto; }
+        .db-bar-track { height:8px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden; }
+        .db-bar-fill { height:100%; border-radius:4px; transition:width .5s ease; }
+
+        .db-tbl th { font-size:12px !important; padding:8px 6px !important; }
+        .db-tbl td { padding:2px 4px !important; }
+        .db-tbl .cf-te { font-size:14px; padding:8px 6px; }
+        .db-tbl .cf-te.r { font-size:15px; font-weight:600; }
+        .db-tbl .cf-sel { font-size:13px; padding:6px 5px; }
+        .db-tbl .cf-sub-lbl { font-size:13px; font-weight:600; }
+        .db-tbl .cf-sub-val { font-size:16px; font-weight:700; }
+
+        .db-add-btn {
+            display:flex; align-items:center; gap:6px;
+            font-size:13px; font-weight:500; color:#7a7872;
+            cursor:pointer; padding:10px 6px; background:none; border:none;
+            width:100%; font-family:inherit; transition:color .2s;
+        }
+        .db-add-btn:hover { color:#ccc9bf; }
+
+        .db-hint { font-size:12px; color:#7a7872; margin:-8px 0 10px; }
+
+        .db-footer {
+            font-size:12px; color:#6b6a64; margin-top:1rem; text-align:center;
+            padding-top:1rem; border-top:1px solid rgba(255,255,255,.06);
+        }
+
+        @media (max-width: 768px) {
+            .db-hero-val { font-size:2.2rem; }
+            .db-kpi-grid { grid-template-columns:1fr; }
+            .db-kpi-grid-3 { grid-template-columns:1fr; }
+            .db-header { flex-direction:column; }
+            .db-alloc-wrap { flex-direction:column; }
+            .db-donut-wrap { margin-bottom:16px; }
+            .db-section-card { padding:16px 14px; }
+            .db-hero-card { padding:20px 16px; }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
@@ -380,14 +498,47 @@
                     </div>
                 </div>
                 
+                <!-- 圖表區塊 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <!-- 持股佔比圓餅圖 -->
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
+                        <h3 class="text-lg font-bold text-slate-100 mb-4">持股佔比分布</h3>
+                        <div style="position:relative;height:320px;max-width:400px;margin:0 auto">
+                            <canvas id="chartAllocation"></canvas>
+                        </div>
+                    </div>
+                    <!-- 持有人資產分布 -->
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
+                        <h3 class="text-lg font-bold text-slate-100 mb-4">持有人資產分布</h3>
+                        <div style="position:relative;height:320px;max-width:400px;margin:0 auto">
+                            <canvas id="chartHolder"></canvas>
+                        </div>
+                    </div>
+                    <!-- 台股 vs 美股配置 -->
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
+                        <h3 class="text-lg font-bold text-slate-100 mb-4">台股 vs 美股配置</h3>
+                        <div style="position:relative;height:320px;max-width:400px;margin:0 auto">
+                            <canvas id="chartRegion"></canvas>
+                        </div>
+                    </div>
+                    <!-- 報酬率排行 -->
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
+                        <h3 class="text-lg font-bold text-slate-100 mb-4">個股報酬率排行</h3>
+                        <div style="position:relative;height:320px">
+                            <canvas id="chartReturn"></canvas>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mt-6 bg-gradient-to-r from-blue-900 to-purple-900 bg-opacity-30 border border-blue-700 border-opacity-50 rounded-lg p-4 text-sm text-blue-200">
-                    <strong>📊 總覽頁功能：</strong> 
+                    <strong>📊 總覽頁功能：</strong>
                     <ul class="list-disc list-inside mt-2 space-y-1">
                         <li>查看整體投資組合表現（總成本、總市值、損益、報酬率）</li>
                         <li>瀏覽各檔股票的合併持股統計（不分持有人和平台）</li>
                         <li><strong class="text-yellow-300">點擊公司名稱可查看該股票的夏普值分析（3年、5年、10年期）</strong></li>
                         <li>佔比顯示為該股票現值在整體投資組合中的比重</li>
                         <li>統計表格按現值由大到小排序</li>
+                        <li><strong class="text-yellow-300">下方圖表自動更新：持股佔比、持有人分布、台美配置、報酬率排行</strong></li>
                     </ul>
                 </div>
             </div>
@@ -745,51 +896,170 @@
 
             <!-- 資產儀表板分頁 -->
             <div id="dashboardTab" class="tab-content">
-              <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 mb-6">
-                <h2 class="text-2xl font-bold text-slate-100 mb-1">家庭資產儀表板</h2>
-                <p style="font-size:12px;color:#9a9890;margin-bottom:1.5rem">整合股票市值 · 現金流 · 固定資產 · 負債</p>
-
-                <!-- 總覽 KPI -->
-                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.5rem">
-                  <div class="cf-metric"><div class="cf-metric-lbl">總淨資產</div><div class="cf-metric-val" id="db-net" style="color:#4aad6e">$0</div></div>
-                  <div class="cf-metric"><div class="cf-metric-lbl">股票市值</div><div class="cf-metric-val" id="db-stock">$0</div></div>
-                  <div class="cf-metric"><div class="cf-metric-lbl">固定資產</div><div class="cf-metric-val" id="db-fixed">$0</div></div>
-                  <div class="cf-metric"><div class="cf-metric-lbl">負債合計</div><div class="cf-metric-val" id="db-debt" style="color:#d9534f">$0</div></div>
-                </div>
-                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.5rem">
-                  <div class="cf-metric"><div class="cf-metric-lbl">月收入</div><div class="cf-metric-val" id="db-mo-in" style="color:#4aad6e">$0</div></div>
-                  <div class="cf-metric"><div class="cf-metric-lbl">月支出</div><div class="cf-metric-val" id="db-mo-out" style="color:#d9534f">$0</div></div>
-                  <div class="cf-metric"><div class="cf-metric-lbl">月自由現金流</div><div class="cf-metric-val" id="db-mo-fcf">$0</div></div>
+              <div class="db-pro-wrap">
+                <!-- 標題區 -->
+                <div class="db-header">
+                  <div>
+                    <h2 class="db-title">家庭資產儀表板</h2>
+                    <p class="db-subtitle">整合股票市值 · 現金流 · 固定資產 · 負債</p>
+                  </div>
+                  <div class="db-header-badges">
+                    <span class="db-badge" id="db-badge-ratio">負債比 —</span>
+                    <span class="db-badge" id="db-badge-saving">儲蓄率 —</span>
+                  </div>
                 </div>
 
-                <!-- 資產結構橫條 -->
-                <div style="background:#3d3c38;border-radius:6px;padding:14px 16px;border:1px solid rgba(255,255,255,.08);margin-bottom:1.5rem">
-                  <div style="font-size:10px;color:#9a9890;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">資產結構</div>
-                  <div class="cf-bar-row" style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:11px;color:#9a9890;width:60px">股票</span><div class="cf-bar-track"><div class="cf-bar-fill" id="db-bar-stock" style="width:0%;background:#ccc9bf"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:96px;text-align:right" id="db-bar-stock-v">$0</span></div>
-                  <div class="cf-bar-row" style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:11px;color:#9a9890;width:60px">固定資產</span><div class="cf-bar-track"><div class="cf-bar-fill" id="db-bar-fixed" style="width:0%;background:#9a9890"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:96px;text-align:right" id="db-bar-fixed-v">$0</span></div>
-                  <div class="cf-bar-row" style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#9a9890;width:60px">負債</span><div class="cf-bar-track"><div class="cf-bar-fill" id="db-bar-debt" style="width:0%;background:#d9534f"></div></div><span style="font-size:11px;font-family:'Courier New',monospace;color:#9a9890;min-width:96px;text-align:right" id="db-bar-debt-v">$0</span></div>
+                <!-- 主要 KPI — 總淨資產 -->
+                <div class="db-hero-card">
+                  <div class="db-hero-label">總淨資產 NET WORTH</div>
+                  <div class="db-hero-val" id="db-net">$0</div>
+                  <div class="db-hero-sub">
+                    <span>資產總計 <strong id="db-hero-total-asset">$0</strong></span>
+                    <span class="db-hero-sep">-</span>
+                    <span>負債總計 <strong id="db-hero-total-debt" style="color:#e8675a">$0</strong></span>
+                  </div>
+                </div>
+
+                <!-- 資產 & 現金流 KPI -->
+                <div class="db-kpi-grid">
+                  <div class="db-kpi-card">
+                    <div class="db-kpi-icon" style="background:rgba(74,173,110,.12);color:#4aad6e">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">股票市值</div>
+                      <div class="db-kpi-value" id="db-stock">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card">
+                    <div class="db-kpi-icon" style="background:rgba(200,184,154,.12);color:#c8b89a">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">固定資產</div>
+                      <div class="db-kpi-value" id="db-fixed">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card">
+                    <div class="db-kpi-icon" style="background:rgba(217,83,79,.12);color:#d9534f">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">負債合計</div>
+                      <div class="db-kpi-value" id="db-debt" style="color:#e8675a">$0</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="db-kpi-grid db-kpi-grid-3">
+                  <div class="db-kpi-card db-kpi-card-sm">
+                    <div class="db-kpi-icon db-kpi-icon-sm" style="background:rgba(74,173,110,.12);color:#4aad6e">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">月收入</div>
+                      <div class="db-kpi-value db-kpi-value-sm" id="db-mo-in" style="color:#4aad6e">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card db-kpi-card-sm">
+                    <div class="db-kpi-icon db-kpi-icon-sm" style="background:rgba(217,83,79,.12);color:#d9534f">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">月支出</div>
+                      <div class="db-kpi-value db-kpi-value-sm" id="db-mo-out" style="color:#e8675a">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card db-kpi-card-sm">
+                    <div class="db-kpi-icon db-kpi-icon-sm" style="background:rgba(200,184,154,.12);color:#c8b89a">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">月自由現金流</div>
+                      <div class="db-kpi-value db-kpi-value-sm" id="db-mo-fcf">$0</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 資產結構圖 -->
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">資產結構 ALLOCATION</h3>
+                  </div>
+                  <div class="db-alloc-wrap">
+                    <!-- 甜甜圈圖 -->
+                    <div class="db-donut-wrap">
+                      <canvas id="db-donut-chart" width="180" height="180"></canvas>
+                    </div>
+                    <!-- 橫條圖 -->
+                    <div class="db-bars-wrap">
+                      <div class="db-bar-item">
+                        <div class="db-bar-header">
+                          <span class="db-bar-dot" style="background:#c8b89a"></span>
+                          <span class="db-bar-label">股票</span>
+                          <span class="db-bar-pct" id="db-pct-stock">0%</span>
+                          <span class="db-bar-amt" id="db-bar-stock-v">$0</span>
+                        </div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-stock" style="width:0%;background:#c8b89a"></div></div>
+                      </div>
+                      <div class="db-bar-item">
+                        <div class="db-bar-header">
+                          <span class="db-bar-dot" style="background:#7a7872"></span>
+                          <span class="db-bar-label">固定資產</span>
+                          <span class="db-bar-pct" id="db-pct-fixed">0%</span>
+                          <span class="db-bar-amt" id="db-bar-fixed-v">$0</span>
+                        </div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-fixed" style="width:0%;background:#7a7872"></div></div>
+                      </div>
+                      <div class="db-bar-item">
+                        <div class="db-bar-header">
+                          <span class="db-bar-dot" style="background:#e8675a"></span>
+                          <span class="db-bar-label">負債</span>
+                          <span class="db-bar-pct" id="db-pct-debt">0%</span>
+                          <span class="db-bar-amt" id="db-bar-debt-v">$0</span>
+                        </div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-debt" style="width:0%;background:#e8675a"></div></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- 固定資產 -->
-                <div class="cf-sec"><span class="cf-sec-lbl">固定資產</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="db-st-asset">—</span></div>
-                <table class="cf-tbl">
-                  <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>資產名稱</th><th>類別</th><th>負責人</th><th class="r">估值（TWD）</th><th></th><th></th></tr></thead>
-                  <tbody id="db-asset-body"></tbody>
-                </table>
-                <button class="cf-add-btn" onclick="dbAddAsset()">+ 新增固定資產</button>
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">固定資產 FIXED ASSETS</h3>
+                    <span class="db-section-total" id="db-st-asset">—</span>
+                  </div>
+                  <table class="cf-tbl db-tbl">
+                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
+                    <thead><tr><th>資產名稱</th><th>類別</th><th>負責人</th><th class="r">估值（TWD）</th><th></th><th></th></tr></thead>
+                    <tbody id="db-asset-body"></tbody>
+                  </table>
+                  <button class="db-add-btn" onclick="dbAddAsset()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    新增固定資產
+                  </button>
+                </div>
 
                 <!-- 負債明細 -->
-                <div class="cf-sec"><span class="cf-sec-lbl">負債明細</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="db-st-debt">—</span></div>
-                <div style="font-size:11px;color:#9a9890;padding:0 0 6px">從固定支出貸款類自動讀入，可手動補充</div>
-                <table class="cf-tbl">
-                  <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
-                  <thead><tr><th>負債名稱</th><th>類別</th><th>負責人</th><th class="r">剩餘金額（TWD）</th><th></th><th></th></tr></thead>
-                  <tbody id="db-debt-body"></tbody>
-                </table>
-                <button class="cf-add-btn" onclick="dbAddDebt()">+ 新增負債</button>
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">負債明細 LIABILITIES</h3>
+                    <span class="db-section-total" id="db-st-debt" style="color:#e8675a">—</span>
+                  </div>
+                  <p class="db-hint">從固定支出貸款類自動讀入，可手動補充</p>
+                  <table class="cf-tbl db-tbl">
+                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
+                    <thead><tr><th>負債名稱</th><th>類別</th><th>負責人</th><th class="r">剩餘金額（TWD）</th><th></th><th></th></tr></thead>
+                    <tbody id="db-debt-body"></tbody>
+                  </table>
+                  <button class="db-add-btn" onclick="dbAddDebt()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    新增負債
+                  </button>
+                </div>
 
-                <p style="font-size:11px;color:#9a9890;margin-top:1rem">資料存於本機瀏覽器 · 股票市值從總覽頁面即時讀取</p>
+                <p class="db-footer">資料存於本機瀏覽器 · 股票市值從總覽頁面即時讀取</p>
               </div>
             </div>
 
@@ -883,6 +1153,11 @@
             'BRK.B': 'Berkshire Hathaway','ONDS': 'Ondas Holdings','PLTR': 'Palantir Technologies','NBIS': 'Nebius Group','CAVA': 'CAVA Group'
         };
 
+        function escHtml(str) {
+            const d = document.createElement('div');
+            d.textContent = str || '';
+            return d.innerHTML;
+        }
         function getDisplayName(companyName, symbol) {
             const name = companyName || symbol;
             return name.length > 20 ? symbol : name;
@@ -1233,9 +1508,9 @@
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-slate-700 hover:bg-slate-800 transition-colors';
                 tr.innerHTML = `
-                    <td class="px-4 py-3 text-center text-slate-100 font-medium">${stock.region}</td>
-                    <td class="px-4 py-3 text-center text-blue-400 font-mono font-bold">${stock.symbol}</td>
-                    <td class="px-4 py-3 text-center">${isBondETF ? `<span class="text-slate-200">${getDisplayName(stock.companyName, stock.symbol)}</span>` : `<button class="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer font-medium transition-colors summary-analysis-btn" data-symbol="${stock.symbol}" data-region="${stock.region}" data-company="${stock.companyName || stock.symbol}" data-cost="${stock.totalCost}" data-shares="${stock.totalShares}">${getDisplayName(stock.companyName, stock.symbol)}</button>`}</td>
+                    <td class="px-4 py-3 text-center text-slate-100 font-medium">${escHtml(stock.region)}</td>
+                    <td class="px-4 py-3 text-center text-blue-400 font-mono font-bold">${escHtml(stock.symbol)}</td>
+                    <td class="px-4 py-3 text-center">${isBondETF ? `<span class="text-slate-200">${escHtml(getDisplayName(stock.companyName, stock.symbol))}</span>` : `<button class="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer font-medium transition-colors summary-analysis-btn" data-symbol="${escHtml(stock.symbol)}" data-region="${escHtml(stock.region)}" data-company="${escHtml(stock.companyName || stock.symbol)}" data-cost="${stock.totalCost}" data-shares="${stock.totalShares}">${escHtml(getDisplayName(stock.companyName, stock.symbol))}</button>`}</td>
                     <td class="px-4 py-3 text-center text-slate-100 font-mono">${stock.totalShares.toLocaleString()}</td>
                     <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">${avgCost.toFixed(2)}</td>
                     <td class="px-4 py-3 text-center text-slate-100 font-mono text-xs">${stock.totalCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
@@ -1252,6 +1527,109 @@
                     openAnalysisModal(this.dataset.symbol, this.dataset.region, this.dataset.company, parseFloat(this.dataset.cost), parseFloat(this.dataset.shares));
                 });
             });
+            renderCharts(mergedStocks, usdRate, totalPortfolioValueTWD);
+        }
+
+        // ===== Chart.js 圖表 =====
+        let chartInstances = {};
+        function destroyChart(id) {
+            if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+        }
+        function renderCharts(mergedStocks, usdRate, totalValueTWD) {
+            if (typeof Chart === 'undefined' || !mergedStocks.length) return;
+            const COLORS = ['#c8b89a','#7eb88a','#b8937e','#8a9ab8','#b87e9a','#9ab87e','#b8a87e','#7eb8b8','#b87eb8','#9a7eb8','#7e8ab8','#b8b87e'];
+
+            // — 1. 持股佔比圓餅圖 —
+            const top8 = mergedStocks.slice(0, 8);
+            const otherVal = mergedStocks.slice(8).reduce((s, st) => {
+                const v = (parseFloat(st.currentPrice) || 0) * st.totalShares;
+                return s + (st.region === '美股' ? v * usdRate : v);
+            }, 0);
+            const pieLabels = top8.map(s => s.companyName || s.symbol);
+            const pieData = top8.map(s => {
+                const v = (parseFloat(s.currentPrice) || 0) * s.totalShares;
+                return Math.round(s.region === '美股' ? v * usdRate : v);
+            });
+            if (otherVal > 0) { pieLabels.push('其他'); pieData.push(Math.round(otherVal)); }
+            destroyChart('chartAllocation');
+            const ctx1 = document.getElementById('chartAllocation');
+            if (ctx1) {
+                chartInstances['chartAllocation'] = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: { labels: pieLabels, datasets: [{ data: pieData, backgroundColor: COLORS, borderColor: '#1a1916', borderWidth: 2 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: {
+                        legend: { position: 'right', labels: { color: '#ccc9bf', font: { size: 11 }, padding: 8, boxWidth: 12 } },
+                        tooltip: { callbacks: { label: (c) => `${c.label}: TWD ${c.parsed.toLocaleString()} (${totalValueTWD > 0 ? (c.parsed / totalValueTWD * 100).toFixed(1) : 0}%)` } }
+                    }}
+                });
+            }
+
+            // — 2. 持有人資產分布 —
+            const holderMap = {};
+            (filteredStocks.length > 0 || document.getElementById('filterRegion').value || document.getElementById('filterHolder').value || document.getElementById('filterPlatform').value ? filteredStocks : stocks).forEach(s => {
+                const v = (parseFloat(s.currentPrice) || 0) * (parseFloat(s.shares) || 0);
+                const vTWD = s.region === '美股' ? v * usdRate : v;
+                holderMap[s.holder] = (holderMap[s.holder] || 0) + vTWD;
+            });
+            destroyChart('chartHolder');
+            const ctx2 = document.getElementById('chartHolder');
+            if (ctx2) {
+                chartInstances['chartHolder'] = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: { labels: Object.keys(holderMap), datasets: [{ data: Object.values(holderMap).map(Math.round), backgroundColor: ['#c8b89a','#7eb88a','#b8937e','#8a9ab8'], borderColor: '#1a1916', borderWidth: 2 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: {
+                        legend: { position: 'right', labels: { color: '#ccc9bf', font: { size: 12 }, padding: 10, boxWidth: 14 } },
+                        tooltip: { callbacks: { label: (c) => `${c.label}: TWD ${c.parsed.toLocaleString()}` } }
+                    }}
+                });
+            }
+
+            // — 3. 台股 vs 美股 —
+            let twVal = 0, usVal = 0;
+            mergedStocks.forEach(s => {
+                const v = (parseFloat(s.currentPrice) || 0) * s.totalShares;
+                if (s.region === '美股') usVal += v * usdRate; else twVal += v;
+            });
+            destroyChart('chartRegion');
+            const ctx3 = document.getElementById('chartRegion');
+            if (ctx3) {
+                chartInstances['chartRegion'] = new Chart(ctx3, {
+                    type: 'doughnut',
+                    data: { labels: ['台股', '美股'], datasets: [{ data: [Math.round(twVal), Math.round(usVal)], backgroundColor: ['#c8b89a', '#7eb88a'], borderColor: '#1a1916', borderWidth: 2 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: {
+                        legend: { position: 'right', labels: { color: '#ccc9bf', font: { size: 13 }, padding: 12, boxWidth: 14 } },
+                        tooltip: { callbacks: { label: (c) => { const tot = twVal + usVal; return `${c.label}: TWD ${c.parsed.toLocaleString()} (${tot > 0 ? (c.parsed / tot * 100).toFixed(1) : 0}%)`; } } }
+                    }}
+                });
+            }
+
+            // — 4. 報酬率排行（橫條圖）—
+            const returnData = mergedStocks.map(s => {
+                const avg = s.totalShares > 0 ? s.totalCost / s.totalShares : 0;
+                const cur = parseFloat(s.currentPrice) || 0;
+                return { name: s.companyName || s.symbol, ret: avg > 0 ? ((cur - avg) / avg * 100) : 0 };
+            }).sort((a, b) => b.ret - a.ret);
+            destroyChart('chartReturn');
+            const ctx4 = document.getElementById('chartReturn');
+            if (ctx4) {
+                chartInstances['chartReturn'] = new Chart(ctx4, {
+                    type: 'bar',
+                    data: {
+                        labels: returnData.map(d => d.name.length > 8 ? d.name.slice(0, 8) + '..' : d.name),
+                        datasets: [{ label: '報酬率 %', data: returnData.map(d => parseFloat(d.ret.toFixed(2))),
+                            backgroundColor: returnData.map(d => d.ret >= 0 ? 'rgba(74,173,110,0.7)' : 'rgba(217,83,79,0.7)'),
+                            borderColor: returnData.map(d => d.ret >= 0 ? '#4aad6e' : '#d9534f'), borderWidth: 1, borderRadius: 3
+                        }]
+                    },
+                    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (c) => `${c.parsed.x >= 0 ? '+' : ''}${c.parsed.x}%` } }
+                    }, scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#9a9890', callback: (v) => v + '%' } },
+                        y: { grid: { display: false }, ticks: { color: '#ccc9bf', font: { size: 11 } } }
+                    }}
+                });
+            }
         }
 
         function renderStocks() {
@@ -1270,23 +1648,23 @@
                 tr.className = 'border-b border-slate-700 hover:bg-slate-750';
                 const lastUpdate = stock.lastPriceUpdate ? new Date(stock.lastPriceUpdate).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '未更新';
                 tr.innerHTML = `
-                    <td class="px-4 py-3 text-center text-slate-300">${stock.region || ''}</td>
-                    <td class="px-3 py-3 text-center text-slate-200 font-medium">${getDisplayName(stock.companyName, stock.symbol)}</td>
-                    <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${stock.symbol}</td>
+                    <td class="px-4 py-3 text-center text-slate-300">${escHtml(stock.region || '')}</td>
+                    <td class="px-3 py-3 text-center text-slate-200 font-medium">${escHtml(getDisplayName(stock.companyName, stock.symbol))}</td>
+                    <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${escHtml(stock.symbol)}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono">${stock.shares.toLocaleString()}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${calc.costPrice.toFixed(2)}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${stock.investmentCost.toLocaleString()}</td>
-                    <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs" title="最後更新: ${lastUpdate}">${Math.abs(stock.currentPrice).toFixed(2)}</td>
+                    <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs" title="最後更新: ${escHtml(lastUpdate)}">${Math.abs(stock.currentPrice).toFixed(2)}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono text-xs">${calc.currentValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                     <td class="px-3 py-3 text-center font-mono font-semibold ${calc.returnRate >= 0 ? 'text-green-400' : 'text-red-400'}">${calc.returnRate >= 0 ? '+' : ''}${calc.returnRate.toFixed(2)}%</td>
-                    <td class="px-3 py-3 text-center text-slate-300">${stock.holder}</td>
-                    <td class="px-3 py-3 text-center text-slate-300">${stock.platform}</td>
+                    <td class="px-3 py-3 text-center text-slate-300">${escHtml(stock.holder)}</td>
+                    <td class="px-3 py-3 text-center text-slate-300">${escHtml(stock.platform)}</td>
                     <td class="px-3 py-3 text-center no-print">
                         <div class="flex gap-2 justify-center flex-wrap">
-                            <button onclick="openBuyModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares}, ${calc.costPrice})" style="display:inline-flex;align-items:center;gap:4px;background:#2d5a1b;color:#7ed957;border:1px solid #4a8a2a;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em" title="買入">
+                            <button onclick="openBuyModal('${escHtml(stock.id)}', '${escHtml(stock.symbol)}', '${escHtml(stock.companyName || stock.symbol)}', ${stock.shares}, ${calc.costPrice})" style="display:inline-flex;align-items:center;gap:4px;background:#2d5a1b;color:#7ed957;border:1px solid #4a8a2a;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em" title="買入">
                               <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1L9 8H1L5 1Z" fill="#7ed957"/></svg>BUY
                             </button>
-                            <button onclick="openSellModal('${stock.id}', '${stock.symbol}', '${stock.companyName || stock.symbol}', ${stock.shares})" style="display:inline-flex;align-items:center;gap:4px;background:#5a1b1b;color:#f05a7e;border:1px solid #8a2a3a;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em" title="賣出">
+                            <button onclick="openSellModal('${escHtml(stock.id)}', '${escHtml(stock.symbol)}', '${escHtml(stock.companyName || stock.symbol)}', ${stock.shares})" style="display:inline-flex;align-items:center;gap:4px;background:#5a1b1b;color:#f05a7e;border:1px solid #8a2a3a;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em" title="賣出">
                               <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 9L9 2H1L5 9Z" fill="#f05a7e"/></svg>SELL
                             </button>
                             <button onclick="deleteStock('${stock.id}')" class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-20 transition-colors text-sm">✕</button>
@@ -1822,8 +2200,8 @@
                 tr.innerHTML = `
                     <td class="px-3 py-3 text-center text-slate-300 text-xs">${date}</td>
                     <td class="px-3 py-3 text-center ${typeColor} font-bold">${typeBadge}</td>
-                    <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${tx.symbol}</td>
-                    <td class="px-3 py-3 text-center text-slate-300">${tx.companyName || tx.symbol}</td>
+                    <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${escHtml(tx.symbol)}</td>
+                    <td class="px-3 py-3 text-center text-slate-300">${escHtml(tx.companyName || tx.symbol)}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono">${tx.shares.toLocaleString()}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono">${tx.price.toFixed(2)}</td>
                     <td class="px-3 py-3 text-center text-slate-300 font-mono">${(tx.fee || 0).toFixed(2)}</td>
@@ -2338,6 +2716,7 @@
       dbRenderDebts();dbSave();
     };
 
+    let dbDonutChart=null;
     function dbCalc(){
       const assetTot=dbAssets.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
       const debtTot=dbDebts.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
@@ -2346,16 +2725,34 @@
       const totalAsset=stockVal+fixedTot;
       const netAsset=totalAsset-debtTot;
       const set=(id,v,color)=>{const el=document.getElementById(id);if(el){el.textContent=v;if(color)el.style.color=color;}};
-      set('db-net',fmt(netAsset),netAsset>=0?'#4aad6e':'#d9534f');
+      set('db-net',fmt(netAsset),netAsset>=0?'#4aad6e':'#e8675a');
       set('db-stock',fmt(stockVal));
       set('db-fixed',fmt(fixedTot));
-      set('db-debt',fmt(debtTot),'#d9534f');
+      set('db-debt',fmt(debtTot),'#e8675a');
+      set('db-hero-total-asset',fmt(totalAsset));
+      set('db-hero-total-debt',fmt(debtTot));
       const cfIn=parseFloat(document.getElementById('cf-s-in')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
       const cfOut=parseFloat(document.getElementById('cf-s-out')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
       const cfFcf=cfIn-cfOut;
       set('db-mo-in',fmt(cfIn),'#4aad6e');
-      set('db-mo-out',fmt(cfOut),'#d9534f');
-      set('db-mo-fcf',fmt(cfFcf),cfFcf>=0?'#4aad6e':'#d9534f');
+      set('db-mo-out',fmt(cfOut),'#e8675a');
+      set('db-mo-fcf',fmt(cfFcf),cfFcf>=0?'#4aad6e':'#e8675a');
+
+      // badges
+      const ratioEl=document.getElementById('db-badge-ratio');
+      const savingEl=document.getElementById('db-badge-saving');
+      if(ratioEl){
+        const ratio=totalAsset>0?((debtTot/totalAsset)*100):0;
+        ratioEl.textContent='負債比 '+ratio.toFixed(1)+'%';
+        ratioEl.style.color=ratio>60?'#e8675a':ratio>40?'#f5a623':'#4aad6e';
+      }
+      if(savingEl){
+        const saving=cfIn>0?((cfFcf/cfIn)*100):0;
+        savingEl.textContent='儲蓄率 '+saving.toFixed(1)+'%';
+        savingEl.style.color=saving<10?'#e8675a':saving<30?'#f5a623':'#4aad6e';
+      }
+
+      // bar chart
       const maxBar=Math.max(stockVal,fixedTot,debtTot,1);
       const sw=(id,p)=>{const el=document.getElementById(id);if(el)el.style.width=Math.max(0,Math.round(p))+'%';};
       sw('db-bar-stock',Math.round((stockVal/maxBar)*100));
@@ -2365,6 +2762,54 @@
       setV('db-bar-stock-v',fmt(stockVal));
       setV('db-bar-fixed-v',fmt(fixedTot));
       setV('db-bar-debt-v',fmt(debtTot));
+
+      // percentages
+      const totalAll=stockVal+fixedTot+debtTot||1;
+      setV('db-pct-stock',Math.round((stockVal/totalAll)*100)+'%');
+      setV('db-pct-fixed',Math.round((fixedTot/totalAll)*100)+'%');
+      setV('db-pct-debt',Math.round((debtTot/totalAll)*100)+'%');
+
+      // donut chart
+      dbRenderDonut(stockVal,fixedTot,debtTot);
+    }
+
+    function dbRenderDonut(stock,fixed,debt){
+      const canvas=document.getElementById('db-donut-chart');
+      if(!canvas||typeof Chart==='undefined')return;
+      if(dbDonutChart){dbDonutChart.destroy();dbDonutChart=null;}
+      const hasData=stock>0||fixed>0||debt>0;
+      dbDonutChart=new Chart(canvas,{
+        type:'doughnut',
+        data:{
+          labels:['股票','固定資產','負債'],
+          datasets:[{
+            data:hasData?[stock,fixed,debt]:[1],
+            backgroundColor:hasData?['#c8b89a','#7a7872','#e8675a']:['rgba(255,255,255,.06)'],
+            borderWidth:0,
+            hoverOffset:6
+          }]
+        },
+        options:{
+          cutout:'68%',
+          responsive:false,
+          plugins:{
+            legend:{display:false},
+            tooltip:{
+              enabled:hasData,
+              callbacks:{
+                label:function(ctx){return ctx.label+': '+fmt(ctx.raw);}
+              },
+              backgroundColor:'#3d3c38',
+              titleColor:'#f0ede6',
+              bodyColor:'#ccc9bf',
+              borderColor:'rgba(255,255,255,.12)',
+              borderWidth:1,
+              padding:10,
+              bodyFont:{size:13}
+            }
+          }
+        }
+      });
     }
 
     function dbSave(){
