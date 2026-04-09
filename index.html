@@ -2551,12 +2551,18 @@
       {id:'e7',name:'嬰幼兒耗材',owner:'Rebecca',etype:'general',freq:'monthly',amt:''},
       {id:'e8',name:'保險費',owner:'Rebecca',etype:'general',freq:'yearly',amt:''},
     ];
+    let cfBanks=['台新','中信','富邦','玉山','遠東'];
     let cfCards=[
       {id:'cr1',bank:'台新',owner:'Rebecca',month:'',amt:''},
       {id:'cr2',bank:'富邦',owner:'Eric',month:'',amt:''},
       {id:'cr3',bank:'中信',owner:'Eric',month:'',amt:''},
       {id:'cr4',bank:'玉山',owner:'Rebecca',month:'',amt:''},
     ];
+    function bankOpts(sel){
+      const list=[...cfBanks];
+      if(sel&&!list.includes(sel))list.push(sel);
+      return list.map(b=>`<option value="${b}"${b===sel?' selected':''}>${b}</option>`).join('')+`<option value="__other"${!sel?' selected':''}>其他...</option>`;
+    }
     let cfInvest=[
       {id:'iv1',name:'信貸投入股市',owner:'Rebecca',freq:'once',amt:'',src:'信貸'},
       {id:'iv2',name:'定期定額',owner:'Rebecca',freq:'monthly',amt:'',src:'薪資'},
@@ -2793,7 +2799,7 @@
               <th style="width:32px"></th>
             </tr></thead>
             <tbody>${items.map(r=>`<tr style="border-bottom:1px solid rgba(26,25,22,.06)">
-              <td style="padding:4px 5px"><input type="text" value="${r.bank||''}" placeholder="台新、富邦..." oninput="cfCardEdit('${r.id}','bank',this.value)" style="${inputStyle}font-size:13px"></td>
+              <td style="padding:4px 5px"><select onchange="cfCardBankChange('${r.id}',this)" style="${inputStyle}font-size:13px">${bankOpts(r.bank)}</select></td>
               <td style="padding:4px 5px"><select onchange="cfCardEdit('${r.id}','owner',this.value)" style="${inputStyle}font-size:12px">${mOpts(r.owner)}</select></td>
               <td style="padding:4px 5px"><input type="month" value="${r.month||''}" oninput="cfCardEdit('${r.id}','month',this.value)" style="${inputStyle}font-size:12px"></td>
               <td style="padding:4px 5px"><input type="number" value="${r.amt}" placeholder="0" oninput="cfCardEdit('${r.id}','amt',this.value)" style="${inputStyle}font-size:13px;text-align:right;font-family:var(--mono)"></td>
@@ -2820,6 +2826,19 @@
       cfRenderCards();cfCalc();
       const el=document.getElementById('cf-card-modal-overlay');
       if(el)el.remove();
+    };
+    window.cfCardBankChange=function(id,sel){
+      if(sel.value==='__other'){
+        const custom=prompt('請輸入銀行名稱：');
+        if(custom&&custom.trim()){
+          const name=custom.trim();
+          if(!cfBanks.includes(name))cfBanks.push(name);
+          cfCardEdit(id,'bank',name);
+          window._cfCardModalRender();
+        }else{sel.selectedIndex=0;}
+        return;
+      }
+      cfCardEdit(id,'bank',sel.value);
     };
     window.cfCardEdit=function(id,field,v){
       const r=cfCards.find(x=>x.id===id);if(r)r[field]=v;cfSave();
@@ -2978,7 +2997,7 @@
     let cfSaveTimer=null;
     function cfSave(){
       // 同時存 localStorage（備份）和 Firebase
-      try{localStorage.setItem(CF_STORE,JSON.stringify({members:cfMembers,income:cfIncome,expense:cfExpense,cards:cfCards}));}catch(e){}
+      try{localStorage.setItem(CF_STORE,JSON.stringify({members:cfMembers,income:cfIncome,expense:cfExpense,cards:cfCards,banks:cfBanks}));}catch(e){}
       // 防抖：500ms 內多次修改只寫一次 Firebase
       clearTimeout(cfSaveTimer);
       cfSaveTimer=setTimeout(()=>{
@@ -3003,6 +3022,7 @@
             if(d.income?.length)cfIncome=d.income;
             if(d.expense?.length)cfExpense=d.expense.map(r=>({...r,etype:r.etype||(r.isLoan?'loan_mortgage':'general')}));
             if(d.cards?.length)cfCards=d.cards;
+            if(d.banks?.length)cfBanks=d.banks;
             const all=[...cfIncome,...cfExpense,...cfCards];
             cfCtr=Math.max(cfCtr,...all.map(r=>parseInt(r.id.replace(/\D/g,''))||0));
             cfRenderMembers();
