@@ -243,7 +243,7 @@
         .cf-sub-lbl { font-size:13px; color:#ccc9bf; padding:8px 5px; text-align:right; letter-spacing:.02em; font-weight:600; }
         .cf-sub-val { font-size:15px; font-weight:700; font-family:var(--mono); text-align:right; padding:8px 5px; color:#f0ede6; }
 
-        /* ===== 資產儀表板 PRO ===== */
+        /* ===== 資產總覽 PRO ===== */
         .db-pro-wrap { padding: 0 0 2rem; }
 
         .db-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.8rem; flex-wrap:wrap; gap:12px; }
@@ -351,8 +351,8 @@
 
         @media (max-width: 768px) {
             .db-hero-val { font-size:2.2rem; }
-            .db-kpi-grid { grid-template-columns:1fr; }
-            .db-kpi-grid-3 { grid-template-columns:1fr; }
+            .db-kpi-grid { grid-template-columns:1fr 1fr !important; }
+            .db-kpi-grid-3 { grid-template-columns:1fr !important; }
             .db-header { flex-direction:column; }
             .db-alloc-wrap { flex-direction:column; }
             .db-donut-wrap { margin-bottom:16px; }
@@ -402,26 +402,270 @@
             <!-- 分頁標籤 -->
             <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 mb-6 no-print tab-scroll-wrap">
                 <div class="flex gap-2 tab-scroll-inner">
-                    <button onclick="switchTab('overview')" id="tabOverview" class="tab-button active tab-item px-6 py-3 rounded-lg font-semibold text-lg transition-all">
-                        總覽
+                    <button onclick="switchTab('dashboard')" id="tabDashboard" class="tab-button active tab-item px-6 py-3 rounded-lg font-semibold text-lg transition-all">
+                        資產總覽
+                    </button>
+                    <button onclick="switchTab('overview')" id="tabOverview" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
+                        持股總覽
                     </button>
                     <button onclick="switchTab('detail')" id="tabDetail" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        明細管理
+                        持股明細
                     </button>
                     <button onclick="switchTab('transactions')" id="tabTransactions" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
                         交易記錄
                     </button>
                     <button onclick="switchTab('cashflow')" id="tabCashflow" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        現金流
-                    </button>
-                    <button onclick="switchTab('dashboard')" id="tabDashboard" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        儀表板
+                        收支管理
                     </button>
                 </div>
             </div>
 
-            <!-- 第一頁：總覽 -->
-            <div id="overviewTab" class="tab-content active">
+            <!-- 第一頁：資產總覽 -->
+            <div id="dashboardTab" class="tab-content active">
+              <div class="db-pro-wrap">
+                <!-- 標題區 -->
+                <div class="db-header">
+                  <div>
+                    <h2 class="db-title">資產總覽</h2>
+                    <p class="db-subtitle">整合股票市值 · 現金存款 · 固定資產 · 負債 · 繳款提醒</p>
+                  </div>
+                  <div class="db-header-badges">
+                    <span class="db-badge" id="db-badge-ratio">負債比 —</span>
+                    <span class="db-badge" id="db-badge-saving">儲蓄率 —</span>
+                  </div>
+                </div>
+
+                <!-- 載入提示 -->
+                <div id="db-loading" style="text-align:center;padding:2rem 0;color:#9a9890;font-size:14px;display:none">
+                  <span class="loading-spinner" style="margin-right:8px"></span>正在載入資產數據...
+                </div>
+
+                <!-- 主要 KPI — 總淨資產 -->
+                <div class="db-hero-card">
+                  <div class="db-hero-label">總淨資產 NET WORTH</div>
+                  <div class="db-hero-val" id="db-net">$0</div>
+                  <div class="db-hero-sub">
+                    <span>資產總計 <strong id="db-hero-total-asset">$0</strong></span>
+                    <span class="db-hero-sep">-</span>
+                    <span>負債總計 <strong id="db-hero-total-debt" style="color:#e8675a">$0</strong></span>
+                  </div>
+                </div>
+
+                <!-- 5000 萬目標進度 -->
+                <div class="db-section-card" style="margin-top:1rem">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <div style="font-size:14px;font-weight:600;color:#f0ede6;letter-spacing:.03em">5,000 萬目標進度</div>
+                    <div style="font-size:13px;font-family:var(--mono);color:#c8b89a" id="db-goal-pct">0%</div>
+                  </div>
+                  <div style="background:rgba(255,255,255,.06);border-radius:8px;height:18px;overflow:hidden;position:relative">
+                    <div id="db-goal-bar" style="height:100%;border-radius:8px;background:linear-gradient(90deg,#c8b89a,#4aad6e);width:0%;transition:width .6s ease"></div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:#9a9890">
+                    <span>目前淨資產 <strong id="db-goal-current" style="color:#f0ede6">$0</strong></span>
+                    <span>距離目標 <strong id="db-goal-remain" style="color:#c8b89a">$50,000,000</strong></span>
+                  </div>
+                </div>
+
+                <!-- 資產 KPI 4 格 -->
+                <div class="db-kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+                  <div class="db-kpi-card">
+                    <div class="db-kpi-icon" style="background:rgba(74,173,110,.12);color:#4aad6e">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">股票市值</div>
+                      <div class="db-kpi-value" id="db-stock">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card">
+                    <div class="db-kpi-icon" style="background:rgba(200,184,154,.12);color:#c8b89a">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">固定資產</div>
+                      <div class="db-kpi-value" id="db-fixed">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card">
+                    <div class="db-kpi-icon" style="background:rgba(74,173,110,.08);color:#6bbf8a">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">現金存款</div>
+                      <div class="db-kpi-value" id="db-cash">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card">
+                    <div class="db-kpi-icon" style="background:rgba(217,83,79,.12);color:#d9534f">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">負債合計</div>
+                      <div class="db-kpi-value" id="db-debt" style="color:#e8675a">$0</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 現金流 KPI -->
+                <div class="db-kpi-grid db-kpi-grid-3">
+                  <div class="db-kpi-card db-kpi-card-sm">
+                    <div class="db-kpi-icon db-kpi-icon-sm" style="background:rgba(74,173,110,.12);color:#4aad6e">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">月收入</div>
+                      <div class="db-kpi-value db-kpi-value-sm" id="db-mo-in" style="color:#4aad6e">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card db-kpi-card-sm">
+                    <div class="db-kpi-icon db-kpi-icon-sm" style="background:rgba(217,83,79,.12);color:#d9534f">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">月支出</div>
+                      <div class="db-kpi-value db-kpi-value-sm" id="db-mo-out" style="color:#e8675a">$0</div>
+                    </div>
+                  </div>
+                  <div class="db-kpi-card db-kpi-card-sm">
+                    <div class="db-kpi-icon db-kpi-icon-sm" style="background:rgba(200,184,154,.12);color:#c8b89a">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                    </div>
+                    <div class="db-kpi-body">
+                      <div class="db-kpi-label">月自由現金流</div>
+                      <div class="db-kpi-value db-kpi-value-sm" id="db-mo-fcf">$0</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 繳款 & 提醒區塊 -->
+                <div class="db-section-card" style="margin-top:.5rem">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">繳款與重要日期提醒</h3>
+                  </div>
+                  <div id="db-reminders-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:10px">
+                    <div style="font-size:12px;color:#9a9890;padding:12px">載入中...</div>
+                  </div>
+                  <!-- 自訂提醒新增 -->
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
+                    <input id="db-rem-name" placeholder="提醒名稱" style="flex:1;min-width:120px;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
+                    <input id="db-rem-date" type="date" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
+                    <select id="db-rem-repeat" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
+                      <option value="once">單次</option>
+                      <option value="monthly">每月</option>
+                      <option value="yearly">每年</option>
+                    </select>
+                    <button onclick="dbAddReminder()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增提醒</button>
+                  </div>
+                </div>
+
+                <!-- 資產結構圖 -->
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">資產結構 ALLOCATION</h3>
+                  </div>
+                  <div class="db-alloc-wrap">
+                    <div class="db-donut-wrap">
+                      <canvas id="db-donut-chart" width="180" height="180"></canvas>
+                    </div>
+                    <div class="db-bars-wrap">
+                      <div class="db-bar-item">
+                        <div class="db-bar-header">
+                          <span class="db-bar-dot" style="background:#c8b89a"></span>
+                          <span class="db-bar-label">股票</span>
+                          <span class="db-bar-pct" id="db-pct-stock">0%</span>
+                          <span class="db-bar-amt" id="db-bar-stock-v">$0</span>
+                        </div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-stock" style="width:0%;background:#c8b89a"></div></div>
+                      </div>
+                      <div class="db-bar-item">
+                        <div class="db-bar-header">
+                          <span class="db-bar-dot" style="background:#7a7872"></span>
+                          <span class="db-bar-label">固定資產</span>
+                          <span class="db-bar-pct" id="db-pct-fixed">0%</span>
+                          <span class="db-bar-amt" id="db-bar-fixed-v">$0</span>
+                        </div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-fixed" style="width:0%;background:#7a7872"></div></div>
+                      </div>
+                      <div class="db-bar-item">
+                        <div class="db-bar-header">
+                          <span class="db-bar-dot" style="background:#6bbf8a"></span>
+                          <span class="db-bar-label">現金</span>
+                          <span class="db-bar-pct" id="db-pct-cash">0%</span>
+                          <span class="db-bar-amt" id="db-bar-cash-v">$0</span>
+                        </div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-cash" style="width:0%;background:#6bbf8a"></div></div>
+                      </div>
+                      <div class="db-bar-item">
+                        <div class="db-bar-header">
+                          <span class="db-bar-dot" style="background:#e8675a"></span>
+                          <span class="db-bar-label">負債</span>
+                          <span class="db-bar-pct" id="db-pct-debt">0%</span>
+                          <span class="db-bar-amt" id="db-bar-debt-v">$0</span>
+                        </div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-debt" style="width:0%;background:#e8675a"></div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 現金存款 -->
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">現金存款 CASH DEPOSITS</h3>
+                    <span class="db-section-total" id="db-st-cash">—</span>
+                  </div>
+                  <table class="cf-tbl db-tbl">
+                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
+                    <thead><tr><th>帳戶名稱</th><th>類別</th><th>負責人</th><th class="r">金額（TWD）</th><th></th><th></th></tr></thead>
+                    <tbody id="db-cash-body"></tbody>
+                  </table>
+                  <button class="db-add-btn" onclick="dbAddCash()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    新增現金帳戶
+                  </button>
+                </div>
+
+                <!-- 固定資產 -->
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">固定資產 FIXED ASSETS</h3>
+                    <span class="db-section-total" id="db-st-asset">—</span>
+                  </div>
+                  <table class="cf-tbl db-tbl">
+                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
+                    <thead><tr><th>資產名稱</th><th>類別</th><th>負責人</th><th class="r">估值（TWD）</th><th></th><th></th></tr></thead>
+                    <tbody id="db-asset-body"></tbody>
+                  </table>
+                  <button class="db-add-btn" onclick="dbAddAsset()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    新增固定資產
+                  </button>
+                </div>
+
+                <!-- 負債明細 -->
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">負債明細 LIABILITIES</h3>
+                    <span class="db-section-total" id="db-st-debt" style="color:#e8675a">—</span>
+                  </div>
+                  <p class="db-hint">從固定支出貸款類自動讀入，可手動補充</p>
+                  <table class="cf-tbl db-tbl">
+                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
+                    <thead><tr><th>負債名稱</th><th>類別</th><th>負責人</th><th class="r">剩餘金額（TWD）</th><th></th><th></th></tr></thead>
+                    <tbody id="db-debt-body"></tbody>
+                  </table>
+                  <button class="db-add-btn" onclick="dbAddDebt()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    新增負債
+                  </button>
+                </div>
+
+                <p class="db-footer">資料同步至 Firebase 雲端 · 股票市值從持股總覽即時讀取</p>
+              </div>
+            </div>
+
+            <!-- 第二頁：持股總覽 -->
+            <div id="overviewTab" class="tab-content">
                 <!-- 匯率設定 -->
                 <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-6">
                     <div class="flex items-center justify-between flex-wrap gap-4">
@@ -543,7 +787,7 @@
 
                 <div class="mt-6 bg-gradient-to-r from-blue-900 to-purple-900 bg-opacity-30 border border-blue-700 border-opacity-50 rounded-lg text-sm text-blue-200">
                     <button onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.hint-arrow').classList.toggle('rotate-180')" class="w-full flex items-center justify-between p-4 text-left cursor-pointer">
-                        <strong>📊 總覽頁功能說明</strong>
+                        <strong>📊 持股總覽功能說明</strong>
                         <span class="hint-arrow transition-transform text-blue-300">▼</span>
                     </button>
                     <div class="hidden px-4 pb-4">
@@ -630,7 +874,7 @@
                             <li>輸入成本價+股數會自動計算投資成本，或輸入投資成本+股數會自動計算成本價</li>
                             <li>系統會自動獲取最新股價（若未開盤則顯示前一收盤價）</li>
                             <li>可使用上方篩選功能查看特定地區、持有人或平台的股票</li>
-                            <li><strong class="text-yellow-300">💡 切換到「總覽」頁面查看整體投資組合統計與年度報酬率</strong></li>
+                            <li><strong class="text-yellow-300">💡 切換到「持股總覽」頁面查看整體投資組合統計與年度報酬率</strong></li>
                         </ul>
                     </div>
                 </div>
@@ -834,7 +1078,7 @@
                 <!-- 標題 -->
                 <div class="db-header">
                   <div>
-                    <h2 class="db-title">全家現金流</h2>
+                    <h2 class="db-title">收支管理</h2>
                     <p class="db-subtitle">所有金額單位 TWD · 月均自動換算 · 投資交易連動</p>
                   </div>
                 </div>
@@ -911,7 +1155,7 @@
 
                 <!-- 固定支出：類型在負責人之前 -->
                 <div class="cf-sec"><span class="cf-sec-lbl">固定支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-expense">—</span></div>
-                <p style="font-size:11px;color:#9a9890;padding:0 0 6px">類型選「房貸」或「信貸」，金額欄自動出現計算按鈕</p>
+                <p style="font-size:11px;color:#9a9890;padding:0 0 6px">類型選「房貸」或「信貸」後，點擊項目名稱即可查看貸款明細</p>
                 <table class="cf-tbl">
                   <colgroup><col style="width:24%"><col style="width:10%"><col style="width:12%"><col style="width:12%"><col style="width:15%"><col style="width:15%"><col style="width:8%"><col style="width:4%"></colgroup>
                   <thead><tr><th>項目名稱</th><th>類型</th><th>負責人</th><th>頻率</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th><th></th></tr></thead>
@@ -971,179 +1215,6 @@
               </div>
             </div>
 
-            <!-- 資產儀表板分頁 -->
-            <div id="dashboardTab" class="tab-content">
-              <div class="db-pro-wrap">
-                <!-- 標題區 -->
-                <div class="db-header">
-                  <div>
-                    <h2 class="db-title">家庭資產儀表板</h2>
-                    <p class="db-subtitle">整合股票市值 · 現金流 · 固定資產 · 負債</p>
-                  </div>
-                  <div class="db-header-badges">
-                    <span class="db-badge" id="db-badge-ratio">負債比 —</span>
-                    <span class="db-badge" id="db-badge-saving">儲蓄率 —</span>
-                  </div>
-                </div>
-
-                <!-- 載入提示 -->
-                <div id="db-loading" style="text-align:center;padding:2rem 0;color:#9a9890;font-size:14px;display:none">
-                  <span class="loading-spinner" style="margin-right:8px"></span>正在載入資產數據...
-                </div>
-
-                <!-- 主要 KPI — 總淨資產 -->
-                <div class="db-hero-card">
-                  <div class="db-hero-label">總淨資產 NET WORTH</div>
-                  <div class="db-hero-val" id="db-net">$0</div>
-                  <div class="db-hero-sub">
-                    <span>資產總計 <strong id="db-hero-total-asset">$0</strong></span>
-                    <span class="db-hero-sep">-</span>
-                    <span>負債總計 <strong id="db-hero-total-debt" style="color:#e8675a">$0</strong></span>
-                  </div>
-                </div>
-
-                <!-- 資產 & 現金流 KPI -->
-                <div class="db-kpi-grid">
-                  <div class="db-kpi-card">
-                    <div class="db-kpi-icon" style="background:rgba(74,173,110,.12);color:#4aad6e">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-                    </div>
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">股票市值</div>
-                      <div class="db-kpi-value" id="db-stock">$0</div>
-                    </div>
-                  </div>
-                  <div class="db-kpi-card">
-                    <div class="db-kpi-icon" style="background:rgba(200,184,154,.12);color:#c8b89a">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                    </div>
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">固定資產</div>
-                      <div class="db-kpi-value" id="db-fixed">$0</div>
-                    </div>
-                  </div>
-                  <div class="db-kpi-card">
-                    <div class="db-kpi-icon" style="background:rgba(217,83,79,.12);color:#d9534f">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
-                    </div>
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">負債合計</div>
-                      <div class="db-kpi-value" id="db-debt" style="color:#e8675a">$0</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="db-kpi-grid db-kpi-grid-3">
-                  <div class="db-kpi-card db-kpi-card-sm">
-                    <div class="db-kpi-icon db-kpi-icon-sm" style="background:rgba(74,173,110,.12);color:#4aad6e">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-                    </div>
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">月收入</div>
-                      <div class="db-kpi-value db-kpi-value-sm" id="db-mo-in" style="color:#4aad6e">$0</div>
-                    </div>
-                  </div>
-                  <div class="db-kpi-card db-kpi-card-sm">
-                    <div class="db-kpi-icon db-kpi-icon-sm" style="background:rgba(217,83,79,.12);color:#d9534f">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
-                    </div>
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">月支出</div>
-                      <div class="db-kpi-value db-kpi-value-sm" id="db-mo-out" style="color:#e8675a">$0</div>
-                    </div>
-                  </div>
-                  <div class="db-kpi-card db-kpi-card-sm">
-                    <div class="db-kpi-icon db-kpi-icon-sm" style="background:rgba(200,184,154,.12);color:#c8b89a">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-                    </div>
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">月自由現金流</div>
-                      <div class="db-kpi-value db-kpi-value-sm" id="db-mo-fcf">$0</div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 資產結構圖 -->
-                <div class="db-section-card">
-                  <div class="db-section-header">
-                    <h3 class="db-section-title">資產結構 ALLOCATION</h3>
-                  </div>
-                  <div class="db-alloc-wrap">
-                    <!-- 甜甜圈圖 -->
-                    <div class="db-donut-wrap">
-                      <canvas id="db-donut-chart" width="180" height="180"></canvas>
-                    </div>
-                    <!-- 橫條圖 -->
-                    <div class="db-bars-wrap">
-                      <div class="db-bar-item">
-                        <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#c8b89a"></span>
-                          <span class="db-bar-label">股票</span>
-                          <span class="db-bar-pct" id="db-pct-stock">0%</span>
-                          <span class="db-bar-amt" id="db-bar-stock-v">$0</span>
-                        </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-stock" style="width:0%;background:#c8b89a"></div></div>
-                      </div>
-                      <div class="db-bar-item">
-                        <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#7a7872"></span>
-                          <span class="db-bar-label">固定資產</span>
-                          <span class="db-bar-pct" id="db-pct-fixed">0%</span>
-                          <span class="db-bar-amt" id="db-bar-fixed-v">$0</span>
-                        </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-fixed" style="width:0%;background:#7a7872"></div></div>
-                      </div>
-                      <div class="db-bar-item">
-                        <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#e8675a"></span>
-                          <span class="db-bar-label">負債</span>
-                          <span class="db-bar-pct" id="db-pct-debt">0%</span>
-                          <span class="db-bar-amt" id="db-bar-debt-v">$0</span>
-                        </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-debt" style="width:0%;background:#e8675a"></div></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 固定資產 -->
-                <div class="db-section-card">
-                  <div class="db-section-header">
-                    <h3 class="db-section-title">固定資產 FIXED ASSETS</h3>
-                    <span class="db-section-total" id="db-st-asset">—</span>
-                  </div>
-                  <table class="cf-tbl db-tbl">
-                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
-                    <thead><tr><th>資產名稱</th><th>類別</th><th>負責人</th><th class="r">估值（TWD）</th><th></th><th></th></tr></thead>
-                    <tbody id="db-asset-body"></tbody>
-                  </table>
-                  <button class="db-add-btn" onclick="dbAddAsset()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    新增固定資產
-                  </button>
-                </div>
-
-                <!-- 負債明細 -->
-                <div class="db-section-card">
-                  <div class="db-section-header">
-                    <h3 class="db-section-title">負債明細 LIABILITIES</h3>
-                    <span class="db-section-total" id="db-st-debt" style="color:#e8675a">—</span>
-                  </div>
-                  <p class="db-hint">從固定支出貸款類自動讀入，可手動補充</p>
-                  <table class="cf-tbl db-tbl">
-                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
-                    <thead><tr><th>負債名稱</th><th>類別</th><th>負責人</th><th class="r">剩餘金額（TWD）</th><th></th><th></th></tr></thead>
-                    <tbody id="db-debt-body"></tbody>
-                  </table>
-                  <button class="db-add-btn" onclick="dbAddDebt()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    新增負債
-                  </button>
-                </div>
-
-                <p class="db-footer">資料存於本機瀏覽器 · 股票市值從總覽頁面即時讀取</p>
-              </div>
-            </div>
 
             <!-- 手機端浮動新增按鈕 -->
             <button class="mobile-fab no-print" onclick="openAddStockModal()">+</button>
@@ -1263,6 +1334,8 @@
                     await loadStocks();
                     await loadTransactions();
                     await fetchExchangeRate();
+                    // 預設頁面是資產總覽，載入後渲染
+                    setTimeout(()=>{ if(typeof dbRender==='function') dbRender(); }, 100);
                     if (document.getElementById('autoRefresh').checked) {
                         toggleAutoRefresh(true);
                     }
@@ -2530,15 +2603,15 @@
       const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
       const et=r.etype||'general';
       const loan=isLoan(et);
+      const nameCell=loan
+        ?`<span onclick="cfOpenLoan('${r.id}')" style="cursor:pointer;color:#c8b89a;text-decoration:underline;font-size:12px;display:inline-block;padding:4px 0" title="點擊查看貸款明細">${r.name||'（點擊設定貸款）'}</span><input type="hidden" value="${r.name}" oninput="cfSf('expense','${r.id}','name',this.value)">`
+        :`<input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('expense','${r.id}','name',this.value)">`;
       return `<tr id="tr-${r.id}">
-        <td><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('expense','${r.id}','name',this.value)"></td>
+        <td>${nameCell}</td>
         <td><select class="cf-sel" onchange="cfEtype('${r.id}',this.value)">${eOpts(et)}</select></td>
         <td><select class="cf-sel" onchange="cfSf('expense','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
         <td><select class="cf-sel" onchange="cfSfq('expense','${r.id}',this.value)">${fOpts(r.freq)}</select></td>
-        <td><div style="display:flex;align-items:center;gap:3px">
-          <input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${r.amt}" placeholder="0" style="flex:1;min-width:0" oninput="cfSa('expense','${r.id}',this.value)">
-          ${loan?`<button class="cf-loan-btn" onclick="cfOpenLoan('${r.id}')">計算</button>`:''}
-        </div></td>
+        <td><input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${r.amt}" placeholder="0" oninput="cfSa('expense','${r.id}',this.value)"></td>
         <td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td>
         <td></td>
         <td><button class="cf-del" onclick="cfDelRow('expense','${r.id}')">×</button></td>
@@ -2584,7 +2657,10 @@
       el.innerHTML=cfRedeem.map(r=>investRow(r,'redeem')).join('')+subRow(tot,'月均小計',4,'<td colspan="1"></td>');
       const st=document.getElementById('cf-st-redeem');if(st)st.textContent=cfFmt(tot)+'/月';
     }
-    function cfRenderAll(){cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfRenderRedeem();cfCalc();}
+    function cfRenderAll(){cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfRenderRedeem();cfCalc();
+      // 暴露給資產總覽提醒系統
+      window.cfMembersRef=cfMembers;window.cfExpenseRef=cfExpense;window.cfCardsRef=cfCards;
+    }
 
     function cfGetArr(type){return{income:cfIncome,expense:cfExpense,invest:cfInvest,redeem:cfRedeem}[type]||[];}
     window.cfSf=function(type,id,field,v){const r=cfGetArr(type).find(x=>x.id===id);if(r)r[field]=v;cfSave();};
@@ -2688,7 +2764,8 @@
       const typeName=(ETYPES[row?.etype]||'貸款');
       const wrap=document.createElement('div');
       wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999';
-      wrap.innerHTML=`<div style="background:#fff;border:1px solid rgba(26,25,22,.18);border-radius:8px;padding:1.25rem;width:360px;max-width:94vw;max-height:90vh;overflow-y:auto;font-family:inherit"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div><div style="font-size:13px;font-weight:500;color:#1a1916">${row?.name||typeName} 試算</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${typeName}</div></div><button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1">×</button></div>${[['lc-p','貸款金額（TWD）','number','例：8,000,000'],['lc-r','年利率（%）','number','例：2.06'],['lc-s','貸款起始日','date',''],['lc-e','貸款截止日','date',''],['lc-f','第一次還款日','date','']].map(([id,lb,tp,ph])=>`<div style="margin-bottom:9px"><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">${lb}</div><input id="${id}" type="${tp}" value="${ld[id]||''}" placeholder="${ph}" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:'Courier New',monospace" oninput="cfLoanCalc()"></div>`).join('')}<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px"><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">寬限期（月）</div><input id="lc-grace" type="number" value="${ld['lc-grace']||''}" placeholder="例：24" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:'Courier New',monospace" oninput="cfLoanCalc()"></div><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">還款方式</div><select id="lc-method" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:inherit" onchange="cfLoanCalc()"><option value="ep"${(ld['lc-method']||'ep')==='ep'?' selected':''}>本利均攤</option><option value="pp"${ld['lc-method']==='pp'?' selected':''}>本金均攤</option></select></div></div><div id="lc-result" style="background:#f5f4f0;border-radius:6px;padding:12px;font-size:11px;color:#5a5852;min-height:48px"></div><div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end"><button onclick="this.closest('[style*=fixed]').remove()" style="background:transparent;color:#5a5852;border:1px solid rgba(26,25,22,.18);border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit">取消</button><button id="lc-apply" onclick="cfApplyLoan('${rowId}')" disabled style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;opacity:.35;font-family:inherit">套用月付金</button></div></div>`;
+      wrap.onclick=function(e){if(e.target===wrap)wrap.remove();};
+      wrap.innerHTML=`<div style="background:#fff;border:1px solid rgba(26,25,22,.18);border-radius:8px;padding:1.25rem;width:400px;max-width:94vw;max-height:90vh;overflow-y:auto;font-family:inherit"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div><div style="font-size:15px;font-weight:600;color:#1a1916">${row?.name||typeName} 貸款明細</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${typeName}</div></div><button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1">×</button></div><div style="margin-bottom:9px"><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">貸款名稱</div><input id="lc-name" type="text" value="${row?.name||''}" placeholder="例：禾川琚房貸" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none"></div>${[['lc-p','貸款金額（TWD）','number','例：8,000,000'],['lc-r','年利率（%）','number','例：2.06'],['lc-s','貸款起始日','date',''],['lc-e','貸款截止日','date',''],['lc-f','還款日（第一次）','date','']].map(([id,lb,tp,ph])=>`<div style="margin-bottom:9px"><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">${lb}</div><input id="${id}" type="${tp}" value="${ld[id]||''}" placeholder="${ph}" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:'Courier New',monospace" oninput="cfLoanCalc()"></div>`).join('')}<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px"><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">寬限期（月）</div><input id="lc-grace" type="number" value="${ld['lc-grace']||''}" placeholder="例：24" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:'Courier New',monospace" oninput="cfLoanCalc()"></div><div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">還款方式</div><select id="lc-method" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:5px 7px;border-radius:4px;outline:none;font-family:inherit" onchange="cfLoanCalc()"><option value="ep"${(ld['lc-method']||'ep')==='ep'?' selected':''}>本利均攤</option><option value="pp"${ld['lc-method']==='pp'?' selected':''}>本金均攤</option></select></div></div><div id="lc-result" style="background:#f5f4f0;border-radius:6px;padding:12px;font-size:11px;color:#5a5852;min-height:48px"></div><div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end"><button onclick="this.closest('[style*=fixed]').remove()" style="background:transparent;color:#5a5852;border:1px solid rgba(26,25,22,.18);border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit">關閉</button><button id="lc-apply" onclick="cfApplyLoan('${rowId}')" disabled style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;opacity:.35;font-family:inherit">套用月付金</button></div></div>`;
       document.body.appendChild(wrap);if(row?.loanData)cfLoanCalc();
     };
     window.cfLoanCalc=function(){
@@ -2712,7 +2789,11 @@
     window.cfApplyLoan=function(rowId){
       const btn=document.getElementById('lc-apply'),pay=parseFloat(btn?.dataset.pay)||0;if(!pay)return;
       const row=cfExpense.find(r=>r.id===rowId);
-      if(row){row.amt=String(pay);row.freq='monthly';row.loanData=window._cfPendingLoan;}
+      const nameInput=document.getElementById('lc-name');
+      if(row){
+        row.amt=String(pay);row.freq='monthly';row.loanData=window._cfPendingLoan;
+        if(nameInput&&nameInput.value.trim())row.name=nameInput.value.trim();
+      }
       const inp=document.getElementById('cf-amt-'+rowId);if(inp)inp.value=pay;
       cfRenderExpense();cfCalc();cfSave();document.querySelector('div[style*="position:fixed"]')?.remove();
     };
@@ -2772,21 +2853,25 @@
     })();
     </script>
 
-    <!-- ===== 資產儀表板模組 ===== -->
+    <!-- ===== 資產總覽模組 ===== -->
     <script>
     (function(){
     const DB_STORE='db_v1';
-    const ASSET_TYPES=['不動產','車輛','現金存款','其他'];
+    const ASSET_TYPES=['不動產','車輛','其他'];
+    const CASH_TYPES=['活存','定存','外幣帳戶','其他'];
     const DEBT_TYPES=['房貸','信貸','車貸','其他'];
+    const GOAL=50000000;
     let dbAssets=[
       {id:'a1',name:'禾川琚（自住）',cat:'不動產',owner:'Rebecca',val:''},
       {id:'a2',name:'上城（出租）',cat:'不動產',owner:'Eric',val:''},
     ];
+    let dbCash=[];
     let dbDebts=[
       {id:'d1',name:'禾川琚房貸',cat:'房貸',owner:'Rebecca',val:'',auto:false},
       {id:'d2',name:'上城房貸',cat:'房貸',owner:'Eric',val:'',auto:false},
       {id:'d3',name:'信貸',cat:'信貸',owner:'Rebecca',val:'',auto:false},
     ];
+    let dbReminders=[];
     let dbCtr=50;
     function nid(p){return p+(++dbCtr);}
     function fmt(n){return (n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString();}
@@ -2794,6 +2879,23 @@
     function mOpts(sel){
       const ms=window.cfMembersRef||['Rebecca','Eric','Ian','弟弟'];
       return [...ms,'共同'].map(m=>`<option value="${m}"${m===sel?' selected':''}>${m}</option>`).join('');
+    }
+
+    // --- 現金存款渲染 ---
+    function dbRenderCash(){
+      const el=document.getElementById('db-cash-body');if(!el)return;
+      const tot=dbCash.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
+      el.innerHTML=dbCash.map(r=>`<tr>
+        <td><input class="cf-te" value="${r.name}" placeholder="帳戶名稱" oninput="dbSf('cash','${r.id}','name',this.value)"></td>
+        <td><select class="cf-sel" onchange="dbSf('cash','${r.id}','cat',this.value)">${aOpts(r.cat,CASH_TYPES)}</select></td>
+        <td><select class="cf-sel" onchange="dbSf('cash','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
+        <td><input class="cf-te r" type="number" value="${r.val}" placeholder="0" oninput="dbSa('cash','${r.id}',this.value)"></td>
+        <td></td>
+        <td><button class="cf-del" onclick="dbDel('cash','${r.id}')">×</button></td>
+      </tr>`).join('')+
+      `<tr class="cf-sub"><td colspan="3" class="cf-sub-lbl">現金合計</td><td class="cf-sub-val">${fmt(tot)}</td><td colspan="2"></td></tr>`;
+      const st=document.getElementById('db-st-cash');if(st)st.textContent=fmt(tot);
+      dbCalc();
     }
 
     function dbRenderAssets(){
@@ -2828,35 +2930,159 @@
       dbCalc();
     }
 
+    // --- 提醒系統 ---
+    function getNextThirdWed(from){
+      const d=new Date(from);d.setDate(1);
+      let count=0;
+      for(let i=1;i<=31;i++){d.setDate(i);if(d.getMonth()!==from.getMonth())break;if(d.getDay()===3){count++;if(count===3)return new Date(d);}}
+      // fallback next month
+      const next=new Date(from.getFullYear(),from.getMonth()+1,1);
+      return getNextThirdWed(next);
+    }
+    function getFuturesSettlement(){
+      const now=new Date();
+      let target=getNextThirdWed(now);
+      if(target<now){const next=new Date(now.getFullYear(),now.getMonth()+1,1);target=getNextThirdWed(next);}
+      return target;
+    }
+    function daysUntil(date){return Math.ceil((date-new Date())/(1000*60*60*24));}
+    function formatDate(d){return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;}
+
+    function dbRenderReminders(){
+      const el=document.getElementById('db-reminders-list');if(!el)return;
+      const items=[];
+      const now=new Date();
+
+      // 期貨結算日
+      const fut=getFuturesSettlement();
+      const futDays=daysUntil(fut);
+      items.push({name:'台指期貨結算日',date:fut,days:futDays,type:'futures',repeat:'monthly'});
+
+      // 從收支管理讀取貸款繳款
+      const cfExp=window.cfExpenseRef||[];
+      cfExp.forEach(r=>{
+        const et=r.etype||'general';
+        if(et==='mortgage'||et==='credit_loan'){
+          const ld=r.loanData||{};
+          const payDay=ld['lc-f']?new Date(ld['lc-f']).getDate():null;
+          if(payDay){
+            let next=new Date(now.getFullYear(),now.getMonth(),payDay);
+            if(next<now)next=new Date(now.getFullYear(),now.getMonth()+1,payDay);
+            items.push({name:(r.name||'貸款')+' 繳款',date:next,days:daysUntil(next),type:'loan',amt:r.amt,repeat:'monthly'});
+          }
+        }
+      });
+
+      // 信用卡繳款（假設每月帳單，繳款日為隔月）
+      const cfCards=window.cfCardsRef||[];
+      if(cfCards.length>0){
+        cfCards.forEach(r=>{
+          if(r.name){
+            // 信用卡通常每月繳，提醒本月
+            let next=new Date(now.getFullYear(),now.getMonth()+1,10); // 假設每月10日繳
+            items.push({name:(r.name||'信用卡')+' 繳款',date:next,days:daysUntil(next),type:'card',amt:r.amt,repeat:'monthly'});
+          }
+        });
+      }
+
+      // 自訂提醒
+      dbReminders.forEach(r=>{
+        let d=new Date(r.date);
+        if(r.repeat==='monthly'){
+          d=new Date(now.getFullYear(),now.getMonth(),d.getDate());
+          if(d<now)d=new Date(now.getFullYear(),now.getMonth()+1,d.getDate());
+        }else if(r.repeat==='yearly'){
+          d=new Date(now.getFullYear(),d.getMonth(),d.getDate());
+          if(d<now)d=new Date(now.getFullYear()+1,d.getMonth(),d.getDate());
+        }
+        items.push({name:r.name,date:d,days:daysUntil(d),type:'custom',id:r.id,repeat:r.repeat||'once'});
+      });
+
+      // 排序：按天數
+      items.sort((a,b)=>a.days-b.days);
+
+      if(items.length===0){
+        el.innerHTML='<div style="font-size:12px;color:#9a9890;padding:12px">目前沒有提醒事項</div>';
+        return;
+      }
+
+      el.innerHTML=items.map(it=>{
+        const urgent=it.days<=7;
+        const borderColor=urgent?'rgba(232,103,90,.5)':'rgba(255,255,255,.08)';
+        const bgColor=urgent?'rgba(232,103,90,.06)':'rgba(255,255,255,.02)';
+        const icon=it.type==='futures'?'&#9888;&#65039;':it.type==='loan'?'&#127974;':it.type==='card'?'&#128179;':'&#128276;';
+        const repeatLabel=it.repeat==='monthly'?'每月':it.repeat==='yearly'?'每年':'';
+        const delBtn=it.type==='custom'?`<button onclick="dbDelReminder('${it.id}')" style="background:none;border:none;color:#9a9890;cursor:pointer;font-size:14px;padding:0 4px" title="刪除">×</button>`:'';
+        return `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px">
+          <div style="font-size:20px;flex-shrink:0">${icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;color:#f0ede6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</div>
+            <div style="font-size:11px;color:#9a9890;margin-top:2px">${formatDate(it.date)}${repeatLabel?' · '+repeatLabel:''}${it.amt?' · '+fmt(parseFloat(it.amt)||0):''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:16px;font-weight:600;font-family:var(--mono);color:${urgent?'#e8675a':'#c8b89a'}">${it.days<=0?'今天':it.days+'天'}</div>
+            ${delBtn}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    window.dbAddReminder=function(){
+      const name=document.getElementById('db-rem-name')?.value?.trim();
+      const date=document.getElementById('db-rem-date')?.value;
+      const repeat=document.getElementById('db-rem-repeat')?.value||'once';
+      if(!name||!date){alert('請填入提醒名稱和日期');return;}
+      dbReminders.push({id:nid('r'),name,date,repeat});
+      document.getElementById('db-rem-name').value='';
+      document.getElementById('db-rem-date').value='';
+      dbRenderReminders();dbSave();
+    };
+    window.dbDelReminder=function(id){
+      dbReminders=dbReminders.filter(r=>r.id!==id);
+      dbRenderReminders();dbSave();
+    };
+
     window.dbRender=function(){
       const loadEl=document.getElementById('db-loading');
       if(loadEl)loadEl.style.display='block';
       setTimeout(()=>{
-        dbRenderAssets();dbRenderDebts();dbCalc();
+        dbRenderCash();dbRenderAssets();dbRenderDebts();dbRenderReminders();dbCalc();
         if(loadEl)loadEl.style.display='none';
       },50);
     };
 
     window.dbSf=function(type,id,field,v){
-      const arr=type==='asset'?dbAssets:dbDebts;
+      const arr=type==='asset'?dbAssets:type==='cash'?dbCash:dbDebts;
       const r=arr.find(x=>x.id===id);if(r)r[field]=v;dbSave();
     };
     window.dbSa=function(type,id,v){
-      const arr=type==='asset'?dbAssets:dbDebts;
+      const arr=type==='asset'?dbAssets:type==='cash'?dbCash:dbDebts;
       const r=arr.find(x=>x.id===id);if(r)r.val=v;
-      if(type==='asset')dbRenderAssets();else dbRenderDebts();
-      dbSave();
+      // 不重建 DOM，只更新小計
+      const tot=arr.reduce((s,x)=>s+(parseFloat(x.val)||0),0);
+      const stId=type==='asset'?'db-st-asset':type==='cash'?'db-st-cash':'db-st-debt';
+      const st=document.getElementById(stId);if(st)st.textContent=fmt(tot);
+      // 更新小計行
+      const tbody=document.getElementById(type==='asset'?'db-asset-body':type==='cash'?'db-cash-body':'db-debt-body');
+      if(tbody){const sub=tbody.querySelector('.cf-sub-val');if(sub)sub.textContent=fmt(tot);}
+      dbCalc();dbSave();
     };
     window.dbDel=function(type,id){
-      if(!confirm('確定要刪除這筆'+(type==='asset'?'資產':'負債')+'嗎？'))return;
+      const label=type==='asset'?'資產':type==='cash'?'帳戶':'負債';
+      if(!confirm('確定要刪除這筆'+label+'嗎？'))return;
       if(type==='asset')dbAssets=dbAssets.filter(x=>x.id!==id);
+      else if(type==='cash')dbCash=dbCash.filter(x=>x.id!==id);
       else dbDebts=dbDebts.filter(x=>x.id!==id);
-      if(type==='asset')dbRenderAssets();else dbRenderDebts();
+      if(type==='asset')dbRenderAssets();else if(type==='cash')dbRenderCash();else dbRenderDebts();
       dbSave();
     };
     window.dbAddAsset=function(){
       dbAssets.push({id:nid('a'),name:'',cat:'不動產',owner:'Rebecca',val:''});
       dbRenderAssets();dbSave();
+    };
+    window.dbAddCash=function(){
+      dbCash.push({id:nid('c'),name:'',cat:'活存',owner:'Rebecca',val:''});
+      dbRenderCash();dbSave();
     };
     window.dbAddDebt=function(){
       dbDebts.push({id:nid('d'),name:'',cat:'房貸',owner:'Rebecca',val:'',auto:false});
@@ -2865,19 +3091,31 @@
 
     let dbDonutChart=null;
     function dbCalc(){
-      const assetTot=dbAssets.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
+      const fixedTot=dbAssets.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
+      const cashTot=dbCash.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
       const debtTot=dbDebts.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
       const stockVal=parseFloat(document.getElementById('totalValue')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
-      const fixedTot=assetTot;
-      const totalAsset=stockVal+fixedTot;
+      const totalAsset=stockVal+fixedTot+cashTot;
       const netAsset=totalAsset-debtTot;
       const set=(id,v,color)=>{const el=document.getElementById(id);if(el){el.textContent=v;if(color)el.style.color=color;}};
       set('db-net',fmt(netAsset),netAsset>=0?'#4aad6e':'#e8675a');
       set('db-stock',fmt(stockVal));
       set('db-fixed',fmt(fixedTot));
+      set('db-cash',fmt(cashTot));
       set('db-debt',fmt(debtTot),'#e8675a');
       set('db-hero-total-asset',fmt(totalAsset));
       set('db-hero-total-debt',fmt(debtTot));
+
+      // 5000萬目標
+      const goalPct=Math.min(100,Math.max(0,(netAsset/GOAL)*100));
+      const goalRemain=Math.max(0,GOAL-netAsset);
+      set('db-goal-pct',goalPct.toFixed(1)+'%');
+      set('db-goal-current',fmt(netAsset));
+      set('db-goal-remain',fmt(goalRemain));
+      const goalBar=document.getElementById('db-goal-bar');
+      if(goalBar)goalBar.style.width=goalPct+'%';
+
+      // 現金流
       const cfIn=parseFloat(document.getElementById('cf-s-in')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
       const cfOut=parseFloat(document.getElementById('cf-s-out')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
       const cfFcf=cfIn-cfOut;
@@ -2899,39 +3137,42 @@
         savingEl.style.color=saving<10?'#e8675a':saving<30?'#f5a623':'#4aad6e';
       }
 
-      // bar chart
-      const maxBar=Math.max(stockVal,fixedTot,debtTot,1);
+      // bar chart (4 bars now)
+      const maxBar=Math.max(stockVal,fixedTot,cashTot,debtTot,1);
       const sw=(id,p)=>{const el=document.getElementById(id);if(el)el.style.width=Math.max(0,Math.round(p))+'%';};
       sw('db-bar-stock',Math.round((stockVal/maxBar)*100));
       sw('db-bar-fixed',Math.round((fixedTot/maxBar)*100));
+      sw('db-bar-cash',Math.round((cashTot/maxBar)*100));
       sw('db-bar-debt',Math.round((debtTot/maxBar)*100));
       const setV=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
       setV('db-bar-stock-v',fmt(stockVal));
       setV('db-bar-fixed-v',fmt(fixedTot));
+      setV('db-bar-cash-v',fmt(cashTot));
       setV('db-bar-debt-v',fmt(debtTot));
 
       // percentages
-      const totalAll=stockVal+fixedTot+debtTot||1;
+      const totalAll=stockVal+fixedTot+cashTot+debtTot||1;
       setV('db-pct-stock',Math.round((stockVal/totalAll)*100)+'%');
       setV('db-pct-fixed',Math.round((fixedTot/totalAll)*100)+'%');
+      setV('db-pct-cash',Math.round((cashTot/totalAll)*100)+'%');
       setV('db-pct-debt',Math.round((debtTot/totalAll)*100)+'%');
 
       // donut chart
-      dbRenderDonut(stockVal,fixedTot,debtTot);
+      dbRenderDonut(stockVal,fixedTot,cashTot,debtTot);
     }
 
-    function dbRenderDonut(stock,fixed,debt){
+    function dbRenderDonut(stock,fixed,cash,debt){
       const canvas=document.getElementById('db-donut-chart');
       if(!canvas||typeof Chart==='undefined')return;
       if(dbDonutChart){dbDonutChart.destroy();dbDonutChart=null;}
-      const hasData=stock>0||fixed>0||debt>0;
+      const hasData=stock>0||fixed>0||cash>0||debt>0;
       dbDonutChart=new Chart(canvas,{
         type:'doughnut',
         data:{
-          labels:['股票','固定資產','負債'],
+          labels:['股票','固定資產','現金','負債'],
           datasets:[{
-            data:hasData?[stock,fixed,debt]:[1],
-            backgroundColor:hasData?['#c8b89a','#7a7872','#e8675a']:['rgba(255,255,255,.06)'],
+            data:hasData?[stock,fixed,cash,debt]:[1],
+            backgroundColor:hasData?['#c8b89a','#7a7872','#6bbf8a','#e8675a']:['rgba(255,255,255,.06)'],
             borderWidth:0,
             hoverOffset:6
           }]
@@ -2961,13 +3202,13 @@
 
     let dbSaveTimer=null;
     function dbSave(){
-      try{localStorage.setItem(DB_STORE,JSON.stringify({assets:dbAssets,debts:dbDebts}));}catch(e){}
+      try{localStorage.setItem(DB_STORE,JSON.stringify({assets:dbAssets,cash:dbCash,debts:dbDebts,reminders:dbReminders}));}catch(e){}
       clearTimeout(dbSaveTimer);
       dbSaveTimer=setTimeout(()=>{
         try{
           const {db}=window.firebaseApp||{};
           if(!db||!window._fbSetDoc||!window._fbDoc)return;
-          window._fbSetDoc(window._fbDoc(db,'dashboard','data'),{assets:dbAssets,debts:dbDebts,updatedAt:new Date().toISOString()},{merge:true});
+          window._fbSetDoc(window._fbDoc(db,'dashboard','data'),{assets:dbAssets,cash:dbCash,debts:dbDebts,reminders:dbReminders,updatedAt:new Date().toISOString()},{merge:true});
         }catch(e){console.warn('dbSave to Firebase failed',e);}
       },500);
     }
@@ -2979,8 +3220,10 @@
           if(snap.exists()){
             const d=snap.data();
             if(d.assets?.length)dbAssets=d.assets;
+            if(d.cash?.length)dbCash=d.cash;
             if(d.debts?.length)dbDebts=d.debts;
-            dbCtr=Math.max(dbCtr,...[...dbAssets,...dbDebts].map(r=>parseInt(r.id.replace(/\D/g,''))||0));
+            if(d.reminders?.length)dbReminders=d.reminders;
+            dbCtr=Math.max(dbCtr,...[...dbAssets,...dbCash,...dbDebts,...dbReminders].map(r=>parseInt(r.id?.replace(/\D/g,'')||'0')||0));
             return;
           }
         }
@@ -2989,8 +3232,10 @@
         const raw=localStorage.getItem(DB_STORE);if(!raw)return;
         const d=JSON.parse(raw);
         if(d.assets?.length)dbAssets=d.assets;
+        if(d.cash?.length)dbCash=d.cash;
         if(d.debts?.length)dbDebts=d.debts;
-        dbCtr=Math.max(dbCtr,...[...dbAssets,...dbDebts].map(r=>parseInt(r.id.replace(/\D/g,''))||0));
+        if(d.reminders?.length)dbReminders=d.reminders;
+        dbCtr=Math.max(dbCtr,...[...dbAssets,...dbCash,...dbDebts,...dbReminders].map(r=>parseInt(r.id?.replace(/\D/g,'')||'0')||0));
       }catch(e){}
     }
     dbLoad();
