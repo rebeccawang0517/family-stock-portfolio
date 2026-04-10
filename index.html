@@ -40,10 +40,10 @@
                         <p class="text-slate-400">已登入：<span id="userEmail" class="text-blue-400"></span></p>
                     </div>
                     <div class="flex items-center gap-3 flex-wrap no-print">
-                        <button onclick="updateAllPricesAndRate()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">🔄 更新</button>
-                        <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">📥 匯出 Excel</button>
-                        <button onclick="window.print()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">🖨️ 列印</button>
-                        <button onclick="logout()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors">登出</button>
+                        <button onclick="updateAllPricesAndRate()" style="background:#2c2b27;border:1px solid rgba(255,255,255,.12);color:#ccc9bf;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit" onmouseover="this.style.background='#3d3c38'" onmouseout="this.style.background='#2c2b27'">更新</button>
+                        <button onclick="exportToExcel()" style="background:#2c2b27;border:1px solid rgba(255,255,255,.12);color:#ccc9bf;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit" onmouseover="this.style.background='#3d3c38'" onmouseout="this.style.background='#2c2b27'">匯出 Excel</button>
+                        <button onclick="window.print()" style="background:#2c2b27;border:1px solid rgba(255,255,255,.12);color:#ccc9bf;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit" onmouseover="this.style.background='#3d3c38'" onmouseout="this.style.background='#2c2b27'">列印</button>
+                        <button onclick="logout()" style="background:#2c2b27;border:1px solid rgba(255,255,255,.12);color:#9a9890;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit" onmouseover="this.style.background='#3d3c38'" onmouseout="this.style.background='#2c2b27'">登出</button>
                     </div>
                 </div>
             </div>
@@ -186,15 +186,23 @@
                   </div>
                 </div>
 
-                <!-- 繳款 & 提醒區塊 -->
+                <!-- 繳款提醒 -->
                 <div class="db-section-card" style="margin-top:.5rem">
                   <div class="db-section-header">
-                    <h3 class="db-section-title">繳款與重要日期提醒</h3>
+                    <h3 class="db-section-title">繳款提醒 PAYMENTS</h3>
                   </div>
-                  <div id="db-reminders-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:10px">
+                  <div id="db-payments-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
                     <div style="font-size:12px;color:#9a9890;padding:12px">載入中...</div>
                   </div>
-                  <!-- 自訂提醒新增 -->
+                </div>
+
+                <!-- 重要日期 -->
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">重要日期 DATES</h3>
+                  </div>
+                  <div id="db-dates-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:10px">
+                  </div>
                   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
                     <input id="db-rem-name" placeholder="提醒名稱" style="flex:1;min-width:120px;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
                     <input id="db-rem-date" type="date" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
@@ -297,16 +305,12 @@
                     <h3 class="db-section-title">負債明細 LIABILITIES</h3>
                     <span class="db-section-total" id="db-st-debt" style="color:#e8675a">—</span>
                   </div>
-                  <p class="db-hint">從固定支出貸款類自動讀入，可手動補充</p>
+                  <p class="db-hint">自動讀取收支管理 → 固定支出中的貸款項目</p>
                   <table class="cf-tbl db-tbl">
-                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
-                    <thead><tr><th>負債名稱</th><th>類別</th><th>負責人</th><th class="r">剩餘金額（TWD）</th><th></th><th></th></tr></thead>
+                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:30%"></colgroup>
+                    <thead><tr><th>負債名稱</th><th>類別</th><th>負責人</th><th class="r">剩餘金額（TWD）</th></tr></thead>
                     <tbody id="db-debt-body"></tbody>
                   </table>
-                  <button class="db-add-btn" onclick="dbAddDebt()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    新增負債
-                  </button>
                 </div>
 
                 <p class="db-footer">資料同步至 Firebase 雲端 · 股票市值從持股總覽即時讀取</p>

@@ -113,7 +113,10 @@
     function cfRenderExpense(){
       const el=document.getElementById('cf-expense-body');if(!el)return;
       const tot=cfExpense.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      el.innerHTML=cfExpense.map(r=>expenseRow(r)).join('')+subRow(tot,'月支出小計',5,'<td colspan="2"></td>');
+      // 按類型排序：房貸→信貸→其他貸款→一般
+      const order={loan_mortgage:0,loan_credit:1,loan_other:2,general:3};
+      const sorted=[...cfExpense].sort((a,b)=>(order[a.etype||'general']??3)-(order[b.etype||'general']??3));
+      el.innerHTML=sorted.map(r=>expenseRow(r)).join('')+subRow(tot,'月支出小計',5,'<td colspan="2"></td>');
       const st=document.getElementById('cf-st-expense');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderCards(){
