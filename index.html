@@ -1330,12 +1330,10 @@
                     document.getElementById('loginScreen').classList.add('hidden');
                     document.getElementById('mainApp').classList.remove('hidden');
                     document.getElementById('userEmail').textContent = user.email;
-                    await loadStocks();
-                    await loadTransactions();
-                    await fetchExchangeRate();
-                    // 先載入收支管理資料，再渲染資產總覽（負債連動需要）
-                    if(typeof cfLoad==='function') await cfLoad();
-                    setTimeout(()=>{ if(typeof dbRender==='function') dbRender(); }, 100);
+                    // 並行載入所有資料
+                    await Promise.all([loadStocks(), loadTransactions(), fetchExchangeRate(), typeof cfLoad==='function'?cfLoad():Promise.resolve()]);
+                    // 資料就緒，渲染資產總覽
+                    if(typeof dbRender==='function') dbRender();
                     if (document.getElementById('autoRefresh').checked) {
                         toggleAutoRefresh(true);
                     }
@@ -3108,17 +3106,22 @@
     }
 
     function dbRenderDebts(){
+      dbSyncDebtsFromLoans();
       const el=document.getElementById('db-debt-body');if(!el)return;
       const tot=dbDebts.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
-      el.innerHTML=dbDebts.map(r=>`<tr>
-        <td><input class="cf-te" value="${r.name}" placeholder="負債名稱" oninput="dbSf('debt','${r.id}','name',this.value)"></td>
+      el.innerHTML=dbDebts.map(r=>{
+        const nameCell=r.loanExpId
+          ?`<span onclick="cfOpenLoan('${r.loanExpId}')" style="cursor:pointer;color:#c8b89a;text-decoration:underline;font-size:13px;display:inline-block;padding:6px 0" title="點擊查看貸款明細">${r.name||'（點擊查看）'}</span>`
+          :`<input class="cf-te" value="${r.name}" placeholder="負債名稱" oninput="dbSf('debt','${r.id}','name',this.value)">`;
+        return `<tr>
+        <td>${nameCell}</td>
         <td><select class="cf-sel" onchange="dbSf('debt','${r.id}','cat',this.value)">${aOpts(r.cat,DEBT_TYPES)}</select></td>
         <td><select class="cf-sel" onchange="dbSf('debt','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
-        <td><input class="cf-te r" type="number" value="${r.val}" placeholder="0" oninput="dbSa('debt','${r.id}',this.value)"></td>
-        <td></td>
+        <td style="text-align:right;font-size:13px;font-family:var(--mono);color:${r.auto?'#c8b89a':'#f0ede6'};padding:7px 4px">${r.val?fmt(parseFloat(r.val)):''}</td>
+        <td>${r.auto?'<span style="font-size:10px;color:#9a9890">自動</span>':''}</td>
         <td><button class="cf-del" onclick="dbDel('debt','${r.id}')">×</button></td>
-      </tr>`).join('')+
-      `<tr class="cf-sub"><td colspan="3" class="cf-sub-lbl">負債合計</td><td class="cf-sub-val" style="color:#d9534f">${fmt(tot)}</td><td colspan="2"></td></tr>`;
+      </tr>`;}).join('')+
+      `<tr class="cf-sub"><td colspan="3" class="cf-sub-lbl">負債合計</td><td class="cf-sub-val" style="color:#e8675a">${fmt(tot)}</td><td colspan="2"></td></tr>`;
       const st=document.getElementById('db-st-debt');if(st)st.textContent=fmt(tot);
       dbCalc();
     }
@@ -3235,13 +3238,12 @@
       dbRenderReminders();dbSave();
     };
 
-    window.dbRender=function(){
+    window.dbRender=async function(){
       const loadEl=document.getElementById('db-loading');
       if(loadEl)loadEl.style.display='block';
-      setTimeout(()=>{
-        dbRenderCash();dbRenderAssets();dbRenderDebts();dbRenderReminders();dbCalc();
-        if(loadEl)loadEl.style.display='none';
-      },50);
+      await dbLoad();
+      dbRenderCash();dbRenderAssets();dbRenderDebts();dbRenderReminders();dbCalc();
+      if(loadEl)loadEl.style.display='none';
     };
 
     window.dbSf=function(type,id,field,v){
@@ -3284,7 +3286,7 @@
 
     let dbDonutChart=null;
     function dbSyncDebtsFromLoans(){
-      // 從收支管理的貸款項目自動同步負債金額
+      // 從收支管理的貸款項目自動同步負債金額（只更新資料，不重建 DOM）
       const loans=(window.cfExpenseRef||[]).filter(r=>r.etype&&r.etype.startsWith('loan_'));
       loans.forEach(loan=>{
         const ld=loan.loanData||{};
@@ -3298,7 +3300,6 @@
           const lc=loanCalcBalance(principal,r,ss,es,fs,gm);
           bal=lc.bal;
         }
-        // 找到對應的 dbDebts 項目並更新金額
         const match=dbDebts.find(d=>d.name===loan.name&&d.auto!==false);
         if(match){match.val=String(Math.round(bal));match.auto=true;match.loanExpId=loan.id;}
         else{
@@ -3307,28 +3308,8 @@
           if(empty){empty.val=String(Math.round(bal));empty.name=loan.name;empty.auto=true;empty.loanExpId=loan.id;}
         }
       });
-      // 重新渲染負債表格（名稱可點擊開啟貸款明細）
-      const el=document.getElementById('db-debt-body');
-      if(el){
-        const tot=dbDebts.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
-        el.innerHTML=dbDebts.map(r=>{
-          const nameCell=r.loanExpId
-            ?`<span onclick="cfOpenLoan('${r.loanExpId}')" style="cursor:pointer;color:#c8b89a;text-decoration:underline;font-size:13px;display:inline-block;padding:6px 0" title="點擊查看貸款明細">${r.name||'（點擊查看）'}</span>`
-            :`<input class="cf-te" value="${r.name}" placeholder="負債名稱" oninput="dbSf('debt','${r.id}','name',this.value)">`;
-          return `<tr>
-          <td>${nameCell}</td>
-          <td><select class="cf-sel" onchange="dbSf('debt','${r.id}','cat',this.value)">${aOpts(r.cat,DEBT_TYPES)}</select></td>
-          <td><select class="cf-sel" onchange="dbSf('debt','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
-          <td style="text-align:right;font-size:13px;font-family:var(--mono);color:${r.auto?'#c8b89a':'#f0ede6'};padding:7px 4px">${r.val?fmt(parseFloat(r.val)):''}</td>
-          <td>${r.auto?'<span style="font-size:10px;color:#9a9890">自動</span>':''}</td>
-          <td><button class="cf-del" onclick="dbDel('debt','${r.id}')">×</button></td>
-        </tr>`;}).join('')+
-        `<tr class="cf-sub"><td colspan="3" class="cf-sub-lbl">負債合計</td><td class="cf-sub-val" style="color:#e8675a">${fmt(tot)}</td><td colspan="2"></td></tr>`;
-        const st=document.getElementById('db-st-debt');if(st)st.textContent=fmt(tot);
-      }
     }
     function dbCalc(){
-      dbSyncDebtsFromLoans();
       const fixedTot=dbAssets.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
       const cashTot=dbCash.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
       const debtTot=dbDebts.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
