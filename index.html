@@ -2998,6 +2998,14 @@
       cfRenderExpense();cfCalc();cfSave();cfCloseLoanModal();
     };
 
+    function cfGuessEtype(r){
+      if(r.isLoan)return 'loan_mortgage';
+      const n=(r.name||'').toLowerCase();
+      if(n.includes('房貸')||n.includes('mortgage'))return 'loan_mortgage';
+      if(n.includes('信貸')||n.includes('credit'))return 'loan_credit';
+      if(n.includes('車貸')||n.includes('貸款'))return 'loan_other';
+      return 'general';
+    }
     let cfSaveTimer=null;
     function cfSave(){
       // 同時存 localStorage（備份）和 Firebase
@@ -3024,7 +3032,7 @@
             const d=snap.data();
             if(d.members?.length)cfMembers=d.members;
             if(d.income?.length)cfIncome=d.income;
-            if(d.expense?.length)cfExpense=d.expense.map(r=>({...r,etype:r.etype||(r.isLoan?'loan_mortgage':'general')}));
+            if(d.expense?.length)cfExpense=d.expense.map(r=>({...r,etype:r.etype||cfGuessEtype(r)}));
             if(d.cards?.length)cfCards=d.cards;
             if(d.banks?.length)cfBanks=d.banks;
             const all=[...cfIncome,...cfExpense,...cfCards];
@@ -3040,7 +3048,7 @@
         const d=JSON.parse(raw);
         if(d.members?.length)cfMembers=d.members;
         if(d.income?.length)cfIncome=d.income;
-        if(d.expense?.length)cfExpense=d.expense.map(r=>({...r,etype:r.etype||(r.isLoan?'loan_mortgage':'general')}));
+        if(d.expense?.length)cfExpense=d.expense.map(r=>({...r,etype:r.etype||cfGuessEtype(r)}));
         if(d.cards?.length)cfCards=d.cards;
         const all=[...cfIncome,...cfExpense,...cfCards];
         cfCtr=Math.max(cfCtr,...all.map(r=>parseInt(r.id.replace(/\D/g,''))||0));
