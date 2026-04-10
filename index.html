@@ -2939,6 +2939,8 @@
       document.body.appendChild(wrap);if(row?.loanData)cfLoanCalc();
     };
     // 用日曆月計算兩個日期之間經過的月數（以還款日為基準）
+    window.loanMonthDiff=loanMonthDiff;
+    window.loanCalcBalance=loanCalcBalance;
     function loanMonthDiff(fromDate,toDate){
       const f=new Date(fromDate),t=new Date(toDate);
       let months=(t.getFullYear()-f.getFullYear())*12+(t.getMonth()-f.getMonth());
@@ -3317,7 +3319,7 @@
           const ss=ld['lc-s'],es=ld['lc-e'],fs=ld['lc-f'];
           const gm=parseFloat(ld['lc-grace'])||0;
           bal=principal;
-          if(ss&&es){const lc=loanCalcBalance(principal,r,ss,es,fs,gm);bal=lc.bal;}
+          if(ss&&es&&window.loanCalcBalance){const lc=window.loanCalcBalance(principal,r,ss,es,fs,gm);bal=lc.bal;}
         }else{
           bal=parseFloat(loan.amt)||0;
         }
