@@ -3303,8 +3303,10 @@
 
     let dbDonutChart=null;
     function dbSyncDebtsFromLoans(){
-      // 從收支管理的貸款項目自動同步負債金額（只更新資料，不重建 DOM）
+      // 從收支管理的貸款項目自動同步負債金額
       const loans=(window.cfExpenseRef||[]).filter(r=>r.etype&&r.etype.startsWith('loan_'));
+      console.log('[dbSync] cfExpenseRef length:',(window.cfExpenseRef||[]).length,'loans found:',loans.length,loans.map(l=>l.name+'/'+l.etype+'/'+l.amt));
+      let changed=false;
       loans.forEach(loan=>{
         const ld=loan.loanData||{};
         const principal=parseFloat(ld['lc-p'])||0;
@@ -3317,16 +3319,18 @@
           bal=principal;
           if(ss&&es){const lc=loanCalcBalance(principal,r,ss,es,fs,gm);bal=lc.bal;}
         }else{
-          // 沒填貸款明細時，用月付金額作為顯示值
           bal=parseFloat(loan.amt)||0;
         }
-        // 不論金額是否為 0，只要收支管理有貸款項目就顯示在負債列表
         const match=dbDebts.find(d=>d.loanExpId===loan.id||(d.name===loan.name&&d.auto===true));
-        if(match){match.val=String(Math.round(bal));match.auto=true;match.loanExpId=loan.id;match.cat=catMap[loan.etype]||'其他';}
-        else{
+        if(match){
+          if(match.val!==String(Math.round(bal))){match.val=String(Math.round(bal));changed=true;}
+          match.auto=true;match.loanExpId=loan.id;match.cat=catMap[loan.etype]||'其他';
+        }else{
           dbDebts.push({id:nid('d'),name:loan.name||catMap[loan.etype]||'貸款',cat:catMap[loan.etype]||'其他',owner:loan.owner||'Rebecca',val:String(Math.round(bal)),auto:true,loanExpId:loan.id});
+          changed=true;
         }
       });
+      if(changed)dbSave();
     }
     function dbCalc(){
       const fixedTot=dbAssets.reduce((s,r)=>s+(parseFloat(r.val)||0),0);
@@ -3476,7 +3480,7 @@
         dbCtr=Math.max(dbCtr,...[...dbAssets,...dbCash,...dbDebts,...dbReminders].map(r=>parseInt(r.id?.replace(/\D/g,'')||'0')||0));
       }catch(e){}
     }
-    dbLoad();
+    // dbLoad 由 dbRender 呼叫，不需在此獨立呼叫
     })();
     </script>
     <div id="analysisModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='analysisModal') closeAnalysisModal()">
