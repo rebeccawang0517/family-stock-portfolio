@@ -3027,14 +3027,14 @@
             if(d.banks?.length)cfBanks=d.banks;
             const all=[...cfIncome,...cfExpense,...cfCards];
             cfCtr=Math.max(cfCtr,...all.map(r=>parseInt(r.id.replace(/\D/g,''))||0));
-            cfRenderMembers();
+            cfRenderAll();
             return;
           }
         }
       }catch(e){console.warn('cfLoad from Firebase failed, fallback to localStorage',e);}
       // fallback: localStorage
       try{
-        const raw=localStorage.getItem(CF_STORE);if(!raw){cfRenderMembers();return;}
+        const raw=localStorage.getItem(CF_STORE);if(!raw){cfRenderAll();return;}
         const d=JSON.parse(raw);
         if(d.members?.length)cfMembers=d.members;
         if(d.income?.length)cfIncome=d.income;
@@ -3043,7 +3043,7 @@
         const all=[...cfIncome,...cfExpense,...cfCards];
         cfCtr=Math.max(cfCtr,...all.map(r=>parseInt(r.id.replace(/\D/g,''))||0));
       }catch(e){}
-      cfRenderMembers();
+      cfRenderAll();
     };
     })();
     </script>
