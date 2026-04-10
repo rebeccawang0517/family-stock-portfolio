@@ -374,7 +374,13 @@
           if(t.type==='買入')yrBuy+=twd;else if(t.type==='賣出')yrSell+=twd;
         });
         const yrInvestNet=yrBuy-yrSell;
-        const yrIncome=moIn*12, yrExpense=moExp*12, yrCard=moCard*12;
+        const yrIncome=moIn*12, yrExpense=moExp*12;
+        // 信用卡：加總當年月份的實際帳單
+        const yrStr=String(yr);
+        const yrCard=cfCards.reduce((s,r)=>{
+          const m=r.month||'';
+          return s+(m.startsWith(yrStr)?(parseFloat(r.amt)||0):0);
+        },0);
         const yrBalance=yrIncome-yrExpense-yrCard-yrInvestNet;
         const row=(label,val,color)=>`<tr style="border-bottom:1px solid rgba(255,255,255,.06)"><td style="padding:7px 5px;font-size:13px;color:#ccc9bf">${label}</td><td style="text-align:right;padding:7px 5px;font-size:13px;font-family:var(--mono);color:${color||'#f0ede6'}">${cfFmt(val)}</td></tr>`;
         annEl.innerHTML=
