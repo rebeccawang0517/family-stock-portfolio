@@ -156,7 +156,9 @@
       const cfCards=window.cfCardsRef||[];
       cfCards.forEach(r=>{
         if(r.bank||r.name){
-          let next=new Date(now.getFullYear(),now.getMonth()+1,10);
+          const dd=parseInt(r.dueDay)||10;
+          let next=new Date(now.getFullYear(),now.getMonth(),dd);
+          if(next<=now)next=new Date(now.getFullYear(),now.getMonth()+1,dd);
           payments.push({name:(r.bank||r.name||'信用卡'),date:next,days:daysUntil(next),type:'card',amt:r.amt,owner:r.owner||'',repeat:'monthly'});
         }
       });

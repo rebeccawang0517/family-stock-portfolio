@@ -276,6 +276,7 @@
             <thead><tr style="border-bottom:1px solid rgba(26,25,22,.12)">
               <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em">銀行／卡名</th>
               <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em;width:90px">負責人</th>
+              <th style="text-align:center;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em;width:70px">繳費日</th>
               <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em;width:110px">月份</th>
               <th style="text-align:right;font-size:11px;color:#9a9890;padding:4px 5px;font-weight:600;letter-spacing:.04em;width:120px">金額（TWD）</th>
               <th style="width:32px"></th>
@@ -283,6 +284,7 @@
             <tbody>${items.map(r=>`<tr style="border-bottom:1px solid rgba(26,25,22,.06)">
               <td style="padding:4px 5px"><select onchange="cfCardBankChange('${r.id}',this)" style="${inputStyle}font-size:13px">${bankOpts(r.bank)}</select></td>
               <td style="padding:4px 5px"><select onchange="cfCardEdit('${r.id}','owner',this.value)" style="${inputStyle}font-size:12px">${mOpts(r.owner)}</select></td>
+              <td style="padding:4px 5px"><input type="number" min="1" max="28" value="${r.dueDay||''}" placeholder="日" oninput="cfCardEdit('${r.id}','dueDay',this.value)" style="${inputStyle}font-size:12px;text-align:center;width:60px"></td>
               <td style="padding:4px 5px"><input type="month" value="${r.month||''}" oninput="cfCardEdit('${r.id}','month',this.value)" style="${inputStyle}font-size:12px"></td>
               <td style="padding:4px 5px"><input type="number" value="${r.amt}" placeholder="0" oninput="cfCardEdit('${r.id}','amt',this.value)" style="${inputStyle}font-size:13px;text-align:right;font-family:var(--mono)"></td>
               <td style="padding:4px 2px;text-align:center"><button onclick="cfCardDel('${r.id}')" style="background:none;border:none;color:#c0392b;font-size:15px;cursor:pointer;padding:2px 6px">×</button></td>
