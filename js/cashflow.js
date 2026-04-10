@@ -406,12 +406,25 @@
           <div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">還款方式</div><select id="lc-method" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:13px;padding:8px;border-radius:4px;outline:none;font-family:inherit;box-sizing:border-box" onchange="cfLoanCalc()"><option value="ep"${(ld['lc-method']||'ep')==='ep'?' selected':''}>本利均攤</option><option value="pp"${ld['lc-method']==='pp'?' selected':''}>本金均攤</option></select></div>
         </div>
         <div id="lc-result" style="background:#f5f4f0;border-radius:6px;padding:12px;font-size:11px;color:#5a5852;min-height:48px"></div>
+        <div style="margin-top:12px;border-top:1px solid rgba(26,25,22,.12);padding-top:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-size:11px;font-weight:600;color:#5a5852;letter-spacing:.04em">利率調整 / 額外還款紀錄</div>
+            <div style="display:flex;gap:4px">
+              <button onclick="cfAddLoanEvent('rate_change')" style="background:#f5f4f0;border:1px solid rgba(26,25,22,.18);border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;color:#5a5852;font-family:inherit">+ 利率調整</button>
+              <button onclick="cfAddLoanEvent('prepay')" style="background:#f5f4f0;border:1px solid rgba(26,25,22,.18);border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;color:#5a5852;font-family:inherit">+ 額外還款</button>
+            </div>
+          </div>
+          <div id="lc-events"></div>
+        </div>
         <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
           <button onclick="cfCloseLoanModal()" style="background:transparent;color:#5a5852;border:1px solid rgba(26,25,22,.18);border-radius:4px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit">關閉</button>
           <button id="lc-apply" onclick="cfApplyLoan('${rowId}')" disabled style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:8px 16px;font-size:13px;cursor:pointer;opacity:.35;font-family:inherit">套用月付金</button>
         </div>
       </div>`;
-      document.body.appendChild(wrap);if(row?.loanData)cfLoanCalc();
+      document.body.appendChild(wrap);
+      window._cfLoanEvents=(ld.events||[]).map(e=>({...e}));
+      cfRenderLoanEvents();
+      if(row?.loanData)cfLoanCalc();
     };
     // 用日曆月計算兩個日期之間經過的月數（以還款日為基準）
     window.loanMonthDiff=loanMonthDiff;
@@ -422,24 +435,85 @@
       if(t.getDate()<f.getDate())months--; // 還沒到當月還款日，不算這期
       return Math.max(0,months);
     }
-    // 計算貸款剩餘本金（共用邏輯，彈窗和同步都用）
-    function loanCalcBalance(principal,rate,startDate,endDate,firstPayDate,graceMo){
-      const mr=rate/100/12;
+    // 計算貸款剩餘本金（支援利率調整和額外還款事件）
+    // events: [{date,type:'rate_change',value:newRate},{date,type:'prepay',value:amount}]
+    function loanCalcBalance(principal,rate,startDate,endDate,firstPayDate,graceMo,events){
       const tm=loanMonthDiff(startDate,endDate);
-      const rm=Math.max(0,tm-graceMo);
-      const gPay=principal*mr;
-      let mPay=0;
-      if(rm>0&&mr>0)mPay=principal*mr*Math.pow(1+mr,rm)/(Math.pow(1+mr,rm)-1);
-      else if(rm>0)mPay=principal/rm;
       const elapsed=firstPayDate?loanMonthDiff(firstPayDate,new Date()):0;
-      const inGrace=elapsed<graceMo;
-      const curPay=inGrace?gPay:mPay;
-      let bal=principal;
-      for(let i=0;i<Math.min(elapsed,graceMo);i++)bal*=(1+mr);
-      for(let i=0;i<Math.max(0,elapsed-graceMo);i++)bal=bal*(1+mr)-mPay;
+      // 建立每期事件 map（key=第幾期）
+      const evMap={};
+      if(events&&events.length&&firstPayDate){
+        events.forEach(ev=>{
+          if(!ev.date)return;
+          const mo=loanMonthDiff(firstPayDate,ev.date);
+          if(!evMap[mo])evMap[mo]=[];
+          evMap[mo].push(ev);
+        });
+      }
+      let bal=principal,curRate=rate;
+      let mr=curRate/100/12;
+      // 計算初始月付金
+      const rm0=Math.max(0,tm-graceMo);
+      let mPay=0;
+      if(rm0>0&&mr>0)mPay=principal*mr*Math.pow(1+mr,rm0)/(Math.pow(1+mr,rm0)-1);
+      else if(rm0>0)mPay=principal/rm0;
+      const gPay=principal*mr;
+      // 逐期模擬
+      for(let i=0;i<elapsed;i++){
+        // 套用本期事件
+        if(evMap[i]){
+          evMap[i].forEach(ev=>{
+            if(ev.type==='rate_change'){
+              curRate=parseFloat(ev.value)||curRate;
+              mr=curRate/100/12;
+              // 重算月付金（以當前餘額和剩餘期數）
+              const remPeriods=Math.max(1,Math.max(0,tm-graceMo)-(i<graceMo?0:i-graceMo));
+              if(mr>0)mPay=bal*mr*Math.pow(1+mr,remPeriods)/(Math.pow(1+mr,remPeriods)-1);
+              else mPay=bal/remPeriods;
+            }else if(ev.type==='prepay'){
+              bal=Math.max(0,bal-(parseFloat(ev.value)||0));
+              // 額外還款後重算月付金
+              const remPeriods=Math.max(1,Math.max(0,tm-graceMo)-(i<graceMo?0:i-graceMo));
+              if(mr>0)mPay=bal*mr*Math.pow(1+mr,remPeriods)/(Math.pow(1+mr,remPeriods)-1);
+              else mPay=bal/remPeriods;
+            }
+          });
+        }
+        if(i<graceMo){bal*=(1+mr);}
+        else{bal=bal*(1+mr)-mPay;}
+      }
       bal=Math.max(0,bal);
+      const inGrace=elapsed<graceMo;
+      const curPay=inGrace?(bal*mr):mPay;
       const remaining=Math.max(0,tm-elapsed);
-      return {bal,mPay,gPay,curPay,inGrace,tm,elapsed,remaining};
+      return {bal,mPay,gPay:bal*mr,curPay,inGrace,tm,elapsed,remaining,curRate};
+    }
+    window.cfAddLoanEvent=function(type){
+      window._cfLoanEvents=window._cfLoanEvents||[];
+      window._cfLoanEvents.push({type,date:'',value:''});
+      cfRenderLoanEvents();
+    };
+    window.cfDelLoanEvent=function(idx){
+      window._cfLoanEvents.splice(idx,1);
+      cfRenderLoanEvents();cfLoanCalc();
+    };
+    window.cfSetLoanEvent=function(idx,field,val){
+      window._cfLoanEvents[idx][field]=val;
+      cfLoanCalc();
+    };
+    function cfRenderLoanEvents(){
+      const el=document.getElementById('lc-events');if(!el)return;
+      const evts=window._cfLoanEvents||[];
+      if(!evts.length){el.innerHTML='<div style="font-size:11px;color:#9a9890;padding:4px 0">尚無調整紀錄</div>';return;}
+      el.innerHTML=evts.map((ev,i)=>{
+        const label=ev.type==='rate_change'?'利率調整為 (%)':'額外還本 (TWD)';
+        return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <input type="date" value="${ev.date||''}" onchange="cfSetLoanEvent(${i},'date',this.value)" style="border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:11px;padding:5px;border-radius:4px;outline:none;font-family:var(--mono);width:130px;box-sizing:border-box">
+          <input type="number" value="${ev.value||''}" placeholder="${label}" oninput="cfSetLoanEvent(${i},'value',this.value)" style="flex:1;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:11px;padding:5px;border-radius:4px;outline:none;font-family:var(--mono);box-sizing:border-box">
+          <span style="font-size:9px;color:#9a9890;white-space:nowrap">${ev.type==='rate_change'?'利率%':'還本'}</span>
+          <button onclick="cfDelLoanEvent(${i})" style="background:none;border:none;color:#9a9890;cursor:pointer;font-size:14px;padding:2px 4px;line-height:1">×</button>
+        </div>`;
+      }).join('');
     }
     window.cfLoanCalc=function(){
       const g=id=>document.getElementById(id);
@@ -448,7 +522,8 @@
       const gm=parseFloat(g('lc-grace')?.value)||0;
       const res=g('lc-result'),btn=g('lc-apply');
       if(!p||!r||!ss||!es){if(res)res.innerHTML='<span style="color:#9a9890">請填入貸款金額、年利率、起始日、截止日</span>';return;}
-      const lc=loanCalcBalance(p,r,ss,es,fs,gm);
+      const evts=(window._cfLoanEvents||[]).filter(e=>e.date&&e.value);
+      const lc=loanCalcBalance(p,r,ss,es,fs,gm,evts);
       // 下次還款日
       let nextPayStr='—';
       if(fs){
@@ -459,9 +534,10 @@
         const nd=new Date(ny,nm,Math.min(payDay,new Date(ny,nm+1,0).getDate()));
         nextPayStr=`${nd.getFullYear()}/${String(nd.getMonth()+1).padStart(2,'0')}/${String(nd.getDate()).padStart(2,'0')}`;
       }
-      if(res)res.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">目前月付金</div><div style="font-size:15px;font-weight:500;font-family:var(--mono);color:#1a1916">${cfFmt(lc.curPay)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${lc.inGrace?'寬限期（利息）':'本利均攤'}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">剩餘本金</div><div style="font-size:15px;font-weight:500;font-family:var(--mono);color:#1a1916">${cfFmt(lc.bal)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">借款總期數</div><div style="font-family:var(--mono);color:#5a5852">${lc.tm} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">剩餘期數</div><div style="font-family:var(--mono);color:#5a5852">${lc.remaining} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">下次還款日</div><div style="font-family:var(--mono);color:#5a5852">${nextPayStr}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">已還期數</div><div style="font-family:var(--mono);color:#5a5852">${lc.elapsed} 個月</div></div></div>`;
+      const rateInfo=lc.curRate&&lc.curRate!==r?`<div style="font-size:10px;color:#c8860a;margin-top:1px">目前利率 ${lc.curRate}%（原 ${r}%）</div>`:'';
+      if(res)res.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">目前月付金</div><div style="font-size:15px;font-weight:500;font-family:var(--mono);color:#1a1916">${cfFmt(lc.curPay)}</div><div style="font-size:10px;color:#9a9890;margin-top:1px">${lc.inGrace?'寬限期（利息）':'本利均攤'}</div>${rateInfo}</div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px;letter-spacing:.04em">剩餘本金</div><div style="font-size:15px;font-weight:500;font-family:var(--mono);color:#1a1916">${cfFmt(lc.bal)}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">借款總期數</div><div style="font-family:var(--mono);color:#5a5852">${lc.tm} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">剩餘期數</div><div style="font-family:var(--mono);color:#5a5852">${lc.remaining} 個月</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">下次還款日</div><div style="font-family:var(--mono);color:#5a5852">${nextPayStr}</div></div><div><div style="color:#9a9890;font-size:10px;margin-bottom:2px">已還期數</div><div style="font-family:var(--mono);color:#5a5852">${lc.elapsed} 個月</div></div></div>`;
       if(btn){btn.disabled=false;btn.style.opacity='1';btn.dataset.pay=Math.round(lc.curPay);}
-      window._cfPendingLoan={'lc-p':g('lc-p')?.value,'lc-r':g('lc-r')?.value,'lc-s':g('lc-s')?.value,'lc-e':g('lc-e')?.value,'lc-f':g('lc-f')?.value,'lc-grace':g('lc-grace')?.value,'lc-method':g('lc-method')?.value};
+      window._cfPendingLoan={'lc-p':g('lc-p')?.value,'lc-r':g('lc-r')?.value,'lc-s':g('lc-s')?.value,'lc-e':g('lc-e')?.value,'lc-f':g('lc-f')?.value,'lc-grace':g('lc-grace')?.value,'lc-method':g('lc-method')?.value,events:(window._cfLoanEvents||[]).filter(e=>e.date&&e.value)};
     };
     window.cfApplyLoan=function(rowId){
       const btn=document.getElementById('lc-apply'),pay=parseFloat(btn?.dataset.pay)||0;if(!pay)return;

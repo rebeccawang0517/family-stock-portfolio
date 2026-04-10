@@ -254,7 +254,7 @@
           const ss=ld['lc-s'],es=ld['lc-e'],fs=ld['lc-f'];
           const gm=parseFloat(ld['lc-grace'])||0;
           bal=principal;
-          if(ss&&es&&window.loanCalcBalance){const lc=window.loanCalcBalance(principal,r,ss,es,fs,gm);bal=lc.bal;}
+          if(ss&&es&&window.loanCalcBalance){const evts=ld.events||[];const lc=window.loanCalcBalance(principal,r,ss,es,fs,gm,evts);bal=lc.bal;}
         }else{
           bal=parseFloat(loan.amt)||0;
         }
