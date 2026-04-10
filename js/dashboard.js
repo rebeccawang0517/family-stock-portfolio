@@ -177,7 +177,24 @@
       payments.sort((a,b)=>a.days-b.days);
       dates.sort((a,b)=>a.days-b.days);
 
-      if(payEl)payEl.innerHTML=payments.length?payments.map(renderReminderCard).join(''):'<div style="font-size:12px;color:#9a9890;padding:12px">目前沒有繳款提醒</div>';
+      if(payEl){
+        if(!payments.length){payEl.innerHTML='<div style="font-size:12px;color:#9a9890;padding:12px">目前沒有繳款提醒</div>';}
+        else{
+          payEl.innerHTML=`<table class="cf-tbl db-tbl" style="width:100%">
+            <thead><tr><th>項目</th><th>類型</th><th>負責人</th><th>下次繳款日</th><th class="r">金額</th><th class="r">倒數</th></tr></thead>
+            <tbody>${payments.map(it=>{
+              const urgent=it.days<=7;
+              const typeLabel=it.type==='loan'?'貸款':'信用卡';
+              return `<tr style="${urgent?'background:rgba(232,103,90,.06)':''}">
+                <td style="padding:8px 5px;font-size:13px;color:#f0ede6;font-weight:500">${it.name}</td>
+                <td style="padding:8px 5px;font-size:12px;color:#9a9890">${typeLabel}</td>
+                <td style="padding:8px 5px;font-size:13px;color:#ccc9bf">${it.owner||'—'}</td>
+                <td style="padding:8px 5px;font-size:12px;font-family:var(--mono);color:#ccc9bf">${formatDate(it.date)}</td>
+                <td style="text-align:right;padding:8px 5px;font-size:13px;font-family:var(--mono);color:#f0ede6">${it.amt?fmt(parseFloat(it.amt)||0):'—'}</td>
+                <td style="text-align:right;padding:8px 5px;font-size:13px;font-weight:600;font-family:var(--mono);color:${urgent?'#ef4444':'#c8b89a'}">${it.days<=0?'今天':it.days+'天'}</td>
+              </tr>`;}).join('')}</tbody></table>`;
+        }
+      }
       if(dateEl)dateEl.innerHTML=dates.length?dates.map(renderReminderCard).join(''):'<div style="font-size:12px;color:#9a9890;padding:12px">目前沒有重要日期</div>';
     }
 
