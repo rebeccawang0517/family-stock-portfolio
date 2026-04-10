@@ -156,9 +156,15 @@
       const cfCards=window.cfCardsRef||[];
       cfCards.forEach(r=>{
         if(r.bank||r.name){
-          const dd=parseInt(r.dueDay)||10;
-          let next=new Date(now.getFullYear(),now.getMonth(),dd);
-          if(next<=now)next=new Date(now.getFullYear(),now.getMonth()+1,dd);
+          let next;
+          if(r.dueDate){
+            next=new Date(r.dueDate+'T00:00:00');
+            if(next<=now){const d=next.getDate();next=new Date(now.getFullYear(),now.getMonth(),d);if(next<=now)next=new Date(now.getFullYear(),now.getMonth()+1,d);}
+          }else{
+            const dd=parseInt(r.dueDay)||10;
+            next=new Date(now.getFullYear(),now.getMonth(),dd);
+            if(next<=now)next=new Date(now.getFullYear(),now.getMonth()+1,dd);
+          }
           payments.push({name:(r.bank||r.name||'信用卡'),date:next,days:daysUntil(next),type:'card',amt:r.amt,owner:r.owner||'',repeat:'monthly'});
         }
       });
