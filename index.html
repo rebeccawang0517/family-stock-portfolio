@@ -464,7 +464,7 @@
                     <div style="font-size:13px;font-family:var(--mono);color:#c8b89a" id="db-goal-pct">0%</div>
                   </div>
                   <div style="background:rgba(255,255,255,.06);border-radius:8px;height:18px;overflow:hidden;position:relative">
-                    <div id="db-goal-bar" style="height:100%;border-radius:8px;background:linear-gradient(90deg,#c8b89a,#4aad6e);width:0%;transition:width .6s ease"></div>
+                    <div id="db-goal-bar" style="height:100%;border-radius:8px;background:linear-gradient(90deg,#2563eb,#0ea5e9,#10b981);width:0%;transition:width .6s ease"></div>
                   </div>
                   <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:#9a9890">
                     <span>目前淨資產 <strong id="db-goal-current" style="color:#f0ede6">$0</strong></span>
@@ -576,39 +576,39 @@
                     <div class="db-bars-wrap">
                       <div class="db-bar-item">
                         <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#c8b89a"></span>
+                          <span class="db-bar-dot" style="background:#2563eb"></span>
                           <span class="db-bar-label">股票</span>
                           <span class="db-bar-pct" id="db-pct-stock">0%</span>
                           <span class="db-bar-amt" id="db-bar-stock-v">$0</span>
                         </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-stock" style="width:0%;background:#c8b89a"></div></div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-stock" style="width:0%;background:#2563eb"></div></div>
                       </div>
                       <div class="db-bar-item">
                         <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#7a7872"></span>
+                          <span class="db-bar-dot" style="background:#f59e0b"></span>
                           <span class="db-bar-label">固定資產</span>
                           <span class="db-bar-pct" id="db-pct-fixed">0%</span>
                           <span class="db-bar-amt" id="db-bar-fixed-v">$0</span>
                         </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-fixed" style="width:0%;background:#7a7872"></div></div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-fixed" style="width:0%;background:#f59e0b"></div></div>
                       </div>
                       <div class="db-bar-item">
                         <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#6bbf8a"></span>
+                          <span class="db-bar-dot" style="background:#10b981"></span>
                           <span class="db-bar-label">現金</span>
                           <span class="db-bar-pct" id="db-pct-cash">0%</span>
                           <span class="db-bar-amt" id="db-bar-cash-v">$0</span>
                         </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-cash" style="width:0%;background:#6bbf8a"></div></div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-cash" style="width:0%;background:#10b981"></div></div>
                       </div>
                       <div class="db-bar-item">
                         <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#e8675a"></span>
+                          <span class="db-bar-dot" style="background:#ef4444"></span>
                           <span class="db-bar-label">負債</span>
                           <span class="db-bar-pct" id="db-pct-debt">0%</span>
                           <span class="db-bar-amt" id="db-bar-debt-v">$0</span>
                         </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-debt" style="width:0%;background:#e8675a"></div></div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-debt" style="width:0%;background:#ef4444"></div></div>
                       </div>
                     </div>
                   </div>
@@ -1183,7 +1183,7 @@
                     <tr class="cf-hdr-row"><th colspan="2">月份</th><th>買入</th><th>賣出</th><th class="r">買入金額</th><th class="r">賣出金額</th><th class="r">淨流出</th><th></th></tr>
                   </tbody>
                   <tbody id="cf-invest-body"></tbody>
-                  <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfSyncTxInvest()" style="color:#c8b89a">↻ 更新交易連動</button></td></tr></tbody>
+                  <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfSyncTxInvest(this)" style="color:#c8b89a">↻ 更新交易連動</button></td></tr></tbody>
                 </table>
 
                 <!-- 年度結餘 -->
@@ -1202,10 +1202,10 @@
                 <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl">收支結構</span><div class="cf-sec-bar"></div></div>
                 <div class="db-section-card" style="margin-bottom:12px">
                   <div style="display:flex;flex-direction:column;gap:14px">
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">收入</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-in" style="width:0%;background:#4aad6e"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-in-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">固定支出</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-exp" style="width:0%;background:#e8675a"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-exp-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">信用卡</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-card" style="width:0%;background:#7a7872"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-card-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">投資流出</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-inv" style="width:0%;background:#c8b89a"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-inv-v">$0</span></div>
+                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">收入</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-in" style="width:0%;background:#10b981"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-in-v">$0</span></div>
+                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">固定支出</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-exp" style="width:0%;background:#ef4444"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-exp-v">$0</span></div>
+                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">信用卡</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-card" style="width:0%;background:#f59e0b"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-card-v">$0</span></div>
+                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">投資流出</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-inv" style="width:0%;background:#8b5cf6"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-inv-v">$0</span></div>
                     <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">結餘率</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-fcf" style="width:0%;background:#f0ede6"></div></div><span style="font-size:14px;font-weight:700;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-fcf-p">0%</span></div>
                   </div>
                 </div>
@@ -1690,7 +1690,7 @@
         }
         function renderCharts(mergedStocks, usdRate, totalValueTWD) {
             if (typeof Chart === 'undefined' || !mergedStocks.length) return;
-            const COLORS = ['#c8b89a','#7eb88a','#b8937e','#8a9ab8','#b87e9a','#9ab87e','#b8a87e','#7eb8b8','#b87eb8','#9a7eb8','#7e8ab8','#b8b87e'];
+            const COLORS = ['#2563eb','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#0ea5e9'];
 
             // — 1. 持股佔比圓餅圖 —
             const top8 = mergedStocks.slice(0, 8);
@@ -1729,7 +1729,7 @@
             if (ctx2) {
                 chartInstances['chartHolder'] = new Chart(ctx2, {
                     type: 'doughnut',
-                    data: { labels: Object.keys(holderMap), datasets: [{ data: Object.values(holderMap).map(Math.round), backgroundColor: ['#c8b89a','#7eb88a','#b8937e','#8a9ab8'], borderColor: '#1a1916', borderWidth: 2 }] },
+                    data: { labels: Object.keys(holderMap), datasets: [{ data: Object.values(holderMap).map(Math.round), backgroundColor: ['#2563eb','#10b981','#f59e0b','#8b5cf6'], borderColor: '#1a1916', borderWidth: 2 }] },
                     options: { responsive: true, maintainAspectRatio: false, plugins: {
                         legend: { position: 'right', labels: { color: '#ccc9bf', font: { size: 12 }, padding: 10, boxWidth: 14 } },
                         tooltip: { callbacks: { label: (c) => `${c.label}: TWD ${c.parsed.toLocaleString()}` } }
@@ -1748,7 +1748,7 @@
             if (ctx3) {
                 chartInstances['chartRegion'] = new Chart(ctx3, {
                     type: 'doughnut',
-                    data: { labels: ['台股', '美股'], datasets: [{ data: [Math.round(twVal), Math.round(usVal)], backgroundColor: ['#c8b89a', '#7eb88a'], borderColor: '#1a1916', borderWidth: 2 }] },
+                    data: { labels: ['台股', '美股'], datasets: [{ data: [Math.round(twVal), Math.round(usVal)], backgroundColor: ['#2563eb', '#10b981'], borderColor: '#1a1916', borderWidth: 2 }] },
                     options: { responsive: true, maintainAspectRatio: false, plugins: {
                         legend: { position: 'right', labels: { color: '#ccc9bf', font: { size: 13 }, padding: 12, boxWidth: 14 } },
                         tooltip: { callbacks: { label: (c) => { const tot = twVal + usVal; return `${c.label}: TWD ${c.parsed.toLocaleString()} (${tot > 0 ? (c.parsed / tot * 100).toFixed(1) : 0}%)`; } } }
@@ -2703,7 +2703,11 @@
       cfInvest=[{id:'iv-auto',name:'交易買入',owner:'共同',freq:'monthly',amt:String(Math.round(curD.buyAmt)),src:'tx'}];
       cfRedeem=[{id:'rd-auto',name:'交易賣出',owner:'共同',freq:'monthly',amt:String(Math.round(curD.sellAmt)),src:'tx'}];
     }
-    window.cfSyncTxInvest=function(){cfRenderInvest();cfCalc();};
+    window.cfSyncTxInvest=function(btn){
+      if(btn){btn.disabled=true;btn.textContent='✓ 已更新';btn.style.opacity='.6';}
+      cfRenderInvest();cfCalc();
+      setTimeout(()=>{if(btn){btn.disabled=false;btn.textContent='↻ 更新交易連動';btn.style.opacity='1';}},1200);
+    };
     function cfRenderAll(){cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfCalc();
       // 暴露給資產總覽提醒系統
       window.cfMembersRef=cfMembers;window.cfExpenseRef=cfExpense;window.cfCardsRef=cfCards;
@@ -3158,7 +3162,7 @@
       const cfExp=window.cfExpenseRef||[];
       cfExp.forEach(r=>{
         const et=r.etype||'general';
-        if(et==='mortgage'||et==='credit_loan'){
+        if(et==='loan_mortgage'||et==='loan_credit'){
           const ld=r.loanData||{};
           const payDay=ld['lc-f']?new Date(ld['lc-f']).getDate():null;
           if(payDay){
@@ -3173,10 +3177,11 @@
       const cfCards=window.cfCardsRef||[];
       if(cfCards.length>0){
         cfCards.forEach(r=>{
-          if(r.name){
+          if(r.bank||r.name){
             // 信用卡通常每月繳，提醒本月
             let next=new Date(now.getFullYear(),now.getMonth()+1,10); // 假設每月10日繳
-            items.push({name:(r.name||'信用卡')+' 繳款',date:next,days:daysUntil(next),type:'card',amt:r.amt,repeat:'monthly'});
+            const cardLabel=(r.bank||r.name||'信用卡');
+            items.push({name:cardLabel+' 繳款',date:next,days:daysUntil(next),type:'card',amt:r.amt,repeat:'monthly'});
           }
         });
       }
@@ -3241,9 +3246,11 @@
     window.dbRender=async function(){
       const loadEl=document.getElementById('db-loading');
       if(loadEl)loadEl.style.display='block';
-      await dbLoad();
-      dbRenderCash();dbRenderAssets();dbRenderDebts();dbRenderReminders();dbCalc();
-      if(loadEl)loadEl.style.display='none';
+      try{
+        await dbLoad();
+        dbRenderCash();dbRenderAssets();dbRenderDebts();dbRenderReminders();dbCalc();
+      }catch(e){console.error('dbRender error:',e);}
+      finally{if(loadEl)loadEl.style.display='none';}
     };
 
     window.dbSf=function(type,id,field,v){
@@ -3291,21 +3298,24 @@
       loans.forEach(loan=>{
         const ld=loan.loanData||{};
         const principal=parseFloat(ld['lc-p'])||0;
-        if(!principal)return;
-        const r=parseFloat(ld['lc-r'])||0;
-        const ss=ld['lc-s'],es=ld['lc-e'],fs=ld['lc-f'];
-        const gm=parseFloat(ld['lc-grace'])||0;
-        let bal=principal;
-        if(ss&&es){
-          const lc=loanCalcBalance(principal,r,ss,es,fs,gm);
-          bal=lc.bal;
+        const catMap={loan_mortgage:'房貸',loan_credit:'信貸',loan_other:'其他'};
+        let bal=0;
+        if(principal){
+          const r=parseFloat(ld['lc-r'])||0;
+          const ss=ld['lc-s'],es=ld['lc-e'],fs=ld['lc-f'];
+          const gm=parseFloat(ld['lc-grace'])||0;
+          bal=principal;
+          if(ss&&es){const lc=loanCalcBalance(principal,r,ss,es,fs,gm);bal=lc.bal;}
+        }else{
+          // 沒填貸款明細時，用月付金額估算（顯示月付金額讓用戶知道有這筆負債）
+          bal=parseFloat(loan.amt)||0;
+          if(!bal)return;
         }
-        const match=dbDebts.find(d=>d.name===loan.name&&d.auto!==false);
-        if(match){match.val=String(Math.round(bal));match.auto=true;match.loanExpId=loan.id;}
+        const match=dbDebts.find(d=>d.loanExpId===loan.id||(d.name===loan.name&&d.auto===true));
+        if(match){match.val=String(Math.round(bal));match.auto=true;match.loanExpId=loan.id;match.cat=catMap[loan.etype]||'其他';}
         else{
-          const catMap={loan_mortgage:'房貸',loan_credit:'信貸',loan_other:'其他'};
-          const empty=dbDebts.find(d=>!d.val&&d.cat===(catMap[loan.etype]||'其他'));
-          if(empty){empty.val=String(Math.round(bal));empty.name=loan.name;empty.auto=true;empty.loanExpId=loan.id;}
+          // 自動新增負債項目
+          dbDebts.push({id:nid('d'),name:loan.name||catMap[loan.etype]||'貸款',cat:catMap[loan.etype]||'其他',owner:loan.owner||'Rebecca',val:String(Math.round(bal)),auto:true,loanExpId:loan.id});
         }
       });
     }
@@ -3391,7 +3401,7 @@
           labels:['股票','固定資產','現金','負債'],
           datasets:[{
             data:hasData?[stock,fixed,cash,debt]:[1],
-            backgroundColor:hasData?['#c8b89a','#7a7872','#6bbf8a','#e8675a']:['rgba(255,255,255,.06)'],
+            backgroundColor:hasData?['#2563eb','#f59e0b','#10b981','#ef4444']:['rgba(255,255,255,.06)'],
             borderWidth:0,
             hoverOffset:6
           }]
