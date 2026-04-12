@@ -278,13 +278,13 @@
             <button onclick="cfCloseCardModal()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1;padding:4px 8px">×</button>
           </div>
           <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-            <colgroup><col style="width:22%"><col style="width:20%"><col style="width:22%"><col style="width:18%"><col style="width:14%"><col style="width:28px"></colgroup>
+            <colgroup><col style="width:120px"><col style="width:130px"><col style="width:140px"><col style="width:100px"><col style="width:90px"><col style="width:30px"></colgroup>
             <thead><tr style="border-bottom:1px solid rgba(26,25,22,.12)">
-              <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 4px;font-weight:600">銀行</th>
-              <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 4px;font-weight:600">帳單月份</th>
-              <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 4px;font-weight:600">繳款日期</th>
-              <th style="text-align:right;font-size:11px;color:#9a9890;padding:4px 4px;font-weight:600">金額</th>
-              <th style="text-align:left;font-size:11px;color:#9a9890;padding:4px 4px;font-weight:600">負責人</th>
+              <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px;font-weight:600">銀行</th>
+              <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px;font-weight:600">帳單月份</th>
+              <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px;font-weight:600">繳款日期</th>
+              <th style="text-align:right;font-size:11px;color:#9a9890;padding:6px 4px;font-weight:600">金額</th>
+              <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px;font-weight:600">負責人</th>
               <th></th>
             </tr></thead>
             <tbody>${items.map(r=>`<tr style="border-bottom:1px solid rgba(26,25,22,.06)">
