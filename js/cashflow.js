@@ -267,22 +267,16 @@
         const tot=items.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
         const title=filterMonth?(filterMonth.replace('-','年')+'月 信用卡帳單'):'信用卡帳單';
         const iS='border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;padding:5px 6px;border-radius:4px;outline:none;box-sizing:border-box;font-family:inherit;font-size:12px;';
-        function dueDateDefault(r){
-          if(r.dueDate)return r.dueDate;
-          if(r.dueDay){const m=r.month||filterMonth||'';if(m)return m+'-'+String(r.dueDay).padStart(2,'0');return '';}
-          return '';
-        }
-        return `<div style="background:#fff;border-radius:8px;padding:1.25rem;width:640px;max-width:100%;max-height:85vh;overflow-y:auto;font-family:inherit;box-sizing:border-box">
+        return `<div style="background:#fff;border-radius:8px;padding:1.25rem;width:520px;max-width:100%;max-height:85vh;overflow-y:auto;font-family:inherit;box-sizing:border-box">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
             <div style="font-size:16px;font-weight:600;color:#1a1916">${title}</div>
             <button onclick="cfCloseCardModal()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1;padding:4px 8px">×</button>
           </div>
           <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-            <colgroup><col style="width:120px"><col style="width:130px"><col style="width:140px"><col style="width:100px"><col style="width:90px"><col style="width:30px"></colgroup>
+            <colgroup><col style="width:30%"><col style="width:25%"><col style="width:22%"><col style="width:18%"><col style="width:28px"></colgroup>
             <thead><tr style="border-bottom:1px solid rgba(26,25,22,.12)">
               <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px;font-weight:600">銀行</th>
               <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px;font-weight:600">帳單月份</th>
-              <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px;font-weight:600">繳款日期</th>
               <th style="text-align:right;font-size:11px;color:#9a9890;padding:6px 4px;font-weight:600">金額</th>
               <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px;font-weight:600">負責人</th>
               <th></th>
@@ -290,7 +284,6 @@
             <tbody>${items.map(r=>`<tr style="border-bottom:1px solid rgba(26,25,22,.06)">
               <td style="padding:3px 4px"><select onchange="cfCardBankChange('${r.id}',this)" style="${iS}width:100%">${bankOpts(r.bank)}</select></td>
               <td style="padding:3px 4px"><input type="month" value="${r.month||''}" oninput="cfCardEdit('${r.id}','month',this.value)" style="${iS}width:100%"></td>
-              <td style="padding:3px 4px"><input type="date" value="${dueDateDefault(r)}" oninput="cfCardEdit('${r.id}','dueDate',this.value)" style="${iS}width:100%"></td>
               <td style="padding:3px 4px"><input type="number" value="${r.amt}" placeholder="0" oninput="cfCardEdit('${r.id}','amt',this.value)" style="${iS}width:100%;text-align:right;font-family:var(--mono)"></td>
               <td style="padding:3px 4px"><select onchange="cfCardEdit('${r.id}','owner',this.value)" style="${iS}width:100%">${mOpts(r.owner)}</select></td>
               <td style="padding:3px 2px;text-align:center"><button onclick="cfCardDel('${r.id}')" style="background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer;padding:2px 4px">×</button></td>
