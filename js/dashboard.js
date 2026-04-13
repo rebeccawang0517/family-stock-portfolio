@@ -109,14 +109,13 @@
       const urgent=it.days<=7;
       const borderColor=urgent?'rgba(232,103,90,.5)':'rgba(255,255,255,.08)';
       const bgColor=urgent?'rgba(232,103,90,.06)':'rgba(255,255,255,.02)';
-      const icon=it.type==='futures'?'&#9888;&#65039;':it.type==='loan'?'&#127974;':it.type==='card'?'&#128179;':'&#128276;';
+      const icon=it.type==='futures'?'&#9888;&#65039;':'&#128276;';
       const repeatLabel=it.repeat==='monthly'?'每月':it.repeat==='yearly'?'每年':'';
-      const ownerTag=it.owner?`<span style="font-size:10px;background:rgba(255,255,255,.08);border-radius:3px;padding:1px 5px;color:#ccc9bf;margin-left:4px">${it.owner}</span>`:'';
       const delBtn=it.type==='custom'?`<button onclick="dbDelReminder('${it.id}')" style="background:none;border:none;color:#9a9890;cursor:pointer;font-size:14px;padding:0 4px" title="刪除">×</button>`:'';
       return `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px">
         <div style="font-size:20px;flex-shrink:0">${icon}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500;color:#f0ede6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}${ownerTag}</div>
+          <div style="font-size:13px;font-weight:500;color:#f0ede6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</div>
           <div style="font-size:11px;color:#9a9890;margin-top:2px">${formatDate(it.date)}${repeatLabel?' · '+repeatLabel:''}${it.amt?' · '+fmt(parseFloat(it.amt)||0):''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
@@ -127,49 +126,15 @@
     }
 
     function dbRenderReminders(){
-      const payEl=document.getElementById('db-payments-list');
       const dateEl=document.getElementById('db-dates-list');
-      const payments=[];
       const dates=[];
       const now=new Date();
 
-      // 期貨結算日 → 重要日期
+      // 期貨結算日
       const fut=getFuturesSettlement();
       dates.push({name:'台指期貨結算日',date:fut,days:daysUntil(fut),type:'futures',repeat:'monthly'});
 
-      // 貸款繳款 → 繳款提醒（含負責人）
-      const cfExp=window.cfExpenseRef||[];
-      cfExp.forEach(r=>{
-        const et=r.etype||'general';
-        if(et.startsWith('loan_')){
-          const ld=r.loanData||{};
-          const payDay=ld['lc-f']?new Date(ld['lc-f']).getDate():null;
-          if(payDay){
-            let next=new Date(now.getFullYear(),now.getMonth(),payDay);
-            if(next<now)next=new Date(now.getFullYear(),now.getMonth()+1,payDay);
-            payments.push({name:(r.name||'貸款'),date:next,days:daysUntil(next),type:'loan',amt:r.amt,owner:r.owner||'',repeat:'monthly'});
-          }
-        }
-      });
-
-      // 信用卡繳款 → 繳款提醒（含負責人）
-      const cfCards=window.cfCardsRef||[];
-      cfCards.forEach(r=>{
-        if(r.bank||r.name){
-          let next;
-          if(r.dueDate){
-            next=new Date(r.dueDate+'T00:00:00');
-            if(next<=now){const d=next.getDate();next=new Date(now.getFullYear(),now.getMonth(),d);if(next<=now)next=new Date(now.getFullYear(),now.getMonth()+1,d);}
-          }else{
-            const dd=parseInt(r.dueDay)||10;
-            next=new Date(now.getFullYear(),now.getMonth(),dd);
-            if(next<=now)next=new Date(now.getFullYear(),now.getMonth()+1,dd);
-          }
-          payments.push({name:(r.bank||r.name||'信用卡'),date:next,days:daysUntil(next),type:'card',amt:r.amt,owner:r.owner||'',repeat:'monthly'});
-        }
-      });
-
-      // 自訂提醒 → 重要日期
+      // 自訂提醒
       dbReminders.forEach(r=>{
         let d=new Date(r.date);
         if(r.repeat==='monthly'){
@@ -182,27 +147,7 @@
         dates.push({name:r.name,date:d,days:daysUntil(d),type:'custom',id:r.id,repeat:r.repeat||'once'});
       });
 
-      payments.sort((a,b)=>a.days-b.days);
       dates.sort((a,b)=>a.days-b.days);
-
-      if(payEl){
-        if(!payments.length){payEl.innerHTML='<div style="font-size:12px;color:#9a9890;padding:12px">目前沒有繳款提醒</div>';}
-        else{
-          payEl.innerHTML=`<table class="cf-tbl db-tbl" style="width:100%">
-            <thead><tr><th>項目</th><th>類型</th><th>負責人</th><th>下次繳款日</th><th class="r">金額</th><th class="r">倒數</th></tr></thead>
-            <tbody>${payments.map(it=>{
-              const urgent=it.days<=7;
-              const typeLabel=it.type==='loan'?'貸款':'信用卡';
-              return `<tr style="${urgent?'background:rgba(232,103,90,.06)':''}">
-                <td style="padding:8px 5px;font-size:13px;color:#f0ede6;font-weight:500">${it.name}</td>
-                <td style="padding:8px 5px;font-size:12px;color:#9a9890">${typeLabel}</td>
-                <td style="padding:8px 5px;font-size:13px;color:#ccc9bf">${it.owner||'—'}</td>
-                <td style="padding:8px 5px;font-size:12px;font-family:var(--mono);color:#ccc9bf">${formatDate(it.date)}</td>
-                <td style="text-align:right;padding:8px 5px;font-size:13px;font-family:var(--mono);color:#f0ede6">${it.amt?fmt(parseFloat(it.amt)||0):'—'}</td>
-                <td style="text-align:right;padding:8px 5px;font-size:13px;font-weight:600;font-family:var(--mono);color:${urgent?'#ef4444':'#c8b89a'}">${it.days<=0?'今天':it.days+'天'}</td>
-              </tr>`;}).join('')}</tbody></table>`;
-        }
-      }
       if(dateEl)dateEl.innerHTML=dates.length?dates.map(renderReminderCard).join(''):'<div style="font-size:12px;color:#9a9890;padding:12px">目前沒有重要日期</div>';
     }
 
