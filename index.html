@@ -970,31 +970,30 @@
 
     <!-- 新增股票模態框 -->
     <div id="addStockModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='addStockModal') closeAddStockModal()">
-        <div class="bg-slate-800 border-2 border-green-500 rounded-lg max-w-2xl w-full mx-4 p-6" onclick="event.stopPropagation()">
+        <div class="bg-slate-800 border-2 border-green-500 rounded-lg max-w-2xl w-full mx-4 p-6" style="max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-green-400">➕ 新增股票</h3><button onclick="closeAddStockModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
-            <form id="addStockForm" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm text-slate-300 mb-2">購買日期 *</label><input type="date" id="newDate" required class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none" /></div>
-                    <div><label class="block text-sm text-slate-300 mb-2">地區 *</label><select id="newRegion" required class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none"><option value="台股">台股</option><option value="美股">美股</option></select></div>
+            <form id="addStockForm" class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-sm text-slate-300 mb-1">購買日期 *</label><input type="date" id="newDate" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm" /></div>
+                    <div><label class="block text-sm text-slate-300 mb-1">地區 *</label><select id="newRegion" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm"><option value="台股">台股</option><option value="美股">美股</option></select></div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm text-slate-300 mb-2">股票代號 *</label><input type="text" id="newSymbol" required placeholder="例如：2330, TSLA" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none" style="text-transform: uppercase;" onchange="fetchNewCompanyName()" /></div>
-                    <div><label class="block text-sm text-slate-300 mb-2">公司名稱</label><input type="text" id="newCompany" placeholder="輸入代號後自動帶出" readonly class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600" /></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-sm text-slate-300 mb-1">股票代號 *</label><input type="text" id="newSymbol" required placeholder="例如：2330, TSLA" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm" style="text-transform: uppercase;" onchange="fetchNewCompanyName()" /></div>
+                    <div><label class="block text-sm text-slate-300 mb-1">公司名稱</label><input type="text" id="newCompany" placeholder="輸入代號後自動帶出" readonly class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 text-sm" /></div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm text-slate-300 mb-2">股數 *</label><input type="number" id="newShares" required min="1" step="1" placeholder="1000" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none" oninput="calculateNewCost()" /></div>
-                    <div><label class="block text-sm text-slate-300 mb-2">購買價格 *</label><input type="number" id="newCostPrice" required min="0" step="0.01" placeholder="150.50" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none" oninput="calculateNewCost()" /></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-sm text-slate-300 mb-1">股數 *</label><input type="number" id="newShares" required min="1" step="1" placeholder="1000" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm" oninput="calculateNewCost()" /></div>
+                    <div><label class="block text-sm text-slate-300 mb-1">購買價格 *</label><input type="number" id="newCostPrice" required min="0" step="0.01" placeholder="150.50" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm" oninput="calculateNewCost()" /></div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm text-slate-300 mb-2">手續費</label><input type="number" id="newFee" min="0" step="0.01" value="0" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none" oninput="calculateNewCost()" /><div class="text-xs text-slate-500 mt-1">台股約 0.1425%，美股約 $1-$10</div></div>
-                    <div><label class="block text-sm text-slate-300 mb-2">總投資成本</label><input type="number" id="newTotalCost" readonly class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" /><div class="text-xs text-slate-500 mt-1">自動計算 = 股數 × 價格 + 手續費</div></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-sm text-slate-300 mb-1">手續費</label><input type="number" id="newFee" min="0" step="0.01" value="0" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm" oninput="calculateNewCost()" /><div class="text-xs text-slate-500 mt-1">台股約 0.1425%，美股約 $1-$10</div></div>
+                    <div><label class="block text-sm text-slate-300 mb-1">總投資成本</label><input type="number" id="newTotalCost" readonly class="w-full bg-slate-600 text-slate-300 px-3 py-2 rounded border border-slate-600 text-sm" /><div class="text-xs text-slate-500 mt-1">自動計算 = 股數 × 價格 + 手續費</div></div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm text-slate-300 mb-2">持有人 *</label><select id="newHolder" required class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none"><option value="">選擇持有人</option><option value="Rebecca">Rebecca</option><option value="Eric">Eric</option><option value="Ian">Ian</option></select></div>
-                    <div><label class="block text-sm text-slate-300 mb-2">交易平台 *</label><select id="newPlatform" required class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none"><option value="複委託">複委託</option><option value="證券">證券</option><option value="信託">信託</option></select></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-sm text-slate-300 mb-1">持有人 *</label><select id="newHolder" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm"><option value="">選擇持有人</option><option value="Rebecca">Rebecca</option><option value="Eric">Eric</option><option value="Ian">Ian</option></select></div>
+                    <div><label class="block text-sm text-slate-300 mb-1">交易平台 *</label><select id="newPlatform" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm"><option value="複委託">複委託</option><option value="證券">證券</option><option value="信託">信託</option></select></div>
                 </div>
-                <div class="bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-3"><div class="text-xs text-blue-300">💡 新增後會自動記錄到交易明細，並更新持股</div></div>
-                <div class="flex gap-3 mt-6"><button type="button" onclick="confirmAddStock(event)" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold">✓ 確認新增</button><button type="button" onclick="closeAddStockModal()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold">取消</button></div>
+                <div class="flex gap-3 pt-2"><button type="button" onclick="confirmAddStock(event)" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">確認新增</button><button type="button" onclick="closeAddStockModal()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">取消</button></div>
             </form>
         </div>
     </div>
