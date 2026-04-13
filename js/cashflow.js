@@ -266,29 +266,29 @@
         const items=getItems();
         const tot=items.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
         const title=filterMonth?(filterMonth.replace('-','年')+'月 信用卡帳單'):'信用卡帳單';
-        const iS='border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;padding:5px 6px;border-radius:4px;outline:none;box-sizing:border-box;font-family:inherit;font-size:12px;';
-        return `<div style="background:#fff;border-radius:8px;padding:1.25rem;width:520px;max-width:100%;max-height:85vh;overflow-y:auto;font-family:inherit;box-sizing:border-box">
+        const iS='border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;padding:5px 6px;border-radius:4px;outline:none;box-sizing:border-box;font-family:inherit;font-size:12px;width:100%;';
+        const hS='font-size:11px;color:#9a9890;font-weight:600;padding:0 0 6px;';
+        const cW=['flex:3 0 0','flex:3 0 0','flex:2 0 0','flex:2 0 0'];
+        const rowS='display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(26,25,22,.06)';
+        return `<div style="background:#fff;border-radius:8px;padding:1.25rem;width:500px;max-width:100%;max-height:85vh;overflow-y:auto;font-family:inherit;box-sizing:border-box">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
             <div style="font-size:16px;font-weight:600;color:#1a1916">${title}</div>
             <button onclick="cfCloseCardModal()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1;padding:4px 8px">×</button>
           </div>
-          <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-            <colgroup><col style="width:30%"><col style="width:25%"><col style="width:22%"><col style="width:18%"><col style="width:28px"></colgroup>
-            <thead><tr style="border-bottom:1px solid rgba(26,25,22,.12)">
-              <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px 6px 11px;font-weight:600">銀行</th>
-              <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px 6px 11px;font-weight:600">帳單月份</th>
-              <th style="text-align:right;font-size:11px;color:#9a9890;padding:6px 11px 6px 4px;font-weight:600">金額</th>
-              <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 4px 6px 11px;font-weight:600">負責人</th>
-              <th></th>
-            </tr></thead>
-            <tbody>${items.map(r=>`<tr style="border-bottom:1px solid rgba(26,25,22,.06)">
-              <td style="padding:3px 4px"><select onchange="cfCardBankChange('${r.id}',this)" style="${iS}width:100%">${bankOpts(r.bank)}</select></td>
-              <td style="padding:3px 4px"><input type="month" value="${r.month||''}" oninput="cfCardEdit('${r.id}','month',this.value)" style="${iS}width:100%"></td>
-              <td style="padding:3px 4px"><input type="number" value="${r.amt}" placeholder="0" oninput="cfCardEdit('${r.id}','amt',this.value)" style="${iS}width:100%;text-align:right;font-family:var(--mono)"></td>
-              <td style="padding:3px 4px"><select onchange="cfCardEdit('${r.id}','owner',this.value)" style="${iS}width:100%">${mOpts(r.owner)}</select></td>
-              <td style="padding:3px 2px;text-align:center"><button onclick="cfCardDel('${r.id}')" style="background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer;padding:2px 4px">×</button></td>
-            </tr>`).join('')}</tbody>
-          </table>
+          <div style="display:flex;gap:8px;padding:0 0 4px;border-bottom:1px solid rgba(26,25,22,.15);margin-bottom:2px">
+            <div style="${hS}${cW[0]}">銀行</div>
+            <div style="${hS}${cW[1]}">帳單月份</div>
+            <div style="${hS}${cW[2]}">金額</div>
+            <div style="${hS}${cW[3]}">負責人</div>
+            <div style="width:24px;flex-shrink:0"></div>
+          </div>
+          ${items.map(r=>`<div style="${rowS}">
+            <div style="${cW[0]}"><select onchange="cfCardBankChange('${r.id}',this)" style="${iS}">${bankOpts(r.bank)}</select></div>
+            <div style="${cW[1]}"><input type="month" value="${r.month||''}" oninput="cfCardEdit('${r.id}','month',this.value)" style="${iS}"></div>
+            <div style="${cW[2]}"><input type="number" value="${r.amt}" placeholder="0" oninput="cfCardEdit('${r.id}','amt',this.value)" style="${iS}text-align:right;font-family:var(--mono)"></div>
+            <div style="${cW[3]}"><select onchange="cfCardEdit('${r.id}','owner',this.value)" style="${iS}">${mOpts(r.owner)}</select></div>
+            <div style="width:24px;flex-shrink:0;text-align:center"><button onclick="cfCardDel('${r.id}')" style="background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer;padding:0">×</button></div>
+          </div>`).join('')}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(26,25,22,.1)">
             <button onclick="cfCardAddRow()" style="background:transparent;color:#1a1916;border:1px dashed rgba(26,25,22,.25);border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit">+ 新增一筆</button>
             <div style="font-size:14px;font-weight:600;color:#1a1916;font-family:var(--mono)" id="cf-card-modal-total">合計 ${cfFmt(tot)}</div>
