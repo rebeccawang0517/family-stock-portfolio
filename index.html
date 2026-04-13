@@ -724,6 +724,9 @@
                     <h2 class="db-title">收支管理</h2>
                     <p class="db-subtitle">所有金額單位 TWD · 月均自動換算 · 投資交易連動</p>
                   </div>
+                  <div style="flex-shrink:0">
+                    <select id="cf-year-select" onchange="cfSwitchYear(this.value)" style="background:#2c2b27;border:1px solid rgba(255,255,255,.15);color:#f0ede6;font-size:14px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer;font-family:var(--mono);outline:none"></select>
+                  </div>
                 </div>
 
                 <!-- 月/年 KPI -->
@@ -824,7 +827,7 @@
                 </table>
 
                 <!-- 年度結餘 -->
-                <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl">年度結餘</span><div class="cf-sec-bar"></div></div>
+                <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl" id="cf-annual-title">年度結餘</span><div class="cf-sec-bar"></div></div>
                 <div class="db-section-card" style="margin-bottom:12px" id="cf-annual-balance">
                   <table style="width:100%;border-collapse:collapse">
                     <thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)">

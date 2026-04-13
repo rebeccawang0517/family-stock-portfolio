@@ -6,6 +6,7 @@
     const FUND_SOURCES=['薪資','信貸','信用額度','其他'];
     const FREQS_LIST=Object.entries(FREQS);
     const ETYPES_LIST=Object.entries(ETYPES);
+    let cfYear=new Date().getFullYear();
     let cfMembers=['Rebecca','Eric','Ian','弟弟'];
     let cfIncome=[
       {id:'i1',name:'Rebecca 薪資',owner:'Rebecca',freq:'monthly',amt:''},
@@ -121,10 +122,12 @@
     }
     function cfRenderCards(){
       const el=document.getElementById('cf-card-body');if(!el)return;
-      const tot=cfCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+      const yrStr=String(cfYear);
+      const yrCards=cfCards.filter(r=>(r.month||'').startsWith(yrStr));
+      const tot=yrCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
       // group by month
       const byMonth={};
-      cfCards.forEach(r=>{const m=r.month||'';if(!byMonth[m])byMonth[m]=[];byMonth[m].push(r);});
+      yrCards.forEach(r=>{const m=r.month||'';if(!byMonth[m])byMonth[m]=[];byMonth[m].push(r);});
       const months=Object.keys(byMonth).sort().reverse();
       let html=months.map(m=>{
         const items=byMonth[m];
@@ -136,18 +139,20 @@
           <td colspan="2" style="text-align:right;font-size:13px;font-family:var(--mono);color:#f0ede6;padding:8px 4px">${cfFmt(mTot)}</td>
           <td></td><td></td></tr>`;
       }).join('');
+      if(!months.length) html=`<tr><td colspan="8" style="padding:12px 5px;font-size:12px;color:#9a9890;text-align:center">${yrStr} 年尚無帳單</td></tr>`;
       html+=subRow(tot,'帳單合計',5,'<td colspan="2"></td>');
       el.innerHTML=html;
-      const st=document.getElementById('cf-st-card');if(st)st.textContent=cfFmt(tot)+'/月';
+      const st=document.getElementById('cf-st-card');if(st)st.textContent=cfFmt(tot)+'/年';
     }
     function cfRenderInvest(){
       const el=document.getElementById('cf-invest-body');if(!el)return;
       const txs=window._cfTransactions||[];
       const usdRate=parseFloat(document.getElementById('usdRate')?.value)||31.5;
-      // 按月份彙總交易
+      const yrStr=String(cfYear);
+      // 按月份彙總交易（篩選年度）
       const byMonth={};
       txs.forEach(t=>{
-        if(!t.date)return;
+        if(!t.date||!t.date.startsWith(yrStr))return;
         const m=t.date.slice(0,7);
         if(!byMonth[m])byMonth[m]={buyCnt:0,sellCnt:0,buyAmt:0,sellAmt:0};
         const amt=(parseFloat(t.shares)||0)*(parseFloat(t.price)||0);
@@ -175,9 +180,9 @@
       html+=`<tr class="cf-sub"><td colspan="4" class="cf-sub-lbl">合計</td><td class="cf-sub-val" style="color:#e8675a">${cfFmt(totalBuy)}</td><td class="cf-sub-val" style="color:#4aad6e">${cfFmt(totalSell)}</td><td class="cf-sub-val" style="color:${totalNet>0?'#e8675a':'#4aad6e'}">${cfFmt(totalNet)}</td><td></td></tr>`;
       el.innerHTML=html;
       const st=document.getElementById('cf-st-invest');if(st)st.textContent='淨流出 '+cfFmt(totalNet);
-      // 更新 cfInvest/cfRedeem 給 cfCalc 用（月均化：取最近月份）
-      const now=new Date();const curYM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-      const curD=byMonth[curYM]||{buyAmt:0,sellAmt:0};
+      // 更新 cfInvest/cfRedeem 給 cfCalc 用（月均化：該年度月平均）
+      const moCount=months.length||1;
+      const curD={buyAmt:totalBuy/moCount,sellAmt:totalSell/moCount};
       cfInvest=[{id:'iv-auto',name:'交易買入',owner:'共同',freq:'monthly',amt:String(Math.round(curD.buyAmt)),src:'tx'}];
       cfRedeem=[{id:'rd-auto',name:'交易賣出',owner:'共同',freq:'monthly',amt:String(Math.round(curD.sellAmt)),src:'tx'}];
     }
@@ -189,9 +194,25 @@
     function cfRenderAll(){
       // 先暴露資料給資產總覽，確保不被後續渲染錯誤阻斷
       window.cfMembersRef=cfMembers;window.cfExpenseRef=cfExpense;window.cfCardsRef=cfCards;
+      cfInitYearSelect();
       try{cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfCalc();}
       catch(e){console.error('cfRenderAll error:',e);}
     }
+    function cfInitYearSelect(){
+      const sel=document.getElementById('cf-year-select');if(!sel)return;
+      // 從信用卡和交易記錄中收集所有出現過的年份
+      const yrs=new Set();
+      const now=new Date().getFullYear();
+      yrs.add(now);
+      cfCards.forEach(r=>{if(r.month)yrs.add(parseInt(r.month.slice(0,4)));});
+      (window._cfTransactions||[]).forEach(t=>{if(t.date)yrs.add(parseInt(t.date.slice(0,4)));});
+      const sorted=[...yrs].sort((a,b)=>b-a);
+      sel.innerHTML=sorted.map(y=>`<option value="${y}"${y===cfYear?' selected':''}>${y} 年</option>`).join('');
+    }
+    window.cfSwitchYear=function(y){
+      cfYear=parseInt(y)||new Date().getFullYear();
+      cfRenderCards();cfRenderInvest();cfCalc();
+    };
 
     function cfGetArr(type){return{income:cfIncome,expense:cfExpense,invest:cfInvest,redeem:cfRedeem}[type]||[];}
     window.cfSf=function(type,id,field,v){const r=cfGetArr(type).find(x=>x.id===id);if(r)r[field]=v;cfSave();};
@@ -365,25 +386,26 @@
       const annEl=document.getElementById('cf-annual-body');
       if(annEl){
         const txs=window._cfTransactions||[];
-        const yr=new Date().getFullYear();
+        const yrStr=String(cfYear);
         const usdRate=parseFloat(document.getElementById('usdRate')?.value)||31.5;
         let yrBuy=0,yrSell=0;
         txs.forEach(t=>{
-          if(!t.date||!t.date.startsWith(String(yr)))return;
+          if(!t.date||!t.date.startsWith(yrStr))return;
           const amt=(parseFloat(t.shares)||0)*(parseFloat(t.price)||0);
           const twd=t.region==='美股'?amt*usdRate:amt;
           if(t.type==='買入')yrBuy+=twd;else if(t.type==='賣出')yrSell+=twd;
         });
         const yrInvestNet=yrBuy-yrSell;
         const yrIncome=moIn*12, yrExpense=moExp*12;
-        // 信用卡：加總當年月份的實際帳單
-        const yrStr=String(yr);
+        // 信用卡：加總該年月份的實際帳單
         const yrCard=cfCards.reduce((s,r)=>{
           const m=r.month||'';
           return s+(m.startsWith(yrStr)?(parseFloat(r.amt)||0):0);
         },0);
         const yrBalance=yrIncome-yrExpense-yrCard-yrInvestNet;
         const row=(label,val,color)=>`<tr style="border-bottom:1px solid rgba(255,255,255,.06)"><td style="padding:7px 5px;font-size:13px;color:#ccc9bf">${label}</td><td style="text-align:right;padding:7px 5px;font-size:13px;font-family:var(--mono);color:${color||'#f0ede6'}">${cfFmt(val)}</td></tr>`;
+        const titleEl=document.getElementById('cf-annual-title');
+        if(titleEl)titleEl.textContent=yrStr+' 年度結餘';
         annEl.innerHTML=
           row('年收入',yrIncome,'#4aad6e')+
           row('年固定支出',yrExpense,'#e8675a')+
