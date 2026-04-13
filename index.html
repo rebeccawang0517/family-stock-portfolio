@@ -868,55 +868,59 @@
             <!-- 手機端新增表單彈窗 -->
             <div id="mobileFormOverlay" class="mobile-form-overlay no-print" style="display: none;" onclick="closeMobileForm(event)">
                 <div class="mobile-form-container" onclick="event.stopPropagation()">
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-xl font-bold text-slate-100">新增股票</h2>
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-lg font-bold text-slate-100">新增股票</h2>
                         <button onclick="closeMobileForm()" class="text-slate-400 text-2xl">&times;</button>
                     </div>
-                    <div class="space-y-4">
+                    <div class="space-y-3">
                         <div>
-                            <label class="block text-slate-300 text-sm mb-2">地區</label>
-                            <select id="mobileRegion" class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600">
+                            <label class="block text-slate-300 text-xs mb-1">地區</label>
+                            <select id="mobileRegion" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm">
                                 <option>台股</option><option>美股</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-slate-300 text-sm mb-2">股票代號 *</label>
-                            <input type="text" id="mobileSymbol" placeholder="例如：2330 或 AAPL" 
-                                   class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600 font-mono" 
+                            <label class="block text-slate-300 text-xs mb-1">股票代號 *</label>
+                            <input type="text" id="mobileSymbol" placeholder="例如：2330 或 AAPL"
+                                   class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 font-mono text-sm"
                                    style="text-transform: uppercase;" onchange="fetchCompanyNameMobile()" />
                         </div>
                         <div>
-                            <label class="block text-slate-300 text-sm mb-2">公司名稱</label>
-                            <input type="text" id="mobileCompany" placeholder="自動獲取" class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600" readonly />
+                            <label class="block text-slate-300 text-xs mb-1">公司名稱</label>
+                            <input type="text" id="mobileCompany" placeholder="自動獲取" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm" readonly />
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="flex-1">
+                                <label class="block text-slate-300 text-xs mb-1">股數 *</label>
+                                <input type="number" id="mobileShares" placeholder="持有股數" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm" onchange="calculateCostMobile()" />
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-slate-300 text-xs mb-1">成本價</label>
+                                <input type="number" id="mobileCostPrice" placeholder="每股成本" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm" step="0.01" onchange="calculateCostMobile()" />
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-slate-300 text-sm mb-2">股數 *</label>
-                            <input type="number" id="mobileShares" placeholder="持有股數" class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600" onchange="calculateCostMobile()" />
+                            <label class="block text-slate-300 text-xs mb-1">投資成本</label>
+                            <input type="number" id="mobileCost" placeholder="總投資金額" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm" onchange="calculateCostPriceMobile()" />
                         </div>
-                        <div>
-                            <label class="block text-slate-300 text-sm mb-2">成本價</label>
-                            <input type="number" id="mobileCostPrice" placeholder="每股成本" class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600" step="0.01" onchange="calculateCostMobile()" />
+                        <div class="flex gap-3">
+                            <div class="flex-1">
+                                <label class="block text-slate-300 text-xs mb-1">持有人 *</label>
+                                <select id="mobileHolder" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm">
+                                    <option value="">請選擇</option>
+                                    <option>Rebecca</option><option>Eric</option><option>Ian</option>
+                                </select>
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-slate-300 text-xs mb-1">平台</label>
+                                <select id="mobilePlatform" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm">
+                                    <option>複委託</option><option>證券</option><option>信託</option>
+                                </select>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-slate-300 text-sm mb-2">投資成本</label>
-                            <input type="number" id="mobileCost" placeholder="總投資金額" class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600" onchange="calculateCostPriceMobile()" />
-                        </div>
-                        <div>
-                            <label class="block text-slate-300 text-sm mb-2">持有人 *</label>
-                            <select id="mobileHolder" class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600">
-                                <option value="">請選擇</option>
-                                <option>Rebecca</option><option>Eric</option><option>Ian</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-slate-300 text-sm mb-2">平台</label>
-                            <select id="mobilePlatform" class="w-full bg-slate-700 text-slate-100 px-4 py-3 rounded-lg border border-slate-600">
-                                <option>複委託</option><option>證券</option><option>信託</option>
-                            </select>
-                        </div>
-                        <div class="pt-4 space-y-3">
-                            <button onclick="addStockMobile()" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg">✓ 新增股票</button>
-                            <button onclick="closeMobileForm()" class="w-full bg-slate-600 hover:bg-slate-500 text-white py-3 rounded-lg">取消</button>
+                        <div class="pt-2 space-y-2">
+                            <button onclick="addStockMobile()" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-lg text-sm">新增股票</button>
+                            <button onclick="closeMobileForm()" class="w-full bg-slate-600 hover:bg-slate-500 text-white py-2.5 rounded-lg text-sm">取消</button>
                         </div>
                     </div>
                 </div>
