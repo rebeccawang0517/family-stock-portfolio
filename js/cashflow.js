@@ -55,6 +55,8 @@
       return 0;
     }
     function cfFmt(n){return (n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString();}
+    function cfGetAmt(r){if(r.years&&r.years[cfYear]!==undefined)return r.years[cfYear];return r.amt||'';}
+    function cfSetAmt(r,v){if(!r.years)r.years={};r.years[cfYear]=v;r.amt=v;}
     function mOpts(sel){return [...cfMembers,'共同'].map(m=>`<option value="${m}"${m===sel?' selected':''}>${m}</option>`).join('');}
     function fOpts(sel){return FREQS_LIST.map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');}
     function eOpts(sel){return ETYPES_LIST.map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');}
@@ -76,11 +78,11 @@
     };
 
     function incomeRow(r){
-      const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
-      return `<tr><td colspan="2"><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('income','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('income','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('income','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSa('income','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td></td><td><button class="cf-del" onclick="cfDelRow('income','${r.id}')">×</button></td></tr>`;
+      const a=cfGetAmt(r);const mo=r.freq==='once'?'—':cfFmt(toMo(a,r.freq));
+      return `<tr><td colspan="2"><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('income','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('income','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('income','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${a}" placeholder="0" oninput="cfSa('income','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td></td><td><button class="cf-del" onclick="cfDelRow('income','${r.id}')">×</button></td></tr>`;
     }
     function expenseRow(r){
-      const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
+      const a=cfGetAmt(r);const mo=r.freq==='once'?'—':cfFmt(toMo(a,r.freq));
       const et=r.etype||'general';
       const loan=isLoan(et);
       const nameCell=loan
@@ -91,7 +93,7 @@
         <td><select class="cf-sel" onchange="cfEtype('${r.id}',this.value)">${eOpts(et)}</select></td>
         <td><select class="cf-sel" onchange="cfSf('expense','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
         <td><select class="cf-sel" onchange="cfSfq('expense','${r.id}',this.value)">${fOpts(r.freq)}</select></td>
-        <td><input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${r.amt}" placeholder="0" oninput="cfSa('expense','${r.id}',this.value)"></td>
+        <td><input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${a}" placeholder="0" oninput="cfSa('expense','${r.id}',this.value)"></td>
         <td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td>
         <td></td>
         <td><button class="cf-del" onclick="cfDelRow('expense','${r.id}')">×</button></td>
@@ -107,13 +109,13 @@
 
     function cfRenderIncome(){
       const el=document.getElementById('cf-income-body');if(!el)return;
-      const tot=cfIncome.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      const tot=cfIncome.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
       el.innerHTML=cfIncome.map(r=>incomeRow(r)).join('')+subRow(tot,'月收入小計',5,'<td colspan="2"></td>');
       const st=document.getElementById('cf-st-income');if(st)st.textContent=cfFmt(tot)+'/月';
     }
     function cfRenderExpense(){
       const el=document.getElementById('cf-expense-body');if(!el)return;
-      const tot=cfExpense.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      const tot=cfExpense.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
       // 按類型排序：房貸→信貸→其他貸款→一般
       const order={loan_mortgage:0,loan_credit:1,loan_other:2,general:3};
       const sorted=[...cfExpense].sort((a,b)=>(order[a.etype||'general']??3)-(order[b.etype||'general']??3));
@@ -211,18 +213,18 @@
     }
     window.cfSwitchYear=function(y){
       cfYear=parseInt(y)||new Date().getFullYear();
-      cfRenderCards();cfRenderInvest();cfCalc();
+      cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfCalc();
     };
 
     function cfGetArr(type){return{income:cfIncome,expense:cfExpense,invest:cfInvest,redeem:cfRedeem}[type]||[];}
     window.cfSf=function(type,id,field,v){const r=cfGetArr(type).find(x=>x.id===id);if(r)r[field]=v;cfSave();};
     window.cfSfq=function(type,id,v){
       const r=cfGetArr(type).find(x=>x.id===id);if(r)r.freq=v;
-      const mo=document.getElementById('cf-mo-'+id);if(mo&&r)mo.textContent=v==='once'?'—':cfFmt(toMo(r.amt,v));
+      const mo=document.getElementById('cf-mo-'+id);if(mo&&r)mo.textContent=v==='once'?'—':cfFmt(toMo(cfGetAmt(r),v));
       cfUpdateSubtotal(type);cfCalc();cfSave();
     };
     window.cfSa=function(type,id,v){
-      const r=cfGetArr(type).find(x=>x.id===id);if(r)r.amt=v;
+      const r=cfGetArr(type).find(x=>x.id===id);if(r)cfSetAmt(r,v);
       const mo=document.getElementById('cf-mo-'+id);if(mo&&r)mo.textContent=r.freq==='once'?'—':cfFmt(toMo(v,r.freq));
       cfUpdateSubtotal(type);cfCalc();cfSave();
     };
@@ -238,11 +240,13 @@
     };
     function cfUpdateSubtotal(type){
       if(type==='card'){
-        const tot=cfCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+        const yrStr=String(cfYear);
+        const yrCards=cfCards.filter(r=>(r.month||'').startsWith(yrStr));
+        const tot=yrCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
         const sub=document.querySelector('#cf-card-body tr.cf-sub td.cf-sub-val');if(sub)sub.textContent=cfFmt(tot);
-        const st=document.getElementById('cf-st-card');if(st)st.textContent=cfFmt(tot)+'/月';return;
+        const st=document.getElementById('cf-st-card');if(st)st.textContent=cfFmt(tot)+'/年';return;
       }
-      const arr=cfGetArr(type);const tot=arr.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
+      const arr=cfGetArr(type);const tot=arr.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
       const sub=document.querySelector(`#cf-${type}-body tr.cf-sub td.cf-sub-val`);if(sub)sub.textContent=cfFmt(tot);
       const st=document.getElementById(`cf-st-${type}`);if(st)st.textContent=cfFmt(tot)+'/月';
     }
@@ -363,9 +367,11 @@
 
 
     function cfCalc(){
-      const moIn=cfIncome.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      const moExp=cfExpense.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
-      const moCard=cfCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+      const moIn=cfIncome.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
+      const moExp=cfExpense.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
+      const yrStr=String(cfYear);
+      const yrCards=cfCards.filter(r=>(r.month||'').startsWith(yrStr));
+      const moCard=yrCards.length?yrCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0)/yrCards.length:0;
       const moInv=cfInvest.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
       const moRed=cfRedeem.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
       const totalOut=moExp+moCard;const investNet=moInv-moRed;const fcf=moIn-(totalOut+investNet);
@@ -576,7 +582,7 @@
       const row=cfExpense.find(r=>r.id===rowId);
       const nameInput=document.getElementById('lc-name');
       if(row){
-        row.amt=String(pay);row.freq='monthly';row.loanData=window._cfPendingLoan;
+        cfSetAmt(row,String(pay));row.freq='monthly';row.loanData=window._cfPendingLoan;
         if(nameInput&&nameInput.value.trim())row.name=nameInput.value.trim();
       }
       const inp=document.getElementById('cf-amt-'+rowId);if(inp)inp.value=pay;
