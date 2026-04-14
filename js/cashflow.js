@@ -123,11 +123,36 @@
           <td colspan="2" style="text-align:right;font-size:13px;font-family:var(--mono);color:${mTot?'#4aad6e':'#9a9890'};padding:8px 4px">${mTot?cfFmt(mTot):'—'}</td>
           <td></td><td></td></tr>`;
       }
+      // 如果全年無資料，顯示複製上年度按鈕
+      if(yearTotal===0){
+        const prevYr=String(cfYear-1);
+        let prevTotal=0;
+        for(let m=1;m<=12;m++){prevTotal+=cfIncomeMonthTotal(prevYr+'-'+String(m).padStart(2,'0'));}
+        if(prevTotal>0){
+          html+=`<tr><td colspan="8" style="padding:10px 5px;text-align:center">
+            <button onclick="cfCopyIncomeFromYear(${cfYear-1})" style="background:#2c2b27;border:1px solid rgba(255,255,255,.15);color:#c8b89a;padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">📋 複製 ${prevYr} 年收入資料</button>
+          </td></tr>`;
+        }
+      }
       html+=subRow(yearTotal,'年收入合計',5,'<td colspan="2"></td>');
       el.innerHTML=html;
       const moAvg=yearTotal/12;
       const st=document.getElementById('cf-st-income');if(st)st.textContent=cfFmt(moAvg)+'/月均';
     }
+    window.cfCopyIncomeFromYear=function(fromYr){
+      const fromStr=String(fromYr);const toStr=String(cfYear);
+      cfIncome.forEach(r=>{
+        if(!r.monthly)return;
+        for(let m=1;m<=12;m++){
+          const mm=String(m).padStart(2,'0');
+          const fromKey=fromStr+'-'+mm;const toKey=toStr+'-'+mm;
+          if(r.monthly[fromKey]&&!r.monthly[toKey]){
+            r.monthly[toKey]=r.monthly[fromKey];
+          }
+        }
+      });
+      cfSave();cfRenderIncome();cfCalc();
+    };
     // 收入月份彈窗
     window.cfOpenIncomeMonth=function(ym){
       const label=ym.replace('-','年')+'月';
@@ -202,9 +227,30 @@
       // 按類型排序：房貸→信貸→其他貸款→一般
       const order={loan_mortgage:0,loan_credit:1,loan_other:2,general:3};
       const sorted=[...cfExpense].sort((a,b)=>(order[a.etype||'general']??3)-(order[b.etype||'general']??3));
-      el.innerHTML=sorted.map(r=>expenseRow(r)).join('')+subRow(tot,'月支出小計',5,'<td colspan="2"></td>');
+      let html=sorted.map(r=>expenseRow(r)).join('');
+      // 如果該年度所有支出都沒有設定金額，顯示複製按鈕
+      const hasYearData=cfExpense.some(r=>r.years&&r.years[cfYear]!==undefined);
+      if(!hasYearData&&cfYear!==new Date().getFullYear()){
+        const prevYr=cfYear-1;
+        const prevHasData=cfExpense.some(r=>(r.years&&r.years[prevYr]!==undefined)||(r.amt&&!r.years));
+        if(prevHasData){
+          html+=`<tr><td colspan="8" style="padding:10px 5px;text-align:center">
+            <button onclick="cfCopyExpenseFromYear(${prevYr})" style="background:#2c2b27;border:1px solid rgba(255,255,255,.15);color:#c8b89a;padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">📋 複製 ${prevYr} 年支出資料</button>
+          </td></tr>`;
+        }
+      }
+      html+=subRow(tot,'月支出小計',5,'<td colspan="2"></td>');
+      el.innerHTML=html;
       const st=document.getElementById('cf-st-expense');if(st)st.textContent=cfFmt(tot)+'/月';
     }
+    window.cfCopyExpenseFromYear=function(fromYr){
+      cfExpense.forEach(r=>{
+        if(!r.years)r.years={};
+        const src=r.years[fromYr]!==undefined?r.years[fromYr]:r.amt;
+        if(src&&r.years[cfYear]===undefined)r.years[cfYear]=src;
+      });
+      cfSave();cfRenderExpense();cfCalc();
+    };
     function cfRenderCards(){
       const el=document.getElementById('cf-card-body');if(!el)return;
       const yrStr=String(cfYear);
@@ -285,12 +331,15 @@
     }
     function cfInitYearSelect(){
       const sel=document.getElementById('cf-year-select');if(!sel)return;
-      // 從信用卡和交易記錄中收集所有出現過的年份
       const yrs=new Set();
       const now=new Date().getFullYear();
-      yrs.add(now);
+      yrs.add(now);yrs.add(now+1); // 永遠包含明年
       cfCards.forEach(r=>{if(r.month)yrs.add(parseInt(r.month.slice(0,4)));});
       (window._cfTransactions||[]).forEach(t=>{if(t.date)yrs.add(parseInt(t.date.slice(0,4)));});
+      // 從收入 monthly 中收集年份
+      cfIncome.forEach(r=>{if(r.monthly)Object.keys(r.monthly).forEach(ym=>yrs.add(parseInt(ym.slice(0,4))));});
+      // 從支出 years 中收集年份
+      cfExpense.forEach(r=>{if(r.years)Object.keys(r.years).forEach(y=>yrs.add(parseInt(y)));});
       const sorted=[...yrs].sort((a,b)=>b-a);
       sel.innerHTML=sorted.map(y=>`<option value="${y}"${y===cfYear?' selected':''}>${y} 年</option>`).join('');
     }
