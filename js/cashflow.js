@@ -77,10 +77,9 @@
       if(v&&!cfMembers.includes(v)){cfMembers.push(v);el.value='';cfSave();cfRenderMembers();}
     };
 
-    function incomeRow(r){
-      const a=cfGetAmt(r);const mo=r.freq==='once'?'—':cfFmt(toMo(a,r.freq));
-      return `<tr><td colspan="2"><input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('income','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('income','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('income','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${a}" placeholder="0" oninput="cfSa('income','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td></td><td><button class="cf-del" onclick="cfDelRow('income','${r.id}')">×</button></td></tr>`;
-    }
+    // 收入按月記錄，每項有 monthly: {"2026-01": "50000", ...}
+    function cfIncomeMonthAmt(r,ym){return r.monthly?.[ym]??'';}
+    function cfIncomeMonthTotal(ym){return cfIncome.reduce((s,r)=>s+(parseFloat(cfIncomeMonthAmt(r,ym))||0),0);}
     function expenseRow(r){
       const a=cfGetAmt(r);const mo=r.freq==='once'?'—':cfFmt(toMo(a,r.freq));
       const et=r.etype||'general';
@@ -109,10 +108,94 @@
 
     function cfRenderIncome(){
       const el=document.getElementById('cf-income-body');if(!el)return;
-      const tot=cfIncome.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
-      el.innerHTML=cfIncome.map(r=>incomeRow(r)).join('')+subRow(tot,'月收入小計',5,'<td colspan="2"></td>');
-      const st=document.getElementById('cf-st-income');if(st)st.textContent=cfFmt(tot)+'/月';
+      const yrStr=String(cfYear);
+      let yearTotal=0;
+      let html='';
+      for(let m=1;m<=12;m++){
+        const ym=yrStr+'-'+String(m).padStart(2,'0');
+        const mTot=cfIncomeMonthTotal(ym);
+        yearTotal+=mTot;
+        const cnt=cfIncome.filter(r=>parseFloat(cfIncomeMonthAmt(r,ym))||0).length;
+        const label=yrStr+'年'+String(m).padStart(2,'0')+'月';
+        html+=`<tr onclick="cfOpenIncomeMonth('${ym}')" style="cursor:pointer" onmouseover="this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.background=''">
+          <td colspan="3" style="padding:8px 5px;font-size:13px;color:#c8b89a;font-weight:500">${label}</td>
+          <td style="font-size:12px;color:#9a9890;padding:8px 4px">${cnt} 筆</td>
+          <td colspan="2" style="text-align:right;font-size:13px;font-family:var(--mono);color:${mTot?'#4aad6e':'#9a9890'};padding:8px 4px">${mTot?cfFmt(mTot):'—'}</td>
+          <td></td><td></td></tr>`;
+      }
+      html+=subRow(yearTotal,'年收入合計',5,'<td colspan="2"></td>');
+      el.innerHTML=html;
+      const moAvg=yearTotal/12;
+      const st=document.getElementById('cf-st-income');if(st)st.textContent=cfFmt(moAvg)+'/月均';
     }
+    // 收入月份彈窗
+    window.cfOpenIncomeMonth=function(ym){
+      const label=ym.replace('-','年')+'月';
+      const wrap=document.createElement('div');
+      wrap.id='cf-income-modal-overlay';
+      wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;padding:12px';
+      wrap.onclick=function(e){if(e.target===wrap)cfCloseIncomeModal();};
+      const iS='border:1px solid rgba(26,25,22,.15);background:#f5f4f0;color:#1a1916;padding:5px 6px;border-radius:4px;outline:none;box-sizing:border-box;font-family:inherit;font-size:12px;width:100%;';
+      const hS='font-size:11px;color:#9a9890;font-weight:600;padding:0 0 6px;';
+      const cW=['flex:4 0 0','flex:2 0 0','flex:3 0 0'];
+      const rowS='display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(26,25,22,.06)';
+      function render(){
+        const tot=cfIncomeMonthTotal(ym);
+        return `<div style="background:#fff;border-radius:8px;padding:1.25rem;width:460px;max-width:100%;max-height:85vh;overflow-y:auto;font-family:inherit;box-sizing:border-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div style="font-size:16px;font-weight:600;color:#1a1916">${label} 收入明細</div>
+            <button onclick="cfCloseIncomeModal()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1;padding:4px 8px">×</button>
+          </div>
+          <div style="display:flex;gap:8px;padding:0 0 4px;border-bottom:1px solid rgba(26,25,22,.15);margin-bottom:2px">
+            <div style="${hS}${cW[0]}">項目</div>
+            <div style="${hS}${cW[1]}">負責人</div>
+            <div style="${hS}${cW[2]};text-align:right">金額</div>
+            <div style="width:24px;flex-shrink:0"></div>
+          </div>
+          ${cfIncome.map(r=>{const v=cfIncomeMonthAmt(r,ym);return `<div style="${rowS}">
+            <div style="${cW[0]}"><input value="${r.name}" placeholder="項目名稱" oninput="cfIncomeEditName('${r.id}',this.value)" style="${iS}"></div>
+            <div style="${cW[1]}"><select onchange="cfIncomeEditOwner('${r.id}',this.value)" style="${iS}">${mOpts(r.owner)}</select></div>
+            <div style="${cW[2]}"><input type="number" value="${v}" placeholder="0" oninput="cfIncomeEditAmt('${r.id}','${ym}',this.value)" style="${iS}text-align:right;font-family:var(--mono)"></div>
+            <div style="width:24px;flex-shrink:0;text-align:center"><button onclick="cfIncomeDelRow('${r.id}')" style="background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer;padding:0">×</button></div>
+          </div>`;}).join('')}
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(26,25,22,.1)">
+            <button onclick="cfIncomeAddRow()" style="background:transparent;color:#1a1916;border:1px dashed rgba(26,25,22,.25);border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit">+ 新增項目</button>
+            <div style="font-size:14px;font-weight:600;color:#1a1916;font-family:var(--mono)" id="cf-income-modal-total">合計 ${cfFmt(tot)}</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:1rem;justify-content:flex-end">
+            <button onclick="cfCloseIncomeModal()" style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:8px 20px;font-size:13px;cursor:pointer;font-family:inherit">完成</button>
+          </div>
+        </div>`;
+      }
+      wrap.innerHTML=render();
+      document.body.appendChild(wrap);
+      window._cfIncomeModalYM=ym;
+      window._cfIncomeModalRender=function(){const el=document.getElementById('cf-income-modal-overlay');if(el)el.innerHTML=render();};
+    };
+    window.cfCloseIncomeModal=function(){
+      cfRenderIncome();cfCalc();
+      const el=document.getElementById('cf-income-modal-overlay');if(el)el.remove();
+    };
+    window.cfIncomeEditName=function(id,v){const r=cfIncome.find(x=>x.id===id);if(r)r.name=v;cfSave();};
+    window.cfIncomeEditOwner=function(id,v){const r=cfIncome.find(x=>x.id===id);if(r)r.owner=v;cfSave();};
+    window.cfIncomeEditAmt=function(id,ym,v){
+      const r=cfIncome.find(x=>x.id===id);if(!r)return;
+      if(!r.monthly)r.monthly={};
+      r.monthly[ym]=v;
+      cfSave();
+      // 即時更新合計
+      const tot=cfIncomeMonthTotal(ym);
+      const totEl=document.getElementById('cf-income-modal-total');
+      if(totEl)totEl.textContent='合計 '+cfFmt(tot);
+    };
+    window.cfIncomeAddRow=function(){
+      cfIncome.push({id:nid('i'),name:'',owner:cfMembers[0]||'Rebecca',freq:'monthly',amt:'',monthly:{}});
+      cfSave();window._cfIncomeModalRender();
+    };
+    window.cfIncomeDelRow=function(id){
+      cfIncome=cfIncome.filter(x=>x.id!==id);cfSave();window._cfIncomeModalRender();
+    };
+
     function cfRenderExpense(){
       const el=document.getElementById('cf-expense-body');if(!el)return;
       const tot=cfExpense.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
@@ -367,9 +450,12 @@
 
 
     function cfCalc(){
-      const moIn=cfIncome.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
-      const moExp=cfExpense.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
+      // 收入：按月加總全年再月均
       const yrStr=String(cfYear);
+      let yrInTotal=0;
+      for(let m=1;m<=12;m++){yrInTotal+=cfIncomeMonthTotal(yrStr+'-'+String(m).padStart(2,'0'));}
+      const moIn=yrInTotal/12;
+      const moExp=cfExpense.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
       const yrCards=cfCards.filter(r=>(r.month||'').startsWith(yrStr));
       const moCard=yrCards.length?yrCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0)/yrCards.length:0;
       const moInv=cfInvest.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
@@ -381,7 +467,7 @@
       set('cf-s-invest-net',cfFmt(investNet),investNet>0?'#e8675a':'#4aad6e');
       set('cf-s-fcf',cfFmt(fcf),fcf>0?'#4aad6e':fcf<0?'#e8675a':'#f0ede6');
       // 年現金流
-      set('cf-s-year-in',cfFmt(moIn*12),'#4aad6e');
+      set('cf-s-year-in',cfFmt(yrInTotal),'#4aad6e');
       set('cf-s-year-fcf',cfFmt(fcf*12),fcf>0?'#4aad6e':fcf<0?'#e8675a':'#f0ede6');
       // 橫條圖
       set('cf-b-in-v',cfFmt(moIn));set('cf-b-exp-v',cfFmt(moExp));set('cf-b-card-v',cfFmt(moCard));set('cf-b-inv-v',cfFmt(moInv));set('cf-b-fcf-p',pct+'%');
@@ -402,7 +488,7 @@
           if(t.type==='買入')yrBuy+=twd;else if(t.type==='賣出')yrSell+=twd;
         });
         const yrInvestNet=yrBuy-yrSell;
-        const yrIncome=moIn*12, yrExpense=moExp*12;
+        const yrIncome=yrInTotal, yrExpense=moExp*12;
         // 信用卡：加總該年月份的實際帳單
         const yrCard=cfCards.reduce((s,r)=>{
           const m=r.month||'';
