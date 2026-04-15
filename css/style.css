@@ -239,6 +239,7 @@
         .db-kpi-grid {
             display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:12px;
         }
+        .db-kpi-grid-4 { grid-template-columns:repeat(4,1fr); }
         .db-kpi-card {
             background:#2c2b27; border:1px solid rgba(255,255,255,.08);
             border-radius:12px; padding:18px 16px; display:flex; align-items:center; gap:14px;
