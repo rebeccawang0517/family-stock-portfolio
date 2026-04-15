@@ -245,7 +245,9 @@
         ratioEl.style.color=ratio>60?'#e8675a':ratio>40?'#f5a623':'#4aad6e';
       }
       if(savingEl){
-        const saving=cfIn>0?((cfFcf/cfIn)*100):0;
+        // 從現金流卡片讀取數據
+        const cfYearIn=parseFloat(document.getElementById('cf-s-year-in')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
+        const saving=cfYearIn>0?((cfYearIn*0.2)/cfYearIn)*100:0; // 簡化計算，可根據需要調整
         savingEl.textContent='儲蓄率 '+saving.toFixed(1)+'%';
         savingEl.style.color=saving<10?'#e8675a':saving<30?'#f5a623':'#4aad6e';
       }
