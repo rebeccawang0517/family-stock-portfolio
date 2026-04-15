@@ -517,10 +517,20 @@
       // 年現金流
       set('cf-s-year-in',cfFmt(yrInTotal),'#4aad6e');
       set('cf-s-year-fcf',cfFmt(fcf*12),fcf>0?'#4aad6e':fcf<0?'#e8675a':'#f0ede6');
-      // 年度統計卡片
+      // 年度統計卡片 - 投資淨流出用實際交易計算
       const yrExpense = moExp * 12;
       const yrCard = cfCards.reduce((s,r)=>{const m=r.month||'';return s+(m.startsWith(yrStr)?(parseFloat(r.amt)||0):0);},0);
-      const yrInvestNet_calc = cfInvest.reduce((s,r)=>s+toMo(r.amt,r.freq),0)*12 - cfRedeem.reduce((s,r)=>s+toMo(r.amt,r.freq),0)*12;
+      // 改用實際交易計算投資淨流出，與投資收支表一致
+      const txs_calc=window._cfTransactions||[];
+      const usdRate_calc=parseFloat(document.getElementById('usdRate')?.value)||31.5;
+      let yrBuy_calc=0,yrSell_calc=0;
+      txs_calc.forEach(t=>{
+        if(!t.date||!t.date.startsWith(yrStr))return;
+        const amt=(parseFloat(t.shares)||0)*(parseFloat(t.price)||0);
+        const twd=t.region==='美股'?amt*usdRate_calc:amt;
+        if(t.type==='買入')yrBuy_calc+=twd;else if(t.type==='賣出')yrSell_calc+=twd;
+      });
+      const yrInvestNet_calc = yrBuy_calc - yrSell_calc;
       set('cf-s-year-exp',cfFmt(yrExpense),'#d9534f');
       set('cf-s-year-card',cfFmt(yrCard));
       set('cf-s-year-invest-net',cfFmt(yrInvestNet_calc),yrInvestNet_calc>0?'#d9534f':'#4aad6e');

@@ -314,9 +314,9 @@
 
         @media (max-width: 768px) {
             .db-hero-val { font-size:1.8rem; }
-            .db-kpi-grid { grid-template-columns:1fr 1fr !important; }
+            .db-kpi-grid { grid-template-columns:1fr !important; }
             .db-kpi-grid-3 { grid-template-columns:1fr !important; }
-            .db-kpi-grid-4 { grid-template-columns:1fr 1fr !important; }
+            .db-kpi-grid-4 { grid-template-columns:1fr !important; }
             .db-header { flex-direction:column; }
             .db-alloc-wrap { flex-direction:column; }
             .db-donut-wrap { margin-bottom:16px; }
