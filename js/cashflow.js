@@ -84,17 +84,16 @@
       const a=cfGetAmt(r);const mo=r.freq==='once'?'—':cfFmt(toMo(a,r.freq));
       const et=r.etype||'general';
       const loan=isLoan(et);
+      const typeLabel = et === 'general' ? '一般' : et === 'loan_mortgage' ? '房貸' : et === 'loan_personal' ? '信貸' : '其他';
+      const freqLabel = r.freq === 'monthly' ? '月' : r.freq === 'quarterly' ? '季' : r.freq === 'annually' ? '年' : '單次';
+      const displayName = `${r.name} (${typeLabel}·${r.owner}·${freqLabel})`;
       const nameCell=loan
-        ?`<span onclick="cfOpenLoan('${r.id}')" style="cursor:pointer;color:#c8b89a;text-decoration:underline;font-size:12px;display:inline-block;padding:4px 0" title="點擊查看貸款明細">${r.name||'（點擊設定貸款）'}</span><input type="hidden" value="${r.name}" oninput="cfSf('expense','${r.id}','name',this.value)">`
-        :`<input class="cf-te" value="${r.name}" placeholder="項目名稱" oninput="cfSf('expense','${r.id}','name',this.value)">`;
+        ?`<span onclick="cfOpenLoan('${r.id}')" style="cursor:pointer;color:#c8b89a;text-decoration:underline;font-size:12px;display:inline-block;padding:4px 0" title="點擊查看貸款明細">${displayName}</span>`
+        :`<span onclick="cfEditExpense('${r.id}')" style="cursor:pointer;color:#d4c5a8;font-size:12px;display:inline-block;padding:4px 0" title="點擊編輯">${displayName}</span>`;
       return `<tr id="tr-${r.id}">
-        <td>${nameCell}</td>
-        <td><select class="cf-sel" onchange="cfEtype('${r.id}',this.value)">${eOpts(et)}</select></td>
-        <td><select class="cf-sel" onchange="cfSf('expense','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td>
-        <td><select class="cf-sel" onchange="cfSfq('expense','${r.id}',this.value)">${fOpts(r.freq)}</select></td>
+        <td colspan="5">${nameCell}</td>
         <td><input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${a}" placeholder="0" oninput="cfSa('expense','${r.id}',this.value)"></td>
         <td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td>
-        <td></td>
         <td><button class="cf-del" onclick="cfDelRow('expense','${r.id}')">×</button></td>
       </tr>`;
     }
@@ -518,6 +517,13 @@
       // 年現金流
       set('cf-s-year-in',cfFmt(yrInTotal),'#4aad6e');
       set('cf-s-year-fcf',cfFmt(fcf*12),fcf>0?'#4aad6e':fcf<0?'#e8675a':'#f0ede6');
+      // 年度統計卡片
+      const yrExpense = moExp * 12;
+      const yrCard = cfCards.reduce((s,r)=>{const m=r.month||'';return s+(m.startsWith(yrStr)?(parseFloat(r.amt)||0):0);},0);
+      const yrInvestNet_calc = cfInvest.reduce((s,r)=>s+toMo(r.amt,r.freq),0)*12 - cfRedeem.reduce((s,r)=>s+toMo(r.amt,r.freq),0)*12;
+      set('cf-s-year-exp',cfFmt(yrExpense),'#d9534f');
+      set('cf-s-year-card',cfFmt(yrCard));
+      set('cf-s-year-invest-net',cfFmt(yrInvestNet_calc),yrInvestNet_calc>0?'#d9534f':'#4aad6e');
       // 橫條圖
       set('cf-b-in-v',cfFmt(moIn));set('cf-b-exp-v',cfFmt(moExp));set('cf-b-card-v',cfFmt(moCard));set('cf-b-inv-v',cfFmt(moInv));set('cf-b-fcf-p',pct+'%');
       const max=Math.max(moIn,totalOut,moCard,moInv,1);
@@ -556,6 +562,62 @@
       }
     }
 
+    window.cfEditExpense=function(expenseId){
+      const r=cfExpense.find(x=>x.id===expenseId);if(!r)return;
+      const wrap=document.createElement('div');
+      wrap.id='cf-edit-expense-modal';
+      wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;padding:12px';
+      wrap.onclick=function(e){if(e.target===wrap)wrap.remove();};
+      wrap.innerHTML=`<div style="background:#2c2b27;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:1.5rem;width:360px;max-width:100%;max-height:85vh;overflow-y:auto;font-family:inherit;box-sizing:border-box;color:#f0ede6">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <div><div style="font-size:15px;font-weight:600;color:#f0ede6">編輯項目</div></div>
+          <button onclick="document.getElementById('cf-edit-expense-modal')?.remove()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1;padding:4px 8px">×</button>
+        </div>
+        <div style="margin-bottom:12px">
+          <div style="font-size:12px;color:#9a9890;margin-bottom:4px;letter-spacing:.04em">項目名稱</div>
+          <input id="exp-name" type="text" value="${r.name}" style="width:100%;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:6px 8px;border-radius:4px;outline:none;box-sizing:border-box">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <div style="font-size:12px;color:#9a9890;margin-bottom:4px;letter-spacing:.04em">類型</div>
+            <select id="exp-type" style="width:100%;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:6px 8px;border-radius:4px;outline:none;box-sizing:border-box">
+              <option value="general" ${r.etype==='general'?'selected':''}>一般</option>
+              <option value="loan_mortgage" ${r.etype==='loan_mortgage'?'selected':''}>房貸</option>
+              <option value="loan_personal" ${r.etype==='loan_personal'?'selected':''}>信貸</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:12px;color:#9a9890;margin-bottom:4px;letter-spacing:.04em">頻率</div>
+            <select id="exp-freq" style="width:100%;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:6px 8px;border-radius:4px;outline:none;box-sizing:border-box">
+              <option value="monthly" ${r.freq==='monthly'?'selected':''}>月</option>
+              <option value="quarterly" ${r.freq==='quarterly'?'selected':''}>季</option>
+              <option value="annually" ${r.freq==='annually'?'selected':''}>年</option>
+              <option value="once" ${r.freq==='once'?'selected':''}>單次</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:16px">
+          <div style="font-size:12px;color:#9a9890;margin-bottom:4px;letter-spacing:.04em">負責人</div>
+          <select id="exp-owner" style="width:100%;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:6px 8px;border-radius:4px;outline:none;box-sizing:border-box">
+            ${cfMembers.map(m=>`<option value="${m}" ${m===r.owner?'selected':''}>${m}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="document.getElementById('cf-edit-expense-modal')?.remove()" style="background:transparent;color:#9a9890;border:1px solid rgba(255,255,255,.15);border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit">取消</button>
+          <button onclick="cfSaveExpenseEdit('${expenseId}')" style="background:#4aad6e;color:#1a1916;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600">保存</button>
+        </div>
+      </div>`;
+      document.body.appendChild(wrap);
+    };
+    window.cfSaveExpenseEdit=function(expenseId){
+      const r=cfExpense.find(x=>x.id===expenseId);if(!r)return;
+      r.name=document.getElementById('exp-name')?.value||r.name;
+      r.etype=document.getElementById('exp-type')?.value||r.etype;
+      r.freq=document.getElementById('exp-freq')?.value||r.freq;
+      r.owner=document.getElementById('exp-owner')?.value||r.owner;
+      cfRenderExpense();cfCalc();cfSave();
+      document.getElementById('cf-edit-expense-modal')?.remove();
+    };
     window.cfCloseLoanModal=function(){
       const el=document.getElementById('cf-loan-modal-overlay');
       if(el)el.remove();

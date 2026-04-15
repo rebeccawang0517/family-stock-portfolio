@@ -316,9 +316,13 @@
             .db-hero-val { font-size:1.8rem; }
             .db-kpi-grid { grid-template-columns:1fr 1fr !important; }
             .db-kpi-grid-3 { grid-template-columns:1fr !important; }
+            .db-kpi-grid-4 { grid-template-columns:1fr 1fr !important; }
             .db-header { flex-direction:column; }
             .db-alloc-wrap { flex-direction:column; }
             .db-donut-wrap { margin-bottom:16px; }
             .db-section-card { padding:16px 14px; }
             .db-hero-card { padding:20px 16px; }
+            /* 投資收支表：手機上隱藏月份、買入、賣出、金額列，只顯示淨流出 */
+            .cf-invest-hdr-hide { display: none !important; }
+            #cf-invest-body tr > td:nth-child(n+1):nth-child(-n+6) { display: none !important; }
         }

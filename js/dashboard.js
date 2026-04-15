@@ -236,14 +236,6 @@
       const goalBar=document.getElementById('db-goal-bar');
       if(goalBar)goalBar.style.width=goalPct+'%';
 
-      // 現金流
-      const cfIn=parseFloat(document.getElementById('cf-s-in')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
-      const cfOut=parseFloat(document.getElementById('cf-s-out')?.textContent?.replace(/[^0-9.-]/g,'')||'0')||0;
-      const cfFcf=cfIn-cfOut;
-      set('db-mo-in',fmt(cfIn),'#4aad6e');
-      set('db-mo-out',fmt(cfOut),'#e8675a');
-      set('db-mo-fcf',fmt(cfFcf),cfFcf>=0?'#4aad6e':'#e8675a');
-
       // badges
       const ratioEl=document.getElementById('db-badge-ratio');
       const savingEl=document.getElementById('db-badge-saving');
