@@ -83,13 +83,11 @@
     function expenseRow(r){
       const a=cfGetAmt(r);const mo=r.freq==='once'?'—':cfFmt(toMo(a,r.freq));
       const et=r.etype||'general';
-      const loan=isLoan(et);
       const typeLabel = et === 'general' ? '一般' : et === 'loan_mortgage' ? '房貸' : et === 'loan_personal' ? '信貸' : '其他';
       const freqLabel = r.freq === 'monthly' ? '月' : r.freq === 'quarterly' ? '季' : r.freq === 'annually' ? '年' : '單次';
       const displayName = `${r.name} (${typeLabel}·${r.owner}·${freqLabel})`;
-      const nameCell=loan
-        ?`<span onclick="cfOpenLoan('${r.id}')" style="cursor:pointer;color:#c8b89a;text-decoration:underline;font-size:12px;display:inline-block;padding:4px 0" title="點擊查看貸款明細">${displayName}</span>`
-        :`<span onclick="cfEditExpense('${r.id}')" style="cursor:pointer;color:#d4c5a8;font-size:12px;display:inline-block;padding:4px 0" title="點擊編輯">${displayName}</span>`;
+      // 所有支出行都打開統一的編輯對話框
+      const nameCell=`<span onclick="cfOpenUnifiedExpenseModal('${r.id}')" style="cursor:pointer;color:#c8b89a;text-decoration:underline;font-size:12px;display:inline-block;padding:4px 0" title="點擊編輯">${displayName}</span>`;
       return `<tr id="tr-${r.id}">
         <td colspan="5">${nameCell}</td>
         <td><input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${a}" placeholder="0" oninput="cfSa('expense','${r.id}',this.value)"></td>
@@ -631,6 +629,64 @@
     window.cfCloseLoanModal=function(){
       const el=document.getElementById('cf-loan-modal-overlay');
       if(el)el.remove();
+    };
+    window.cfOpenUnifiedExpenseModal=function(rowId){
+      const row=cfExpense.find(r=>r.id===rowId);if(!row)return;
+      const et=row.etype||'general';const isLoanType=isLoan(et);
+      const ld=row?.loanData||{};
+      const wrap=document.createElement('div');
+      wrap.id='cf-unified-expense-modal';
+      wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;padding:12px';
+      wrap.onclick=function(e){if(e.target===wrap)wrap.remove();};
+
+      // 構建屬性編輯部分（所有類型都有）
+      let html='<div style="background:#fff;border:1px solid rgba(26,25,22,.18);border-radius:8px;padding:1.25rem;width:420px;max-width:100%;max-height:85vh;overflow-y:auto;font-family:inherit;box-sizing:border-box">';
+      html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div><div style="font-size:15px;font-weight:600;color:#1a1916">'+row.name+'</div></div><button onclick="document.getElementById(\'cf-unified-expense-modal\').remove()" style="background:none;border:none;color:#9a9890;font-size:18px;cursor:pointer;line-height:1">×</button></div>';
+
+      // 屬性編輯部分
+      html+='<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(26,25,22,.12)">';
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+      html+='<div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">類型</div><select id="cem-type" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:6px;border-radius:4px;outline:none;box-sizing:border-box"><option value="general" '+( et==='general'?'selected':'')+'>一般</option><option value="loan_mortgage" '+(et==='loan_mortgage'?'selected':'')+'>房貸</option><option value="loan_personal" '+(et==='loan_personal'?'selected':'')+'>信貸</option></select></div>';
+      html+='<div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">負責人</div><select id="cem-owner" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:6px;border-radius:4px;outline:none;box-sizing:border-box">';
+      cfMembers.forEach(m=>{html+='<option value="'+m+'" '+(m===row.owner?'selected':'')+'>'+m+'</option>';});
+      html+='</select></div>';
+      html+='<div><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">頻率</div><select id="cem-freq" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:6px;border-radius:4px;outline:none;box-sizing:border-box"><option value="monthly" '+(row.freq==='monthly'?'selected':'')+'>月</option><option value="quarterly" '+(row.freq==='quarterly'?'selected':'')+'>季</option><option value="annually" '+(row.freq==='annually'?'selected':'')+'>年</option><option value="once" '+(row.freq==='once'?'selected':'')+'>單次</option></select></div>';
+      html+='</div></div>';
+
+      // 貸款部分（僅房貸/信貸顯示）
+      if(isLoanType){
+        html+='<div style="display:block"><div style="margin-bottom:9px"><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">貸款名稱</div><input id="cem-lc-name" type="text" value="'+(row?.name||'')+'" placeholder="例：禾川琚房貸" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:6px;border-radius:4px;outline:none;box-sizing:border-box"></div>';
+        [['cem-lc-p','貸款金額（TWD）','number','例：8000000'],['cem-lc-r','年利率（%）','number','例：2.06'],['cem-lc-s','貸款起始日','date',''],['cem-lc-e','貸款截止日','date',''],['cem-lc-f','還款日（第一次）','date','']].forEach(([id,lb,tp,ph])=>{
+          html+='<div style="margin-bottom:9px"><div style="font-size:10px;color:#9a9890;margin-bottom:2px;letter-spacing:.04em">'+lb+'</div><input id="'+id+'" type="'+tp+'" value="'+(ld[id.replace('cem-','')]||'')+'" placeholder="'+ph+'" style="width:100%;border:1px solid rgba(26,25,22,.18);background:#f5f4f0;color:#1a1916;font-size:12px;padding:6px;border-radius:4px;outline:none;font-family:var(--mono);box-sizing:border-box"></div>';
+        });
+        html+='</div>';
+      }
+
+      // 按鈕
+      html+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem"><button onclick="document.getElementById(\'cf-unified-expense-modal\').remove()" style="background:transparent;color:#5a5852;border:1px solid rgba(26,25,22,.18);border-radius:4px;padding:8px 16px;font-size:13px;cursor:pointer">取消</button><button onclick="cfSaveUnifiedExpense(\''+rowId+'\')" style="background:#1a1916;color:#fff;border:none;border-radius:4px;padding:8px 16px;font-size:13px;cursor:pointer">保存</button></div>';
+      html+='</div>';
+
+      wrap.innerHTML=html;
+      document.body.appendChild(wrap);
+    };
+    window.cfSaveUnifiedExpense=function(rowId){
+      const row=cfExpense.find(r=>r.id===rowId);if(!row)return;
+      row.etype=document.getElementById('cem-type')?.value||row.etype;
+      row.owner=document.getElementById('cem-owner')?.value||row.owner;
+      row.freq=document.getElementById('cem-freq')?.value||row.freq;
+      // 如果是貸款類型，保存貸款資料
+      if(isLoan(row.etype)){
+        row.name=document.getElementById('cem-lc-name')?.value||row.name;
+        if(!row.loanData)row.loanData={};
+        const ld=row.loanData;
+        ld['lc-p']=document.getElementById('cem-lc-p')?.value||'';
+        ld['lc-r']=document.getElementById('cem-lc-r')?.value||'';
+        ld['lc-s']=document.getElementById('cem-lc-s')?.value||'';
+        ld['lc-e']=document.getElementById('cem-lc-e')?.value||'';
+        ld['lc-f']=document.getElementById('cem-lc-f')?.value||'';
+      }
+      cfRenderExpense();cfCalc();cfSave();
+      document.getElementById('cf-unified-expense-modal')?.remove();
     };
     window.cfOpenLoan=function(rowId){
       const row=cfExpense.find(r=>r.id===rowId);const ld=row?.loanData||{};
