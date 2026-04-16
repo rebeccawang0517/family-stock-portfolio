@@ -64,58 +64,66 @@
             }
         });
 
-        async function fetchStockInfo(symbol, region, retryCount = 0) {
-            const maxRetries = 3;
-            try {
-                let apiSymbol = symbol;
-                if (region === '台股') {
-                    if (symbol.startsWith('00') && symbol.includes('B')) {
-                        apiSymbol = symbol + '.TWO';
-                    } else {
-                        apiSymbol = symbol + '.TW';
-                    }
-                }
-                const corsProxies = ['https://corsproxy.io/?','https://api.allorigins.win/raw?url=','https://api.codetabs.com/v1/proxy?quest='];
-                const corsProxy = corsProxies[retryCount % corsProxies.length];
-                const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
-                const url = corsProxy + encodeURIComponent(apiUrl);
-                const fetchWithTimeout = (url, timeout = 15000) => {
-                    return Promise.race([
-                        fetch(url, { method: 'GET' }),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), timeout))
-                    ]);
-                };
-                const response = await fetchWithTimeout(url, 15000);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                if (data.chart && data.chart.result && data.chart.result[0]) {
-                    const result = data.chart.result[0];
-                    const meta = result.meta;
-                    const price = meta.regularMarketPrice || meta.chartPreviousClose || meta.previousClose;
+        // 同 symbol 在 90 秒內共用結果，避免重複請求
+        const _stockCache = new Map();
+        const STOCK_CACHE_TTL = 90 * 1000;
+
+        async function fetchStockInfo(symbol, region) {
+            const cacheKey = `${symbol}_${region}`;
+            const cached = _stockCache.get(cacheKey);
+            if (cached && Date.now() - cached.t < STOCK_CACHE_TTL) return cached.v;
+
+            let apiSymbol = symbol;
+            if (region === '台股') {
+                apiSymbol = (symbol.startsWith('00') && symbol.includes('B')) ? symbol + '.TWO' : symbol + '.TW';
+            }
+            const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
+            const corsProxies = [
+                'https://corsproxy.io/?',
+                'https://api.allorigins.win/raw?url=',
+                'https://api.codetabs.com/v1/proxy?quest='
+            ];
+
+            const fetchProxy = async (proxy, signal) => {
+                const r = await fetch(proxy + encodeURIComponent(apiUrl), { method: 'GET', signal });
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const d = await r.json();
+                const result = d?.chart?.result?.[0];
+                if (!result) throw new Error('no data');
+                const meta = result.meta;
+                const price = meta.regularMarketPrice || meta.chartPreviousClose || meta.previousClose;
+                if (!price || price <= 0) throw new Error('invalid price');
+                return { meta, price };
+            };
+
+            // 兩輪：每輪 race 三個代理 + 8 秒 timeout，取最快成功
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const ctrl = new AbortController();
+                const timeoutId = setTimeout(() => ctrl.abort(), 8000);
+                try {
+                    const { meta, price } = await Promise.any(
+                        corsProxies.map(p => fetchProxy(p, ctrl.signal))
+                    );
+                    clearTimeout(timeoutId);
+                    ctrl.abort(); // 取消其他 in-flight 請求
                     const previousClose = meta.chartPreviousClose || meta.previousClose;
-                    let changePercent = 0;
-                    if (previousClose && price && previousClose !== 0) {
-                        changePercent = ((price - previousClose) / previousClose) * 100;
-                    }
-                    if (!price || price <= 0) throw new Error(`${symbol} 價格無效: ${price}`);
+                    const changePercent = (previousClose && previousClose !== 0)
+                        ? ((price - previousClose) / previousClose) * 100 : 0;
                     let companyName = symbol;
                     if (region === '台股') {
                         if (TAIWAN_STOCKS[symbol]) companyName = TAIWAN_STOCKS[symbol];
                     } else {
-                        if (US_STOCKS[symbol]) companyName = US_STOCKS[symbol];
-                        else companyName = meta.longName || meta.shortName || symbol;
+                        companyName = US_STOCKS[symbol] || meta.longName || meta.shortName || symbol;
                     }
-                    return { price: Math.abs(price), companyName, changePercent };
+                    const v = { price: Math.abs(price), companyName, changePercent };
+                    _stockCache.set(cacheKey, { t: Date.now(), v });
+                    return v;
+                } catch (e) {
+                    clearTimeout(timeoutId);
+                    if (attempt === 0) await new Promise(r => setTimeout(r, 800));
                 }
-                throw new Error(`${symbol} 無法從 API 獲取數據`);
-            } catch (error) {
-                if (retryCount < maxRetries) {
-                    const waitTime = (retryCount + 1) * 2000;
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                    return fetchStockInfo(symbol, region, retryCount + 1);
-                }
-                return null;
             }
+            return null;
         }
 
         async function fetchExchangeRate(retryCount = 0) {
@@ -192,7 +200,8 @@
         window.updateAllPricesAndRate = async function() {
             const button = event.target;
             button.disabled = true;
-            button.innerHTML = '🔄 更新中...<span class="loading-spinner"></span>';
+            const setBtn = (txt) => { button.innerHTML = txt; };
+            setBtn('🔄 更新中...');
             try {
                 await fetchExchangeRate();
                 const uniqueStocksMap = new Map();
@@ -201,25 +210,49 @@
                     if (!uniqueStocksMap.has(key)) uniqueStocksMap.set(key, { symbol: stock.symbol, region: stock.region, relatedStocks: [] });
                     uniqueStocksMap.get(key).relatedStocks.push(stock.id);
                 });
-                const updatePromises = Array.from(uniqueStocksMap.entries()).map(async ([key, stockInfo]) => {
-                    try {
-                        const info = await fetchStockInfo(stockInfo.symbol, stockInfo.region);
-                        if (info && info.price) {
-                            await Promise.all(stockInfo.relatedStocks.map(stockId => {
-                                const stockRef = doc(db, 'stocks', stockId);
-                                return updateDoc(stockRef, { currentPrice: info.price, changePercent: info.changePercent || 0, lastPriceUpdate: new Date().toISOString() });
-                            }));
-                            return { success: true };
+                const tasks = Array.from(uniqueStocksMap.values());
+                const total = tasks.length;
+                let done = 0, failed = 0;
+                const failedSymbols = [];
+                const BATCH = 5;          // 一次最多 5 支並發
+                const BATCH_GAP = 400;    // 批次之間 400ms 緩衝
+                for (let i = 0; i < tasks.length; i += BATCH) {
+                    const batch = tasks.slice(i, i + BATCH);
+                    await Promise.all(batch.map(async (stockInfo) => {
+                        try {
+                            const info = await fetchStockInfo(stockInfo.symbol, stockInfo.region);
+                            if (info && info.price) {
+                                await Promise.all(stockInfo.relatedStocks.map(stockId =>
+                                    updateDoc(doc(db, 'stocks', stockId), {
+                                        currentPrice: info.price,
+                                        changePercent: info.changePercent || 0,
+                                        lastPriceUpdate: new Date().toISOString()
+                                    })
+                                ));
+                            } else {
+                                failed++; failedSymbols.push(stockInfo.symbol);
+                            }
+                        } catch (e) {
+                            failed++; failedSymbols.push(stockInfo.symbol);
+                        } finally {
+                            done++;
+                            setBtn(`🔄 ${done}/${total}`);
                         }
-                        return { success: false };
-                    } catch (error) { return { success: false }; }
-                });
-                await Promise.all(updatePromises);
+                    }));
+                    if (i + BATCH < tasks.length) await new Promise(r => setTimeout(r, BATCH_GAP));
+                }
+                if (failed > 0) {
+                    console.warn(`更新失敗 ${failed} 支：`, failedSymbols.join(', '));
+                    setBtn(`⚠️ ${total - failed}/${total} (失敗 ${failed})`);
+                    setTimeout(() => { button.innerHTML = '🔄 更新'; }, 3000);
+                } else {
+                    setBtn('🔄 更新');
+                }
             } catch (error) {
                 alert('更新失敗：' + error.message);
+                setBtn('🔄 更新');
             } finally {
                 button.disabled = false;
-                button.innerHTML = '🔄 更新';
                 updateLastUpdateTime();
             }
         };
