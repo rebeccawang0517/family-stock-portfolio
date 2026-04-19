@@ -1,11 +1,15 @@
 export default async function handler(req, res) {
-  const { symbol } = req.query;
+  const { symbol, interval, range } = req.query;
   if (!symbol) {
     res.status(400).json({ error: 'missing symbol' });
     return;
   }
 
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`;
+  const params = new URLSearchParams();
+  if (interval) params.set('interval', interval);
+  if (range) params.set('range', range);
+  const qs = params.toString();
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}${qs ? '?' + qs : ''}`;
 
   try {
     const r = await fetch(url, {
