@@ -79,41 +79,15 @@
     document.getElementById('ai-analyze-status').textContent = `已選擇 ${symbol} · 按下按鈕觸發 AI 分析`;
   };
 
-  // ===== TradingView 圖表 =====
+  // ===== TradingView 圖表（iframe 嵌入） =====
   function aiLoadTradingView(symbol, region) {
     const container = document.getElementById('ai-tv-chart');
     if (!container) return;
-    container.innerHTML = '';
 
-    const tvSymbol = region === '台股' ? 'TWSE:' + symbol : symbol;
+    const tvSymbol = region === '台股' ? 'TWSE%3A' + symbol : symbol;
     const interval = document.getElementById('ai-tv-interval').value || 'D';
 
-    const widget = document.createElement('div');
-    widget.id = 'ai-tv-widget';
-    widget.style.cssText = 'width:100%;height:100%';
-    container.appendChild(widget);
-
-    try {
-      _aiTvWidget = new TradingView.widget({
-        container_id: 'ai-tv-widget',
-        symbol: tvSymbol,
-        interval: interval,
-        timezone: 'Asia/Taipei',
-        theme: 'dark',
-        style: '1',
-        locale: 'zh_TW',
-        toolbar_bg: '#2c2b27',
-        enable_publishing: false,
-        hide_top_toolbar: false,
-        hide_legend: false,
-        save_image: false,
-        width: '100%',
-        height: '100%',
-        studies: ['MASimple@tv-basicstudies','RSI@tv-basicstudies','MACD@tv-basicstudies','BB@tv-basicstudies'],
-      });
-    } catch(e) {
-      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#7a7872;font-size:13px">TradingView 載入中... 如未顯示請確認網路連線</div>';
-    }
+    container.innerHTML = `<iframe src="https://s.tradingview.com/widgetembed/?symbol=${tvSymbol}&interval=${interval}&hidesidetoolbar=0&symboledit=0&saveimage=0&toolbarbg=2c2b27&studies=MASimple%40tv-basicstudies%1FRSI%40tv-basicstudies%1FMACD%40tv-basicstudies&theme=dark&style=1&timezone=Asia%2FTaipei&locale=zh_TW&utm_source=localhost&utm_medium=widget_new&utm_campaign=chart" style="width:100%;height:100%;border:none" allowtransparency="true" allowfullscreen></iframe>`;
   }
 
   window.aiChangeInterval = function() {
