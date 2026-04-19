@@ -15,7 +15,7 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'grok-3',
+        model: 'grok-4-1-fast-reasoning',
         messages: [{ role: 'user', content: prompt + '\n\n請只回覆 JSON，不要加 markdown 標記。' }],
         max_tokens: 2048,
         temperature: 0.7
