@@ -272,6 +272,16 @@
       setV('db-pct-cash',Math.round((cashTot/totalAll)*100)+'%');
       setV('db-pct-debt',Math.round((debtTot/totalAll)*100)+'%');
 
+      // 暴露給 AI 分析頁
+      window.dbAssetData = {
+        fixedAsset: fixedTot,
+        fixedAssetItems: dbAssets.filter(r => parseFloat(r.val) > 0).map(r => ({ name: r.name, value: parseFloat(r.val) || 0 })),
+        cash: cashTot,
+        cashItems: dbCash.filter(r => parseFloat(r.val) > 0).map(r => ({ name: r.name + (r.cat ? '(' + r.cat + ')' : ''), value: parseFloat(r.val) || 0 })),
+        debtTotal: debtTot,
+        debtItems: dbDebts.filter(r => parseFloat(r.val) > 0).map(r => ({ name: r.name, cat: r.cat, value: parseFloat(r.val) || 0 }))
+      };
+
       // donut chart
       dbRenderDonut(stockVal,fixedTot,cashTot,debtTot);
     }

@@ -12,11 +12,19 @@
   ];
 
   // ===== 初始化 =====
-  window.aiInit = function() {
+  window.aiInit = async function() {
+    // 確保 dashboard 資料已載入（固定資產、現金、負債）
+    if (typeof dbRender === 'function' && !window.dbAssetData) {
+      await dbRender();
+    }
+    // 確保 cashflow 資料已載入（貸款明細）
+    if (typeof cfLoad === 'function' && !window.cfExpenseRef) {
+      cfLoad();
+    }
     aiLoadStockList();
     aiLoadAssetOverview();
     aiLoadGoalProgress();
-    aiLoadMacro();
+    if (!_aiInited) aiLoadMacro();
     _aiInited = true;
   };
 
