@@ -143,7 +143,7 @@
                 if (r.ok) {
                     const data = await r.json();
                     const rate = data?.chart?.result?.[0]?.meta?.regularMarketPrice || data?.chart?.result?.[0]?.meta?.previousClose;
-                    if (rate) { document.getElementById('usdRate').value = Math.abs(rate).toFixed(2); updateStats(); return true; }
+                    if (rate) { document.getElementById('usdRate').value = Math.abs(rate).toFixed(2); window.exchangeRate = Math.abs(rate); updateStats(); return true; }
                 }
             } catch (e) { /* fallback */ }
             // 降級
@@ -155,7 +155,7 @@
                     if (!r.ok) continue;
                     const data = await r.json();
                     const rate = data?.chart?.result?.[0]?.meta?.regularMarketPrice || data?.chart?.result?.[0]?.meta?.previousClose;
-                    if (rate) { document.getElementById('usdRate').value = Math.abs(rate).toFixed(2); updateStats(); return true; }
+                    if (rate) { document.getElementById('usdRate').value = Math.abs(rate).toFixed(2); window.exchangeRate = Math.abs(rate); updateStats(); return true; }
                 } catch (e) { continue; }
             }
             return false;
@@ -327,6 +327,7 @@
                 stocks = [];
                 snapshot.forEach((doc) => { stocks.push({ id: doc.id, ...doc.data() }); });
                 filteredStocks = [...stocks];
+                window.stocks = stocks;
                 renderStocks();
                 updateStats();
             });
@@ -609,6 +610,14 @@
 
         window.updateStats = function() {
             const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
+            window.exchangeRate = usdRate;
+            // 暴露合併持股給 AI 分析頁
+            const merged = getMergedStockStats();
+            window.stocks = merged.map(s => ({
+              symbol: s.symbol, company: s.companyName || s.symbol, region: s.region,
+              shares: s.totalShares, avgCost: s.totalShares > 0 ? s.totalCost / s.totalShares : 0,
+              currentPrice: parseFloat(s.currentPrice) || 0, changePercent: s.changePercent || 0
+            }));
             let totalCost = 0, totalValue = 0;
             const displayStocks = filteredStocks.length > 0 || document.getElementById('filterRegion').value || document.getElementById('filterHolder').value || document.getElementById('filterPlatform').value ? filteredStocks : stocks;
             displayStocks.forEach(stock => {
