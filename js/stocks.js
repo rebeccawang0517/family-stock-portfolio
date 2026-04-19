@@ -64,9 +64,26 @@
             }
         });
 
-        // 同 symbol 在 90 秒內共用結果，避免重複請求
         const _stockCache = new Map();
         const STOCK_CACHE_TTL = 90 * 1000;
+
+        function _parseYahooResult(symbol, region, data) {
+            const result = data?.chart?.result?.[0];
+            if (!result) return null;
+            const meta = result.meta;
+            const price = meta.regularMarketPrice || meta.chartPreviousClose || meta.previousClose;
+            if (!price || price <= 0) return null;
+            const previousClose = meta.chartPreviousClose || meta.previousClose;
+            const changePercent = (previousClose && previousClose !== 0)
+                ? ((price - previousClose) / previousClose) * 100 : 0;
+            let companyName = symbol;
+            if (region === '台股') {
+                if (TAIWAN_STOCKS[symbol]) companyName = TAIWAN_STOCKS[symbol];
+            } else {
+                companyName = US_STOCKS[symbol] || meta.longName || meta.shortName || symbol;
+            }
+            return { price: Math.abs(price), companyName, changePercent };
+        }
 
         async function fetchStockInfo(symbol, region) {
             const cacheKey = `${symbol}_${region}`;
@@ -77,81 +94,71 @@
             if (region === '台股') {
                 apiSymbol = (symbol.startsWith('00') && symbol.includes('B')) ? symbol + '.TWO' : symbol + '.TW';
             }
-            const apiUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
+
+            // 優先用自家 Vercel API proxy
+            try {
+                const ctrl = new AbortController();
+                const tid = setTimeout(() => ctrl.abort(), 10000);
+                const r = await fetch(`/api/stock?symbol=${encodeURIComponent(apiSymbol)}`, { signal: ctrl.signal });
+                clearTimeout(tid);
+                if (r.ok) {
+                    const data = await r.json();
+                    const v = _parseYahooResult(symbol, region, data);
+                    if (v) { _stockCache.set(cacheKey, { t: Date.now(), v }); return v; }
+                }
+            } catch (e) { /* 降級到 CORS proxy */ }
+
+            // 降級：外部 CORS proxy
             const corsProxies = [
                 'https://corsproxy.io/?',
                 'https://api.allorigins.win/raw?url=',
                 'https://api.codetabs.com/v1/proxy?quest='
             ];
-
-            const fetchProxy = async (proxy, signal) => {
-                const r = await fetch(proxy + encodeURIComponent(apiUrl), { method: 'GET', signal });
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                const d = await r.json();
-                const result = d?.chart?.result?.[0];
-                if (!result) throw new Error('no data');
-                const meta = result.meta;
-                const price = meta.regularMarketPrice || meta.chartPreviousClose || meta.previousClose;
-                if (!price || price <= 0) throw new Error('invalid price');
-                return { meta, price };
-            };
-
-            // 兩輪：每輪 race 三個代理 + 8 秒 timeout，取最快成功
-            for (let attempt = 0; attempt < 2; attempt++) {
-                const ctrl = new AbortController();
-                const timeoutId = setTimeout(() => ctrl.abort(), 8000);
-                try {
-                    const { meta, price } = await Promise.any(
-                        corsProxies.map(p => fetchProxy(p, ctrl.signal))
-                    );
-                    clearTimeout(timeoutId);
-                    ctrl.abort(); // 取消其他 in-flight 請求
-                    const previousClose = meta.chartPreviousClose || meta.previousClose;
-                    const changePercent = (previousClose && previousClose !== 0)
-                        ? ((price - previousClose) / previousClose) * 100 : 0;
-                    let companyName = symbol;
-                    if (region === '台股') {
-                        if (TAIWAN_STOCKS[symbol]) companyName = TAIWAN_STOCKS[symbol];
-                    } else {
-                        companyName = US_STOCKS[symbol] || meta.longName || meta.shortName || symbol;
-                    }
-                    const v = { price: Math.abs(price), companyName, changePercent };
-                    _stockCache.set(cacheKey, { t: Date.now(), v });
-                    return v;
-                } catch (e) {
-                    clearTimeout(timeoutId);
-                    if (attempt === 0) await new Promise(r => setTimeout(r, 800));
-                }
-            }
+            const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}`;
+            const ctrl2 = new AbortController();
+            const tid2 = setTimeout(() => ctrl2.abort(), 8000);
+            try {
+                const resp = await Promise.any(
+                    corsProxies.map(async p => {
+                        const r = await fetch(p + encodeURIComponent(yahooUrl), { method: 'GET', signal: ctrl2.signal });
+                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                        const d = await r.json();
+                        const v = _parseYahooResult(symbol, region, d);
+                        if (!v) throw new Error('parse fail');
+                        return v;
+                    })
+                );
+                clearTimeout(tid2); ctrl2.abort();
+                _stockCache.set(cacheKey, { t: Date.now(), v: resp });
+                return resp;
+            } catch (e) { clearTimeout(tid2); }
             return null;
         }
 
-        async function fetchExchangeRate(retryCount = 0) {
-            const maxRetries = 3;
+        async function fetchExchangeRate() {
+            const symbol = 'USDTWD=X';
+            // 優先用自家 API
             try {
-                const corsProxy = 'https://api.allorigins.win/raw?url=';
-                const apiUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/USDTWD=X';
-                const url = corsProxy + encodeURIComponent(apiUrl);
-                const response = await fetch(url, { method: 'GET', timeout: 10000 });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                if (data.chart && data.chart.result && data.chart.result[0]) {
-                    const rate = data.chart.result[0].meta.regularMarketPrice || data.chart.result[0].meta.previousClose;
-                    if (rate) {
-                        document.getElementById('usdRate').value = Math.abs(rate).toFixed(2);
-                        updateStats();
-                        return true;
-                    }
+                const r = await fetch(`/api/stock?symbol=${encodeURIComponent(symbol)}`);
+                if (r.ok) {
+                    const data = await r.json();
+                    const rate = data?.chart?.result?.[0]?.meta?.regularMarketPrice || data?.chart?.result?.[0]?.meta?.previousClose;
+                    if (rate) { document.getElementById('usdRate').value = Math.abs(rate).toFixed(2); updateStats(); return true; }
                 }
-                throw new Error('無法獲取匯率數據');
-            } catch (error) {
-                if (retryCount < maxRetries) {
-                    const waitTime = (retryCount + 1) * 1000;
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                    return fetchExchangeRate(retryCount + 1);
-                }
-                return false;
+            } catch (e) { /* fallback */ }
+            // 降級
+            const corsProxies = ['https://corsproxy.io/?', 'https://api.allorigins.win/raw?url='];
+            const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
+            for (const proxy of corsProxies) {
+                try {
+                    const r = await fetch(proxy + encodeURIComponent(yahooUrl), { method: 'GET' });
+                    if (!r.ok) continue;
+                    const data = await r.json();
+                    const rate = data?.chart?.result?.[0]?.meta?.regularMarketPrice || data?.chart?.result?.[0]?.meta?.previousClose;
+                    if (rate) { document.getElementById('usdRate').value = Math.abs(rate).toFixed(2); updateStats(); return true; }
+                } catch (e) { continue; }
             }
+            return false;
         }
 
         function getCompanyNameQuick(symbol, region) {
