@@ -317,7 +317,7 @@
     };
     function cfRenderAll(){
       // 先暴露資料給資產總覽，確保不被後續渲染錯誤阻斷
-      window.cfMembersRef=cfMembers;window.cfExpenseRef=cfExpense;window.cfCardsRef=cfCards;
+      window.cfMembersRef=cfMembers;window.cfExpenseRef=cfExpense;window.cfCardsRef=cfCards;window.cfIncomeRef=cfIncome;
       cfInitYearSelect();
       try{cfRenderIncome();cfRenderExpense();cfRenderCards();cfRenderInvest();cfCalc();}
       catch(e){console.error('cfRenderAll error:',e);}

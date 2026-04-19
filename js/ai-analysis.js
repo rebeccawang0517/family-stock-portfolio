@@ -144,6 +144,29 @@
 
         _aiChart.timeScale().fitContent();
 
+        // OHLCV tooltip
+        const tooltip = document.createElement('div');
+        tooltip.style.cssText = 'position:absolute;top:8px;left:70px;font-size:11px;font-family:var(--mono);color:#ccc9bf;pointer-events:none;z-index:10;display:flex;gap:12px;background:rgba(30,30,30,.85);padding:4px 10px;border-radius:4px';
+        container.style.position = 'relative';
+        container.appendChild(tooltip);
+
+        _aiChart.subscribeCrosshairMove(param => {
+          if (!param.time || !param.seriesData) { tooltip.style.display = 'none'; return; }
+          const c = param.seriesData.get(_aiCandleSeries);
+          const v = param.seriesData.get(_aiVolumeSeries);
+          if (!c) { tooltip.style.display = 'none'; return; }
+          tooltip.style.display = 'flex';
+          const chg = c.open ? ((c.close - c.open) / c.open * 100) : 0;
+          const chgColor = chg >= 0 ? '#e84142' : '#26a69a';
+          tooltip.innerHTML =
+            `<span>開 <b>${c.open?.toFixed(2)}</b></span>` +
+            `<span>高 <b style="color:#e84142">${c.high?.toFixed(2)}</b></span>` +
+            `<span>低 <b style="color:#26a69a">${c.low?.toFixed(2)}</b></span>` +
+            `<span>收 <b style="color:${chgColor}">${c.close?.toFixed(2)}</b></span>` +
+            `<span style="color:${chgColor}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</span>` +
+            `<span>量 <b>${v?.value ? (v.value >= 1e6 ? (v.value/1e6).toFixed(1)+'M' : v.value >= 1e3 ? (v.value/1e3).toFixed(0)+'K' : v.value) : '--'}</b></span>`;
+        });
+
         // resize observer
         const ro = new ResizeObserver(() => {
           if (_aiChart) _aiChart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
@@ -320,36 +343,39 @@
   };
 
   // ===== AI 策略建議（全面資產） =====
+  let _lastStrategyPrompt = null;
+
   window.aiGenerateStrategy = function() {
     const target = parseInt((document.getElementById('ai-goal-amount-input').value || '50000000').replace(/,/g, '')) || 50000000;
     const years = parseInt(document.getElementById('ai-goal-years-input').value) || 5;
     const monthly = parseInt((document.getElementById('ai-goal-monthly-input').value || '50000').replace(/,/g, '')) || 50000;
 
     const assetData = aiCollectAllAssetData();
-    const prompt = aiBuildStrategyPrompt(assetData, target, years, monthly);
+    _lastStrategyPrompt = aiBuildStrategyPrompt(assetData, target, years, monthly);
 
-    const engines = ['claude','gemini','grok'];
-    engines.forEach(engine => {
-      const col = document.getElementById('ai-strategy-' + engine);
-      const head = col.querySelector('.ai-goal-ai-head').outerHTML;
-      col.innerHTML = head + '<div style="padding:18px 0;text-align:center;color:#c8b89a;font-size:12px">分析中...</div>';
-    });
-
-    engines.forEach(engine => {
-      fetch('/api/ai-' + engine, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ prompt, type: 'strategy' })
-      })
-      .then(r => r.ok ? r.json() : Promise.reject('API error'))
-      .then(data => aiRenderStrategy(engine, data))
-      .catch(e => {
-        const col = document.getElementById('ai-strategy-' + engine);
-        const head = col.querySelector('.ai-goal-ai-head').outerHTML;
-        col.innerHTML = head + `<div style="padding:18px 0;text-align:center;color:#e8675a;font-size:12px">分析失敗：${e}<br><span style="color:#7a7872">請確認 API Key 已設定</span></div>`;
-      });
-    });
+    ['claude','gemini','grok'].forEach(engine => aiRunStrategy(engine));
   };
+
+  window.aiRetryStrategy = function(engine) {
+    if (_lastStrategyPrompt) aiRunStrategy(engine);
+  };
+
+  function aiRunStrategy(engine) {
+    const col = document.getElementById('ai-strategy-' + engine);
+    const head = col.querySelector('.ai-goal-ai-head').outerHTML;
+    col.innerHTML = head + '<div style="padding:18px 0;text-align:center;color:#c8b89a;font-size:12px">分析中...</div>';
+
+    fetch('/api/ai-' + engine, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ prompt: _lastStrategyPrompt, type: 'strategy' })
+    })
+    .then(r => r.ok ? r.json() : Promise.reject('API error'))
+    .then(data => aiRenderStrategy(engine, data))
+    .catch(e => {
+      col.innerHTML = head + `<div style="padding:18px 0;text-align:center;color:#e8675a;font-size:12px">分析失敗：${e}<br><button onclick="aiRetryStrategy('${engine}')" style="margin-top:8px;background:#3d3c38;border:1px solid rgba(255,255,255,.1);color:#c8b89a;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px">重新分析此 AI</button></div>`;
+    });
+  }
 
   function aiCollectAllAssetData() {
     const stocks = window.stocks || [];
@@ -380,6 +406,27 @@
       }
     });
 
+    // 收入明細
+    const cfIncome = window.cfIncomeRef || [];
+    const incomeArr = Array.isArray(cfIncome) ? cfIncome : Object.values(cfIncome);
+    const incomes = incomeArr.map(r => ({
+      name: r.name, owner: r.owner, freq: r.freq,
+      amt: parseFloat(r.amt) || 0
+    })).filter(r => r.amt > 0);
+
+    // 固定支出（非貸款）
+    const fixedExpenses = cfArr.filter(r => !r.etype || r.etype === 'general').map(r => ({
+      name: r.name, owner: r.owner, freq: r.freq,
+      amt: parseFloat(r.amt) || 0
+    })).filter(r => r.amt > 0);
+
+    // 信用卡 = 變動支出
+    const cfCards = window.cfCardsRef || [];
+    const cardArr = Array.isArray(cfCards) ? cfCards : Object.values(cfCards);
+    const cards = cardArr.map(r => ({
+      name: r.name || r.bank, amt: parseFloat(r.amt) || 0
+    })).filter(r => r.amt > 0);
+
     return {
       holdings,
       fixedAsset: dbData.fixedAsset || 0,
@@ -387,6 +434,9 @@
       cash: dbData.cash || 0,
       cashItems: dbData.cashItems || [],
       loans,
+      incomes,
+      fixedExpenses,
+      cards,
       exchangeRate: rate
     };
   }
@@ -413,6 +463,15 @@ ${data.cashItems.map(i => `- ${i.name}: NT$${Math.round(i.value).toLocaleString(
 【負債明細】總額 NT$${Math.round(totalDebt).toLocaleString()}
 ${data.loans.map(l => `- ${l.name}(${l.type}): 金額NT$${Math.round(l.amount||0).toLocaleString()} | 利率${l.rate}% | 月付NT$${Math.round(l.monthlyPay||0).toLocaleString()} | ${l.startDate||''}~${l.endDate||''}`).join('\n') || '（無貸款）'}
 
+【每月收入明細】
+${data.incomes.map(i => `- ${i.name}(${i.owner}): NT$${Math.round(i.amt).toLocaleString()}/${i.freq==='monthly'?'月':i.freq==='yearly'?'年':'次'}`).join('\n') || '（未設定）'}
+
+【每月固定支出】
+${data.fixedExpenses.map(e => `- ${e.name}(${e.owner}): NT$${Math.round(e.amt).toLocaleString()}/${e.freq==='monthly'?'月':e.freq==='yearly'?'年':'次'}`).join('\n') || '（未設定）'}
+
+【信用卡/變動支出】
+${data.cards.map(c => `- ${c.name}: NT$${Math.round(c.amt).toLocaleString()}/月`).join('\n') || '（未設定）'}
+
 請依以下格式回覆（JSON）：
 {
   "diagnosis": "全面資產診斷（含負債評估）",
@@ -434,6 +493,8 @@ ${data.loans.map(l => `- ${l.name}(${l.type}): 金額NT$${Math.round(l.amount||0
   }
 
   // ===== AI 個股分析 =====
+  let _lastStockPrompt = null;
+
   window.aiAnalyzeStock = function() {
     if (!_aiSelectedSymbol) {
       document.getElementById('ai-analyze-status').textContent = '請先選擇左側持股';
@@ -443,26 +504,30 @@ ${data.loans.map(l => `- ${l.name}(${l.type}): 金額NT$${Math.round(l.amount||0
     if (!stock) return;
 
     document.getElementById('ai-analyze-status').textContent = `正在分析 ${_aiSelectedSymbol}...`;
+    _lastStockPrompt = aiBuildStockPrompt(stock);
 
-    const prompt = aiBuildStockPrompt(stock);
-    const engines = ['claude','gemini','grok'];
-
-    engines.forEach(engine => {
-      const body = document.getElementById('ai-stock-' + engine);
-      body.innerHTML = '<div style="padding:20px;text-align:center;color:#c8b89a;font-size:12px">分析中...</div>';
-
-      fetch('/api/ai-' + engine, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ prompt, type: 'stock', symbol: _aiSelectedSymbol })
-      })
-      .then(r => r.ok ? r.json() : Promise.reject('API error'))
-      .then(data => aiRenderStockAnalysis(engine, data))
-      .catch(e => {
-        body.innerHTML = `<div style="padding:20px;text-align:center;color:#e8675a;font-size:12px">分析失敗：${e}<br><span style="color:#7a7872">請確認 API Key 已設定</span></div>`;
-      });
-    });
+    ['claude','gemini','grok'].forEach(engine => aiRunStockAnalysis(engine));
   };
+
+  window.aiRetryStock = function(engine) {
+    if (_lastStockPrompt) aiRunStockAnalysis(engine);
+  };
+
+  function aiRunStockAnalysis(engine) {
+    const body = document.getElementById('ai-stock-' + engine);
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:#c8b89a;font-size:12px">分析中...</div>';
+
+    fetch('/api/ai-' + engine, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ prompt: _lastStockPrompt, type: 'stock', symbol: _aiSelectedSymbol })
+    })
+    .then(r => r.ok ? r.json() : Promise.reject('API error'))
+    .then(data => aiRenderStockAnalysis(engine, data))
+    .catch(e => {
+      body.innerHTML = `<div style="padding:20px;text-align:center;color:#e8675a;font-size:12px">分析失敗：${e}<br><button onclick="aiRetryStock('${engine}')" style="margin-top:8px;background:#3d3c38;border:1px solid rgba(255,255,255,.1);color:#c8b89a;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px">重新分析此 AI</button></div>`;
+    });
+  }
 
   function aiBuildStockPrompt(stock) {
     return `你是專業股票分析師。請分析以下股票，依照七大類別回覆。
