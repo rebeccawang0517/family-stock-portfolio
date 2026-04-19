@@ -79,15 +79,143 @@
     document.getElementById('ai-analyze-status').textContent = `已選擇 ${symbol} · 按下按鈕觸發 AI 分析`;
   };
 
-  // ===== TradingView 圖表（iframe 嵌入） =====
+  // ===== 股票圖表 =====
   function aiLoadTradingView(symbol, region) {
     const container = document.getElementById('ai-tv-chart');
     if (!container) return;
 
-    const tvSymbol = region === '台股' ? 'TWSE%3A' + symbol : symbol;
-    const interval = document.getElementById('ai-tv-interval').value || 'D';
+    if (region !== '台股') {
+      // 美股用 TradingView iframe
+      const interval = document.getElementById('ai-tv-interval').value || 'D';
+      container.innerHTML = `<iframe src="https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=${interval}&hidesidetoolbar=0&symboledit=0&saveimage=0&toolbarbg=2c2b27&studies=MASimple%40tv-basicstudies%1FRSI%40tv-basicstudies%1FMACD%40tv-basicstudies&theme=dark&style=1&timezone=Asia%2FTaipei&locale=zh_TW" style="width:100%;height:100%;border:none" allowtransparency="true" allowfullscreen></iframe>`;
+    } else {
+      // 台股用 Yahoo Finance 資料 + Canvas 繪圖
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#7a7872;font-size:13px">載入圖表中...</div>';
+      aiLoadYahooChart(symbol, container);
+    }
+  }
 
-    container.innerHTML = `<iframe src="https://s.tradingview.com/widgetembed/?symbol=${tvSymbol}&interval=${interval}&hidesidetoolbar=0&symboledit=0&saveimage=0&toolbarbg=2c2b27&studies=MASimple%40tv-basicstudies%1FRSI%40tv-basicstudies%1FMACD%40tv-basicstudies&theme=dark&style=1&timezone=Asia%2FTaipei&locale=zh_TW&utm_source=localhost&utm_medium=widget_new&utm_campaign=chart" style="width:100%;height:100%;border:none" allowtransparency="true" allowfullscreen></iframe>`;
+  async function aiLoadYahooChart(symbol, container) {
+    try {
+      const twSymbol = symbol + '.TW';
+      const r = await fetch('/api/stock?symbol=' + encodeURIComponent(twSymbol));
+      if (!r.ok) throw new Error('API error');
+      const data = await r.json();
+      const result = data?.chart?.result?.[0];
+      if (!result) throw new Error('No data');
+
+      const timestamps = result.timestamp || [];
+      const quotes = result.indicators?.quote?.[0] || {};
+      const closes = quotes.close || [];
+      const opens = quotes.open || [];
+      const highs = quotes.high || [];
+      const lows = quotes.low || [];
+      const volumes = quotes.volume || [];
+
+      if (closes.length < 2) throw new Error('Insufficient data');
+
+      // 繪製 Canvas 圖表
+      const canvas = document.createElement('canvas');
+      canvas.style.cssText = 'width:100%;height:100%';
+      container.innerHTML = '';
+      container.appendChild(canvas);
+
+      const ctx = canvas.getContext('2d');
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width * (window.devicePixelRatio || 1);
+      canvas.height = rect.height * (window.devicePixelRatio || 1);
+      ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+      const W = rect.width, H = rect.height;
+
+      const chartH = H * 0.72;
+      const volH = H * 0.18;
+      const volTop = chartH + 10;
+      const pad = { l: 60, r: 15, t: 15 };
+
+      // 計算 MA
+      function ma(arr, n) {
+        return arr.map((_, i) => {
+          if (i < n - 1) return null;
+          let s = 0; for (let j = i - n + 1; j <= i; j++) s += (arr[j] || 0);
+          return s / n;
+        });
+      }
+      const ma5 = ma(closes, 5), ma10 = ma(closes, 10), ma20 = ma(closes, 20);
+
+      const validCloses = closes.filter(v => v != null);
+      const minP = Math.min(...validCloses) * 0.995;
+      const maxP = Math.max(...validCloses) * 1.005;
+      const maxV = Math.max(...volumes.filter(v => v != null)) || 1;
+      const n = closes.length;
+      const barW = Math.max(1, (W - pad.l - pad.r) / n);
+
+      function x(i) { return pad.l + i * barW + barW / 2; }
+      function yP(v) { return pad.t + (1 - (v - minP) / (maxP - minP)) * chartH; }
+      function yV(v) { return volTop + volH - (v / maxV) * volH; }
+
+      // 背景
+      ctx.fillStyle = '#1e1e1e';
+      ctx.fillRect(0, 0, W, H);
+
+      // 格線
+      ctx.strokeStyle = 'rgba(255,255,255,.06)';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < 5; i++) {
+        const gy = pad.t + (chartH / 4) * i;
+        ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(W - pad.r, gy); ctx.stroke();
+        const pLabel = (maxP - (maxP - minP) * (i / 4)).toFixed(1);
+        ctx.fillStyle = '#7a7872'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+        ctx.fillText(pLabel, pad.l - 6, gy + 4);
+      }
+
+      // K 線
+      for (let i = 0; i < n; i++) {
+        if (closes[i] == null) continue;
+        const o = opens[i] || closes[i], c = closes[i], h = highs[i] || c, l = lows[i] || c;
+        const up = c >= o;
+        ctx.strokeStyle = ctx.fillStyle = up ? '#e84142' : '#26a69a';
+        // 影線
+        ctx.beginPath(); ctx.moveTo(x(i), yP(h)); ctx.lineTo(x(i), yP(l)); ctx.lineWidth = 1; ctx.stroke();
+        // 實體
+        const bw = Math.max(1, barW * 0.6);
+        const top = yP(Math.max(o, c)), bot = yP(Math.min(o, c));
+        ctx.fillRect(x(i) - bw / 2, top, bw, Math.max(1, bot - top));
+      }
+
+      // MA 線
+      function drawMA(arr, color) {
+        ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.beginPath();
+        let started = false;
+        arr.forEach((v, i) => { if (v == null) return; if (!started) { ctx.moveTo(x(i), yP(v)); started = true; } else ctx.lineTo(x(i), yP(v)); });
+        ctx.stroke();
+      }
+      drawMA(ma5, '#f5a623');
+      drawMA(ma10, '#4aad6e');
+      drawMA(ma20, '#e8675a');
+
+      // 成交量
+      for (let i = 0; i < n; i++) {
+        if (volumes[i] == null) continue;
+        const up = (closes[i] || 0) >= (opens[i] || 0);
+        ctx.fillStyle = up ? 'rgba(232,65,66,.4)' : 'rgba(38,166,154,.4)';
+        const bw = Math.max(1, barW * 0.6);
+        const vh = (volumes[i] / maxV) * volH;
+        ctx.fillRect(x(i) - bw / 2, volTop + volH - vh, bw, vh);
+      }
+
+      // MA 圖例
+      ctx.font = '10px sans-serif';
+      const legends = [['MA5', '#f5a623'], ['MA10', '#4aad6e'], ['MA20', '#e8675a']];
+      let lx = pad.l + 5;
+      legends.forEach(([label, color]) => {
+        ctx.fillStyle = color; ctx.fillRect(lx, pad.t + 2, 12, 3);
+        ctx.fillStyle = '#9a9890'; ctx.textAlign = 'left'; ctx.fillText(label, lx + 15, pad.t + 8);
+        lx += 55;
+      });
+
+    } catch (e) {
+      container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#7a7872;font-size:13px">圖表載入失敗：${e.message}</div>`;
+    }
   }
 
   window.aiChangeInterval = function() {
@@ -130,18 +258,25 @@
       : '<div style="color:#7a7872">請在資產總覽設定</div>';
 
     // 負債 from cashflow
-    const cfExpense = window.cfExpenseRef || {};
+    const cfExpense = window.cfExpenseRef || [];
     let totalDebt = 0;
     let debtHtml = '';
-    Object.entries(cfExpense).forEach(([id, r]) => {
+    const catMap = {loan_mortgage:'房貸', loan_credit:'信貸', loan_other:'其他貸款'};
+    (Array.isArray(cfExpense) ? cfExpense : Object.values(cfExpense)).forEach(r => {
       if (r.etype && r.etype.startsWith('loan_')) {
-        const loanAmt = r.loanAmount || 0;
-        const loanRate = r.loanRate || 0;
-        const monthPay = r.loanMonthPay || 0;
+        const ld = r.loanData || {};
+        const loanAmt = parseFloat(ld['lc-p']) || 0;
+        const loanRate = parseFloat(ld['lc-r']) || 0;
+        const monthPay = parseFloat(r.amt) || 0;
         totalDebt += loanAmt;
-        const catMap = {loan_mortgage:'房貸', loan_credit:'信貸', loan_other:'其他貸款'};
         debtHtml += `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${r.name || catMap[r.etype] || '貸款'}</span><span style="font-family:var(--mono);color:#ccc9bf">-$${Math.round(loanAmt).toLocaleString()}</span></div>`;
-        debtHtml += `<div style="padding-left:8px;font-size:9px;color:#7a7872;font-family:var(--mono)">利率 ${loanRate}% · 月付 $${Math.round(monthPay).toLocaleString()}</div>`;
+        if (loanRate || monthPay) {
+          debtHtml += `<div style="padding-left:8px;font-size:9px;color:#7a7872;font-family:var(--mono)">`;
+          if (loanRate) debtHtml += `利率 ${loanRate}%`;
+          if (loanRate && monthPay) debtHtml += ` · `;
+          if (monthPay) debtHtml += `月付 $${Math.round(monthPay).toLocaleString()}`;
+          debtHtml += `</div>`;
+        }
       }
     });
     document.getElementById('ai-asset-debt').textContent = totalDebt ? '-$' + Math.round(totalDebt).toLocaleString() : '$0';
@@ -281,14 +416,17 @@
     }));
 
     let loans = [];
-    Object.entries(cfExpense).forEach(([id, r]) => {
+    const cfArr = Array.isArray(cfExpense) ? cfExpense : Object.values(cfExpense);
+    cfArr.forEach(r => {
       if (r.etype && r.etype.startsWith('loan_')) {
+        const ld = r.loanData || {};
         loans.push({
           name: r.name, type: r.etype,
-          amount: r.loanAmount, rate: r.loanRate,
-          monthlyPay: r.loanMonthPay,
-          startDate: r.loanStart, endDate: r.loanEnd,
-          gracePeriod: r.loanGrace, method: r.loanMethod
+          amount: parseFloat(ld['lc-p']) || 0,
+          rate: parseFloat(ld['lc-r']) || 0,
+          monthlyPay: parseFloat(r.amt) || 0,
+          startDate: ld['lc-s'] || '', endDate: ld['lc-e'] || '',
+          gracePeriod: ld['lc-grace'] || 0
         });
       }
     });
