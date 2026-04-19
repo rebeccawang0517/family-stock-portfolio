@@ -359,6 +359,11 @@
                 document.getElementById('tabDashboard').classList.add('active');
                 document.getElementById('tabDashboard').classList.remove('text-slate-400');
                 dbRender();
+            } else if (tabName === 'ai') {
+                document.getElementById('aiTab').classList.add('active');
+                document.getElementById('tabAi').classList.add('active');
+                document.getElementById('tabAi').classList.remove('text-slate-400');
+                if (typeof aiInit === 'function') aiInit();
             }
         };
 

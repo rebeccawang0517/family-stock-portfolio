@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+    <script src="https://s3.tradingview.com/tv.js"></script>
     <script type="module" src="js/firebase.js"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -65,6 +66,9 @@
                     </button>
                     <button onclick="switchTab('cashflow')" id="tabCashflow" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
                         收支管理
+                    </button>
+                    <button onclick="switchTab('ai')" id="tabAi" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
+                        AI 分析
                     </button>
                 </div>
             </div>
@@ -799,6 +803,163 @@
               </div>
             </div>
 
+            <!-- 第六頁：AI 分析 -->
+            <div id="aiTab" class="tab-content">
+              <div class="ai-page">
+                <!-- 標題 -->
+                <div class="ai-pg-header">
+                  <div>
+                    <h2 class="db-title">AI 智慧分析</h2>
+                    <p class="db-subtitle">Claude · Gemini · Grok 三引擎獨立分析 · 股票 + 固定資產 + 現金 + 負債全面診斷</p>
+                  </div>
+                </div>
+
+                <!-- 資料驗證狀態列 -->
+                <div class="ai-data-status">
+                  <span class="ai-ds-title">資料來源驗證</span>
+                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">持股報價</span><span class="ai-ds-time" id="ai-ds-stock-time">--</span></div>
+                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">VIX/原油</span><span class="ai-ds-time" id="ai-ds-macro-time">--</span></div>
+                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">匯率</span><span class="ai-ds-time" id="ai-ds-fx-time">--</span></div>
+                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">固定資產</span><span class="ai-ds-time">手動</span></div>
+                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">現金存款</span><span class="ai-ds-time">手動</span></div>
+                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">負債明細</span><span class="ai-ds-time">收支管理</span></div>
+                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-warn"></span><span class="ai-ds-label">FED 利率</span><span class="ai-ds-time" id="ai-ds-fed-time">--</span></div>
+                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-warn"></span><span class="ai-ds-label">CPI</span><span class="ai-ds-time" id="ai-ds-cpi-time">--</span></div>
+                  <button class="ai-ds-refresh" onclick="aiRefreshAllData()">重新抓取全部</button>
+                </div>
+
+                <!-- 宏觀指標 -->
+                <div class="ai-macro-strip">
+                  <div class="ai-macro-chip"><div class="ai-macro-label">VIX 恐慌指數</div><div class="ai-macro-val" id="ai-macro-vix">--</div></div>
+                  <div class="ai-macro-chip"><div class="ai-macro-label">WTI 原油</div><div class="ai-macro-val" id="ai-macro-oil">--</div></div>
+                  <div class="ai-macro-chip"><div class="ai-macro-label">FED 利率</div><div class="ai-macro-val" id="ai-macro-fed">--</div></div>
+                  <div class="ai-macro-chip"><div class="ai-macro-label">CPI 通膨 YoY</div><div class="ai-macro-val" id="ai-macro-cpi">--</div></div>
+                </div>
+
+                <!-- 全面資產概況 -->
+                <div class="ai-asset-overview">
+                  <div class="ai-asset-card">
+                    <div class="ai-ac-head"><div class="ai-ac-icon ai-ac-icon-stock">📈</div><div class="ai-ac-title">股票投資</div></div>
+                    <div class="ai-ac-val ai-ac-green" id="ai-asset-stock">$0</div>
+                    <div class="ai-ac-detail" id="ai-asset-stock-detail"></div>
+                    <div class="ai-ac-source">來源：持股總覽 · 即時報價</div>
+                  </div>
+                  <div class="ai-asset-card">
+                    <div class="ai-ac-head"><div class="ai-ac-icon ai-ac-icon-prop">🏠</div><div class="ai-ac-title">固定資產</div></div>
+                    <div class="ai-ac-val ai-ac-blue" id="ai-asset-prop">$0</div>
+                    <div class="ai-ac-detail" id="ai-asset-prop-detail"></div>
+                    <div class="ai-ac-source">來源：資產總覽 · 手動估值</div>
+                  </div>
+                  <div class="ai-asset-card">
+                    <div class="ai-ac-head"><div class="ai-ac-icon ai-ac-icon-cash">💰</div><div class="ai-ac-title">現金存款</div></div>
+                    <div class="ai-ac-val ai-ac-gold" id="ai-asset-cash">$0</div>
+                    <div class="ai-ac-detail" id="ai-asset-cash-detail"></div>
+                    <div class="ai-ac-source">來源：資產總覽 · 手動更新</div>
+                  </div>
+                  <div class="ai-asset-card">
+                    <div class="ai-ac-head"><div class="ai-ac-icon ai-ac-icon-debt">🏦</div><div class="ai-ac-title">負債總額</div></div>
+                    <div class="ai-ac-val ai-ac-red" id="ai-asset-debt">$0</div>
+                    <div class="ai-ac-detail" id="ai-asset-debt-detail"></div>
+                    <div class="ai-ac-source">來源：收支管理 · 貸款明細</div>
+                  </div>
+                </div>
+
+                <!-- 5 年目標進度追蹤 + AI 策略 -->
+                <div class="ai-goal-section">
+                  <div class="ai-goal-header">
+                    <div class="ai-goal-title">5 年資產目標 — <span>$50,000,000</span></div>
+                    <span class="ai-goal-badge">2026 → 2031 · 三 AI 調整策略</span>
+                  </div>
+                  <div class="ai-goal-progress">
+                    <div class="ai-gp-stats">
+                      <div class="ai-gp-current">目前淨資產<br><strong id="ai-goal-current">$0</strong></div>
+                      <div style="text-align:center">
+                        <div style="font-size:10px;color:#7a7872;margin-bottom:2px">剩餘差額</div>
+                        <div style="font-size:1rem;font-weight:700;font-family:var(--mono);color:#e8675a" id="ai-goal-gap">$0</div>
+                      </div>
+                      <div class="ai-gp-target">5 年目標<br><strong id="ai-goal-target">$50,000,000</strong></div>
+                    </div>
+                    <div class="ai-gp-bar-wrap">
+                      <div class="ai-gp-bar-fill" id="ai-goal-bar" style="width:0%">
+                        <span class="ai-gp-bar-pct" id="ai-goal-pct">0%</span>
+                      </div>
+                    </div>
+                    <div class="ai-gp-timeline" id="ai-goal-timeline"></div>
+                  </div>
+                  <div class="ai-goal-ctrl">
+                    <span class="ai-goal-label">目標金額</span>
+                    <input class="ai-goal-input" id="ai-goal-amount-input" value="50,000,000" />
+                    <span class="ai-goal-label">年限</span>
+                    <input class="ai-goal-input" id="ai-goal-years-input" value="5" style="width:60px" />
+                    <span class="ai-goal-label">年</span>
+                    <span class="ai-goal-label" style="margin-left:12px">每月定期投入</span>
+                    <input class="ai-goal-input" id="ai-goal-monthly-input" value="50,000" style="width:100px" />
+                    <span class="ai-goal-label">TWD</span>
+                    <button class="ai-goal-btn" style="margin-left:auto" onclick="aiGenerateStrategy()">產生 AI 策略建議</button>
+                  </div>
+                  <!-- 三 AI 策略 -->
+                  <div class="ai-goal-grid">
+                    <div class="ai-goal-col" id="ai-strategy-claude"><div class="ai-goal-ai-head"><div class="ai-goal-logo logo-c">C</div><div class="ai-goal-ai-name">Claude</div></div><div class="ai-goal-placeholder">點擊「產生 AI 策略建議」開始分析</div></div>
+                    <div class="ai-goal-col" id="ai-strategy-gemini"><div class="ai-goal-ai-head"><div class="ai-goal-logo logo-g">G</div><div class="ai-goal-ai-name">Gemini</div></div><div class="ai-goal-placeholder">點擊「產生 AI 策略建議」開始分析</div></div>
+                    <div class="ai-goal-col" id="ai-strategy-grok"><div class="ai-goal-ai-head"><div class="ai-goal-logo logo-x">X</div><div class="ai-goal-ai-name">Grok</div></div><div class="ai-goal-placeholder">點擊「產生 AI 策略建議」開始分析</div></div>
+                  </div>
+                  <!-- 共識 vs 分歧 -->
+                  <div class="ai-consensus" id="ai-consensus" style="display:none"></div>
+                </div>
+
+                <!-- 主佈局：左持股 + 右分析 -->
+                <div class="ai-main-layout">
+                  <!-- 左側持股清單 -->
+                  <div class="ai-stock-sidebar">
+                    <div class="ai-sb-header">
+                      <div class="ai-sb-title">持股清單 <span style="font-size:9px;color:#c8b89a;font-weight:400;cursor:pointer" onclick="switchTab('overview')">← 持股總覽</span></div>
+                      <div class="ai-sb-summary" id="ai-sb-summary">共 0 檔 · 總市值 <strong>$0</strong></div>
+                    </div>
+                    <div class="ai-sb-list" id="ai-stock-list"></div>
+                  </div>
+                  <!-- 右側分析區 -->
+                  <div class="ai-analysis-main">
+                    <!-- TradingView -->
+                    <div class="ai-tv-wrap">
+                      <div class="ai-tv-header">
+                        <div class="ai-tv-stock-info">
+                          <div><span class="ai-tv-sym" id="ai-tv-symbol">--</span> <span class="ai-tv-name" id="ai-tv-name">請選擇股票</span></div>
+                          <div class="ai-tv-price" id="ai-tv-price">--</div>
+                        </div>
+                        <div style="display:flex;gap:6px">
+                          <select class="ai-tv-select" id="ai-tv-interval" onchange="aiChangeInterval()">
+                            <option value="D">日線</option><option value="W">週線</option><option value="M">月線</option><option value="5">5分</option><option value="15">15分</option><option value="60">1小時</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="ai-tv-chart" id="ai-tv-chart">選擇左側持股以載入圖表</div>
+                    </div>
+                    <!-- 分析按鈕 -->
+                    <div class="ai-analyze-bar">
+                      <button class="ai-analyze-btn" onclick="aiAnalyzeStock()">開始分析此股票</button>
+                      <span class="ai-analyze-status" id="ai-analyze-status">點擊左側持股自動切換圖表 · 按下按鈕觸發 AI 分析</span>
+                    </div>
+                    <!-- AI 三欄個股分析 -->
+                    <div class="ai-grid" id="ai-stock-analysis">
+                      <div class="ai-col">
+                        <div class="ai-head"><div class="ai-logo logo-c">C</div><div><div class="ai-name">Claude</div><div class="ai-model">claude-sonnet-4</div></div></div>
+                        <div class="ai-body" id="ai-stock-claude"><div class="ai-goal-placeholder">選擇股票後點擊分析</div></div>
+                      </div>
+                      <div class="ai-col">
+                        <div class="ai-head"><div class="ai-logo logo-g">G</div><div><div class="ai-name">Gemini</div><div class="ai-model">gemini-2.5-flash</div></div></div>
+                        <div class="ai-body" id="ai-stock-gemini"><div class="ai-goal-placeholder">選擇股票後點擊分析</div></div>
+                      </div>
+                      <div class="ai-col">
+                        <div class="ai-head"><div class="ai-logo logo-x">X</div><div><div class="ai-name">Grok</div><div class="ai-model">grok-3</div></div></div>
+                        <div class="ai-body" id="ai-stock-grok"><div class="ai-goal-placeholder">選擇股票後點擊分析</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <p class="ai-footer">AI 分析僅供參考，不構成投資建議 · 三 AI 獨立分析同一份驗證資料（含持股、固定資產、現金、負債明細）</p>
+              </div>
+            </div>
 
             <!-- 手機端浮動新增按鈕 -->
             <button class="mobile-fab no-print" onclick="openAddStockModal()">+</button>
@@ -975,6 +1136,7 @@
 
     <script src="js/cashflow.js"></script>
     <script src="js/dashboard.js"></script>
+    <script src="js/ai-analysis.js"></script>
     <script type="module" src="js/stocks.js"></script>
 </body>
 </html>

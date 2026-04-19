@@ -1,0 +1,431 @@
+// ===== AI 分析頁面 =====
+(function(){
+  'use strict';
+
+  let _aiSelectedSymbol = null;
+  let _aiSelectedRegion = null;
+  let _aiTvWidget = null;
+  let _aiInited = false;
+
+  const ANALYSIS_CATEGORIES = [
+    '產業分析','產業龍頭','財務分析','風險分析','護城河','技術分析','籌碼分析'
+  ];
+
+  // ===== 初始化 =====
+  window.aiInit = function() {
+    aiLoadStockList();
+    aiLoadAssetOverview();
+    aiLoadGoalProgress();
+    aiLoadMacro();
+    _aiInited = true;
+  };
+
+  // ===== 持股清單（連動持股總覽） =====
+  function aiLoadStockList() {
+    const stocks = window.stocks || [];
+    const listEl = document.getElementById('ai-stock-list');
+    const summaryEl = document.getElementById('ai-sb-summary');
+    if (!listEl) return;
+
+    let totalValue = 0;
+    let html = '';
+    stocks.forEach(s => {
+      const price = s.currentPrice || s.avgCost || 0;
+      const value = price * (s.shares || 0);
+      const region = s.region || '台股';
+      const isTW = region === '台股';
+      const rate = window.exchangeRate || 30;
+      const valueTWD = isTW ? value : value * rate;
+      totalValue += valueTWD;
+
+      const change = s.changePercent || 0;
+      const pctClass = change >= 0 ? 'ai-pct-up' : 'ai-pct-down';
+      const pctText = (change >= 0 ? '+' : '') + change.toFixed(1) + '%';
+      const displayVal = isTW ? '$' + Math.round(value).toLocaleString() : 'US$' + Math.round(value).toLocaleString();
+
+      html += `<div class="ai-sb-item${_aiSelectedSymbol === s.symbol ? ' active' : ''}" onclick="aiSelectStock('${s.symbol}','${region}')">
+        <div class="ai-sb-item-info"><div class="ai-sb-item-sym">${s.symbol}</div><div class="ai-sb-item-name">${s.company || s.symbol}</div></div>
+        <div class="ai-sb-item-right"><div class="ai-sb-item-shares">${(s.shares||0).toLocaleString()} 股</div><div class="ai-sb-item-val">${displayVal}</div><div><span class="ai-sb-item-pct ${pctClass}">${pctText}</span></div></div>
+      </div>`;
+    });
+    listEl.innerHTML = html || '<div style="padding:20px;text-align:center;color:#7a7872;font-size:12px">尚無持股資料</div>';
+    summaryEl.innerHTML = `共 ${stocks.length} 檔 · 總市值 <strong>$${Math.round(totalValue).toLocaleString()}</strong>`;
+  }
+
+  // ===== 選擇股票 =====
+  window.aiSelectStock = function(symbol, region) {
+    _aiSelectedSymbol = symbol;
+    _aiSelectedRegion = region;
+    aiLoadStockList();
+    aiLoadTradingView(symbol, region);
+
+    const stock = (window.stocks || []).find(s => s.symbol === symbol);
+    document.getElementById('ai-tv-symbol').textContent = symbol;
+    document.getElementById('ai-tv-name').textContent = stock ? (stock.company || symbol) : symbol;
+    const price = stock ? (stock.currentPrice || 0) : 0;
+    const change = stock ? (stock.changePercent || 0) : 0;
+    const priceEl = document.getElementById('ai-tv-price');
+    priceEl.textContent = (region === '台股' ? '$' : 'US$') + price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + ' ' + (change>=0?'+':'') + change.toFixed(2) + '%';
+    priceEl.style.color = change >= 0 ? '#4aad6e' : '#e8675a';
+
+    document.getElementById('ai-analyze-status').textContent = `已選擇 ${symbol} · 按下按鈕觸發 AI 分析`;
+  };
+
+  // ===== TradingView 圖表 =====
+  function aiLoadTradingView(symbol, region) {
+    const container = document.getElementById('ai-tv-chart');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const tvSymbol = region === '台股' ? 'TWSE:' + symbol : symbol;
+    const interval = document.getElementById('ai-tv-interval').value || 'D';
+
+    const widget = document.createElement('div');
+    widget.id = 'ai-tv-widget';
+    widget.style.cssText = 'width:100%;height:100%';
+    container.appendChild(widget);
+
+    try {
+      _aiTvWidget = new TradingView.widget({
+        container_id: 'ai-tv-widget',
+        symbol: tvSymbol,
+        interval: interval,
+        timezone: 'Asia/Taipei',
+        theme: 'dark',
+        style: '1',
+        locale: 'zh_TW',
+        toolbar_bg: '#2c2b27',
+        enable_publishing: false,
+        hide_top_toolbar: false,
+        hide_legend: false,
+        save_image: false,
+        width: '100%',
+        height: '100%',
+        studies: ['MASimple@tv-basicstudies','RSI@tv-basicstudies','MACD@tv-basicstudies','BB@tv-basicstudies'],
+      });
+    } catch(e) {
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#7a7872;font-size:13px">TradingView 載入中... 如未顯示請確認網路連線</div>';
+    }
+  }
+
+  window.aiChangeInterval = function() {
+    if (_aiSelectedSymbol) {
+      aiLoadTradingView(_aiSelectedSymbol, _aiSelectedRegion);
+    }
+  };
+
+  // ===== 資產概況 =====
+  function aiLoadAssetOverview() {
+    const stocks = window.stocks || [];
+    const rate = window.exchangeRate || 30;
+
+    let stockTW = 0, stockUS = 0, twCount = 0, usCount = 0;
+    stocks.forEach(s => {
+      const val = (s.currentPrice || s.avgCost || 0) * (s.shares || 0);
+      if (s.region === '台股') { stockTW += val; twCount++; }
+      else { stockUS += val; usCount++; }
+    });
+    const totalStock = stockTW + stockUS * rate;
+    document.getElementById('ai-asset-stock').textContent = '$' + Math.round(totalStock).toLocaleString();
+    document.getElementById('ai-asset-stock-detail').innerHTML =
+      `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>台股（${twCount} 檔）</span><span style="font-family:var(--mono);color:#ccc9bf">$${Math.round(stockTW).toLocaleString()}</span></div>` +
+      `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>美股（${usCount} 檔）</span><span style="font-family:var(--mono);color:#ccc9bf">$${Math.round(stockUS * rate).toLocaleString()}</span></div>`;
+
+    // 固定資產 & 現金 from dashboard data
+    const dbData = window.dbAssetData || {};
+    const propVal = dbData.fixedAsset || 0;
+    document.getElementById('ai-asset-prop').textContent = '$' + Math.round(propVal).toLocaleString();
+    const propDetail = (dbData.fixedAssetItems || []);
+    document.getElementById('ai-asset-prop-detail').innerHTML = propDetail.length
+      ? propDetail.map(i => `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${i.name}</span><span style="font-family:var(--mono);color:#ccc9bf">$${Math.round(i.value).toLocaleString()}</span></div>`).join('')
+      : '<div style="color:#7a7872">請在資產總覽設定</div>';
+
+    const cashVal = dbData.cash || 0;
+    document.getElementById('ai-asset-cash').textContent = '$' + Math.round(cashVal).toLocaleString();
+    const cashDetail = (dbData.cashItems || []);
+    document.getElementById('ai-asset-cash-detail').innerHTML = cashDetail.length
+      ? cashDetail.map(i => `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${i.name}</span><span style="font-family:var(--mono);color:#ccc9bf">$${Math.round(i.value).toLocaleString()}</span></div>`).join('')
+      : '<div style="color:#7a7872">請在資產總覽設定</div>';
+
+    // 負債 from cashflow
+    const cfExpense = window.cfExpenseRef || {};
+    let totalDebt = 0;
+    let debtHtml = '';
+    Object.entries(cfExpense).forEach(([id, r]) => {
+      if (r.etype && r.etype.startsWith('loan_')) {
+        const loanAmt = r.loanAmount || 0;
+        const loanRate = r.loanRate || 0;
+        const monthPay = r.loanMonthPay || 0;
+        totalDebt += loanAmt;
+        const catMap = {loan_mortgage:'房貸', loan_credit:'信貸', loan_other:'其他貸款'};
+        debtHtml += `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${r.name || catMap[r.etype] || '貸款'}</span><span style="font-family:var(--mono);color:#ccc9bf">-$${Math.round(loanAmt).toLocaleString()}</span></div>`;
+        debtHtml += `<div style="padding-left:8px;font-size:9px;color:#7a7872;font-family:var(--mono)">利率 ${loanRate}% · 月付 $${Math.round(monthPay).toLocaleString()}</div>`;
+      }
+    });
+    document.getElementById('ai-asset-debt').textContent = totalDebt ? '-$' + Math.round(totalDebt).toLocaleString() : '$0';
+    document.getElementById('ai-asset-debt-detail').innerHTML = debtHtml || '<div style="color:#7a7872">無貸款資料</div>';
+  }
+
+  // ===== 目標進度 =====
+  function aiLoadGoalProgress() {
+    const stocks = window.stocks || [];
+    const rate = window.exchangeRate || 30;
+    const dbData = window.dbAssetData || {};
+
+    let stockVal = 0;
+    stocks.forEach(s => {
+      const v = (s.currentPrice || s.avgCost || 0) * (s.shares || 0);
+      stockVal += s.region === '台股' ? v : v * rate;
+    });
+    const netAsset = stockVal + (dbData.fixedAsset || 0) + (dbData.cash || 0);
+    const target = parseInt((document.getElementById('ai-goal-amount-input').value || '50000000').replace(/,/g, '')) || 50000000;
+    const years = parseInt(document.getElementById('ai-goal-years-input').value) || 5;
+    const pct = Math.min(100, Math.max(0, (netAsset / target * 100)));
+
+    document.getElementById('ai-goal-current').textContent = '$' + Math.round(netAsset).toLocaleString();
+    document.getElementById('ai-goal-gap').textContent = '$' + Math.round(Math.max(0, target - netAsset)).toLocaleString();
+    document.getElementById('ai-goal-target').textContent = '$' + target.toLocaleString();
+    document.getElementById('ai-goal-bar').style.width = pct.toFixed(1) + '%';
+    document.getElementById('ai-goal-pct').textContent = pct.toFixed(1) + '%';
+
+    const startYear = new Date().getFullYear();
+    const timelineEl = document.getElementById('ai-goal-timeline');
+    let tlHtml = '';
+    for (let i = 0; i <= years; i++) {
+      const yr = startYear + i;
+      const amt = Math.round(netAsset + (target - netAsset) * (i / years));
+      const isFirst = i === 0;
+      const isLast = i === years;
+      const dotClass = isFirst ? 'ai-gp-dot-now' : 'ai-gp-dot-future';
+      const highlight = (isFirst || isLast) ? ' style="font-weight:700"' : '';
+      tlHtml += `<div class="ai-gp-year"><div class="ai-gp-year-dot ${dotClass}"${isLast ? ' style="background:#c8b89a"' : ''}></div><div class="ai-gp-year-label"${highlight}>${yr}</div><div class="ai-gp-year-amt">${Math.round(amt/10000).toLocaleString()}萬</div></div>`;
+    }
+    timelineEl.innerHTML = tlHtml;
+  }
+
+  // ===== 宏觀指標 =====
+  function aiLoadMacro() {
+    const macroSymbols = {
+      vix: { symbol: '^VIX', elId: 'ai-macro-vix' },
+      oil: { symbol: 'CL=F', elId: 'ai-macro-oil' },
+    };
+
+    Object.entries(macroSymbols).forEach(([key, cfg]) => {
+      fetch('/api/stock?symbol=' + encodeURIComponent(cfg.symbol))
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) return;
+          try {
+            const meta = data.chart.result[0].meta;
+            const price = meta.regularMarketPrice;
+            const prevClose = meta.chartPreviousClose || meta.previousClose;
+            const chg = prevClose ? ((price - prevClose) / prevClose * 100) : 0;
+            const el = document.getElementById(cfg.elId);
+            if (el) {
+              const prefix = key === 'oil' ? '$' : '';
+              el.innerHTML = prefix + price.toFixed(2) + ' <span style="font-size:10px;color:' + (chg >= 0 ? '#4aad6e' : '#e8675a') + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</span>';
+            }
+          } catch(e) {}
+        })
+        .catch(() => {});
+    });
+
+    const fedEl = document.getElementById('ai-macro-fed');
+    if (fedEl) fedEl.textContent = '4.25-4.50%';
+    const cpiEl = document.getElementById('ai-macro-cpi');
+    if (cpiEl) cpiEl.textContent = '2.4%';
+  }
+
+  // ===== 重新抓取 =====
+  window.aiRefreshAllData = function() {
+    aiLoadMacro();
+    if (typeof updateAllPricesAndRate === 'function') {
+      updateAllPricesAndRate().then(() => {
+        aiLoadStockList();
+        aiLoadAssetOverview();
+        aiLoadGoalProgress();
+      });
+    }
+    const now = new Date();
+    const ts = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
+    document.getElementById('ai-ds-stock-time').textContent = ts;
+    document.getElementById('ai-ds-macro-time').textContent = ts;
+    document.getElementById('ai-ds-fx-time').textContent = ts;
+  };
+
+  // ===== AI 策略建議（全面資產） =====
+  window.aiGenerateStrategy = function() {
+    const target = parseInt((document.getElementById('ai-goal-amount-input').value || '50000000').replace(/,/g, '')) || 50000000;
+    const years = parseInt(document.getElementById('ai-goal-years-input').value) || 5;
+    const monthly = parseInt((document.getElementById('ai-goal-monthly-input').value || '50000').replace(/,/g, '')) || 50000;
+
+    const assetData = aiCollectAllAssetData();
+    const prompt = aiBuildStrategyPrompt(assetData, target, years, monthly);
+
+    const engines = ['claude','gemini','grok'];
+    engines.forEach(engine => {
+      const col = document.getElementById('ai-strategy-' + engine);
+      const head = col.querySelector('.ai-goal-ai-head').outerHTML;
+      col.innerHTML = head + '<div style="padding:18px 0;text-align:center;color:#c8b89a;font-size:12px">分析中...</div>';
+    });
+
+    engines.forEach(engine => {
+      fetch('/api/ai-' + engine, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ prompt, type: 'strategy' })
+      })
+      .then(r => r.ok ? r.json() : Promise.reject('API error'))
+      .then(data => aiRenderStrategy(engine, data))
+      .catch(e => {
+        const col = document.getElementById('ai-strategy-' + engine);
+        const head = col.querySelector('.ai-goal-ai-head').outerHTML;
+        col.innerHTML = head + `<div style="padding:18px 0;text-align:center;color:#e8675a;font-size:12px">分析失敗：${e}<br><span style="color:#7a7872">請確認 API Key 已設定</span></div>`;
+      });
+    });
+  };
+
+  function aiCollectAllAssetData() {
+    const stocks = window.stocks || [];
+    const rate = window.exchangeRate || 30;
+    const dbData = window.dbAssetData || {};
+    const cfExpense = window.cfExpenseRef || {};
+
+    let holdings = stocks.map(s => ({
+      symbol: s.symbol, company: s.company, region: s.region,
+      shares: s.shares, avgCost: s.avgCost, currentPrice: s.currentPrice,
+      changePercent: s.changePercent,
+      valueTWD: s.region === '台股' ? (s.currentPrice||0)*(s.shares||0) : (s.currentPrice||0)*(s.shares||0)*rate
+    }));
+
+    let loans = [];
+    Object.entries(cfExpense).forEach(([id, r]) => {
+      if (r.etype && r.etype.startsWith('loan_')) {
+        loans.push({
+          name: r.name, type: r.etype,
+          amount: r.loanAmount, rate: r.loanRate,
+          monthlyPay: r.loanMonthPay,
+          startDate: r.loanStart, endDate: r.loanEnd,
+          gracePeriod: r.loanGrace, method: r.loanMethod
+        });
+      }
+    });
+
+    return {
+      holdings,
+      fixedAsset: dbData.fixedAsset || 0,
+      fixedAssetItems: dbData.fixedAssetItems || [],
+      cash: dbData.cash || 0,
+      cashItems: dbData.cashItems || [],
+      loans,
+      exchangeRate: rate
+    };
+  }
+
+  function aiBuildStrategyPrompt(data, target, years, monthly) {
+    const totalStock = data.holdings.reduce((s,h) => s + h.valueTWD, 0);
+    const totalDebt = data.loans.reduce((s,l) => s + (l.amount||0), 0);
+    const netAsset = totalStock + data.fixedAsset + data.cash - totalDebt;
+
+    return `你是專業的家族財務顧問。以下是完整的資產狀況，請做全面配置診斷與策略建議。
+
+【目標】${years} 年內淨資產達到 NT$${target.toLocaleString()}（目前 NT$${Math.round(netAsset).toLocaleString()}）
+【每月可投入】NT$${monthly.toLocaleString()}
+
+【股票持股】總市值 NT$${Math.round(totalStock).toLocaleString()}
+${data.holdings.map(h => `- ${h.symbol} ${h.company} | ${h.shares}股 | 均價${h.avgCost} | 現價${h.currentPrice} | 市值NT$${Math.round(h.valueTWD).toLocaleString()}`).join('\n')}
+
+【固定資產】NT$${Math.round(data.fixedAsset).toLocaleString()}
+${data.fixedAssetItems.map(i => `- ${i.name}: NT$${Math.round(i.value).toLocaleString()}`).join('\n') || '（未設定）'}
+
+【現金存款】NT$${Math.round(data.cash).toLocaleString()}
+${data.cashItems.map(i => `- ${i.name}: NT$${Math.round(i.value).toLocaleString()}`).join('\n') || '（未設定）'}
+
+【負債明細】總額 NT$${Math.round(totalDebt).toLocaleString()}
+${data.loans.map(l => `- ${l.name}(${l.type}): 金額NT$${Math.round(l.amount||0).toLocaleString()} | 利率${l.rate}% | 月付NT$${Math.round(l.monthlyPay||0).toLocaleString()} | ${l.startDate||''}~${l.endDate||''}`).join('\n') || '（無貸款）'}
+
+請依以下格式回覆（JSON）：
+{
+  "diagnosis": "全面資產診斷（含負債評估）",
+  "strategy": "調整策略（含賣出/買入/持有/現金/負債處理）",
+  "path": "達成路徑（含需年化報酬率、成功率）",
+  "risk": "風險警示"
+}`;
+  }
+
+  function aiRenderStrategy(engine, data) {
+    const col = document.getElementById('ai-strategy-' + engine);
+    const head = col.querySelector('.ai-goal-ai-head').outerHTML;
+    const r = data.result || data;
+    col.innerHTML = head +
+      `<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#c8b89a;letter-spacing:.04em;margin-bottom:4px">全面資產診斷</div><div style="font-size:12px;color:#ccc9bf;line-height:1.65">${r.diagnosis || ''}</div></div>` +
+      `<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#c8b89a;letter-spacing:.04em;margin-bottom:4px">調整策略</div><div style="font-size:12px;color:#ccc9bf;line-height:1.65">${r.strategy || ''}</div></div>` +
+      `<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#c8b89a;letter-spacing:.04em;margin-bottom:4px">達成路徑</div><div style="font-size:12px;color:#ccc9bf;line-height:1.65">${r.path || ''}</div></div>` +
+      `<div><div style="font-size:10px;font-weight:700;color:#c8b89a;letter-spacing:.04em;margin-bottom:4px">風險警示</div><div style="font-size:12px;color:#e8675a;line-height:1.65">${r.risk || ''}</div></div>`;
+  }
+
+  // ===== AI 個股分析 =====
+  window.aiAnalyzeStock = function() {
+    if (!_aiSelectedSymbol) {
+      document.getElementById('ai-analyze-status').textContent = '請先選擇左側持股';
+      return;
+    }
+    const stock = (window.stocks || []).find(s => s.symbol === _aiSelectedSymbol);
+    if (!stock) return;
+
+    document.getElementById('ai-analyze-status').textContent = `正在分析 ${_aiSelectedSymbol}...`;
+
+    const prompt = aiBuildStockPrompt(stock);
+    const engines = ['claude','gemini','grok'];
+
+    engines.forEach(engine => {
+      const body = document.getElementById('ai-stock-' + engine);
+      body.innerHTML = '<div style="padding:20px;text-align:center;color:#c8b89a;font-size:12px">分析中...</div>';
+
+      fetch('/api/ai-' + engine, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ prompt, type: 'stock', symbol: _aiSelectedSymbol })
+      })
+      .then(r => r.ok ? r.json() : Promise.reject('API error'))
+      .then(data => aiRenderStockAnalysis(engine, data))
+      .catch(e => {
+        body.innerHTML = `<div style="padding:20px;text-align:center;color:#e8675a;font-size:12px">分析失敗：${e}<br><span style="color:#7a7872">請確認 API Key 已設定</span></div>`;
+      });
+    });
+  };
+
+  function aiBuildStockPrompt(stock) {
+    return `你是專業股票分析師。請分析以下股票，依照七大類別回覆。
+
+股票：${stock.symbol} ${stock.company}
+地區：${stock.region}
+持股：${stock.shares} 股
+均價：${stock.avgCost}
+現價：${stock.currentPrice}
+漲跌：${stock.changePercent}%
+
+請依以下格式回覆（JSON），每個類別約 50-80 字：
+{
+  "產業分析": "...",
+  "產業龍頭": "...",
+  "財務分析": "...",
+  "風險分析": "...",
+  "護城河": "...",
+  "技術分析": "...",
+  "籌碼分析": "..."
+}`;
+  }
+
+  function aiRenderStockAnalysis(engine, data) {
+    const body = document.getElementById('ai-stock-' + engine);
+    const r = data.result || data;
+    let html = '';
+    ANALYSIS_CATEGORIES.forEach(cat => {
+      html += `<div class="ai-sec"><div class="ai-sec-title">${cat}</div><div class="ai-sec-body">${r[cat] || '暫無資料'}</div></div>`;
+    });
+    body.innerHTML = html;
+    document.getElementById('ai-analyze-status').textContent = `${_aiSelectedSymbol} 分析完成`;
+  }
+
+})();

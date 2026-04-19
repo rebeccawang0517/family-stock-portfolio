@@ -313,6 +313,135 @@
             padding-top:1rem; border-top:1px solid rgba(255,255,255,.06);
         }
 
+        /* ===== AI 分析頁 ===== */
+        .ai-page { max-width:100%; }
+        .ai-pg-header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+
+        .ai-data-status { display:flex; gap:14px; align-items:center; flex-wrap:wrap; background:#2c2b27; border:1px solid rgba(255,255,255,.1); border-radius:8px; padding:10px 16px; margin-bottom:14px; }
+        .ai-ds-title { font-size:10px; font-weight:700; color:#7a7872; letter-spacing:.08em; text-transform:uppercase; margin-right:4px; }
+        .ai-ds-item { display:flex; align-items:center; gap:5px; }
+        .ai-ds-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+        .ai-ds-ok { background:#4aad6e; }
+        .ai-ds-warn { background:#f59e0b; }
+        .ai-ds-stale { background:#e8675a; }
+        .ai-ds-label { font-size:10px; color:#9a9890; }
+        .ai-ds-time { font-size:10px; font-family:var(--mono); color:#7a7872; }
+        .ai-ds-refresh { background:none; border:1px solid rgba(255,255,255,.1); color:#c8b89a; font-size:10px; padding:4px 10px; border-radius:4px; cursor:pointer; margin-left:auto; }
+        .ai-ds-refresh:hover { background:rgba(255,255,255,.05); }
+
+        .ai-macro-strip { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+        .ai-macro-chip { background:#2c2b27; border:1px solid rgba(255,255,255,.1); border-radius:8px; padding:10px 14px; flex:1; min-width:150px; }
+        .ai-macro-label { font-size:9px; font-weight:600; color:#7a7872; letter-spacing:.06em; text-transform:uppercase; }
+        .ai-macro-val { font-size:1.05rem; font-weight:700; font-family:var(--mono); margin-top:2px; color:#f0ede6; }
+
+        .ai-asset-overview { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+        .ai-asset-card { background:#2c2b27; border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:16px; }
+        .ai-ac-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+        .ai-ac-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+        .ai-ac-icon-stock { background:rgba(74,173,110,.15); }
+        .ai-ac-icon-prop { background:rgba(100,149,237,.15); }
+        .ai-ac-icon-cash { background:rgba(200,184,154,.15); }
+        .ai-ac-icon-debt { background:rgba(232,103,90,.15); }
+        .ai-ac-title { font-size:11px; font-weight:700; color:#9a9890; letter-spacing:.04em; }
+        .ai-ac-val { font-size:1.3rem; font-weight:800; font-family:var(--mono); margin-bottom:8px; }
+        .ai-ac-green { color:#4aad6e; }
+        .ai-ac-blue { color:#6495ed; }
+        .ai-ac-gold { color:#c8b89a; }
+        .ai-ac-red { color:#e8675a; }
+        .ai-ac-detail { font-size:10px; color:#9a9890; line-height:1.8; }
+        .ai-ac-source { font-size:9px; color:#5a5852; margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,.05); }
+
+        .ai-goal-section { background:#2c2b27; border:1px solid rgba(255,255,255,.1); border-radius:12px; margin-bottom:16px; overflow:hidden; }
+        .ai-goal-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.1); }
+        .ai-goal-title { font-size:15px; font-weight:700; color:#f0ede6; }
+        .ai-goal-title span { color:#c8b89a; }
+        .ai-goal-badge { font-size:11px; color:#9a9890; background:rgba(255,255,255,.05); padding:4px 12px; border-radius:20px; }
+        .ai-goal-progress { padding:20px 20px 10px; border-bottom:1px solid rgba(255,255,255,.05); }
+        .ai-gp-stats { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+        .ai-gp-current { font-size:12px; color:#9a9890; }
+        .ai-gp-current strong { font-size:1.4rem; font-weight:800; color:#4aad6e; font-family:var(--mono); }
+        .ai-gp-target { font-size:12px; color:#9a9890; text-align:right; }
+        .ai-gp-target strong { font-size:1.1rem; font-weight:700; color:#c8b89a; font-family:var(--mono); }
+        .ai-gp-bar-wrap { position:relative; height:28px; background:rgba(255,255,255,.06); border-radius:14px; overflow:hidden; margin-bottom:10px; }
+        .ai-gp-bar-fill { height:100%; border-radius:14px; background:linear-gradient(90deg,#4aad6e 0%,#c8b89a 100%); transition:width .6s ease; display:flex; align-items:center; justify-content:flex-end; padding-right:12px; min-width:60px; }
+        .ai-gp-bar-pct { font-size:12px; font-weight:800; color:#1a1916; font-family:var(--mono); text-shadow:0 1px 2px rgba(0,0,0,.2); }
+        .ai-gp-timeline { display:flex; justify-content:space-between; padding:0 2px; }
+        .ai-gp-year { text-align:center; flex:1; }
+        .ai-gp-year-dot { width:8px; height:8px; border-radius:50%; margin:0 auto 4px; }
+        .ai-gp-dot-done { background:#4aad6e; }
+        .ai-gp-dot-now { background:#c8b89a; box-shadow:0 0 6px #c8b89a; }
+        .ai-gp-dot-future { background:rgba(255,255,255,.12); }
+        .ai-gp-year-label { font-size:8px; color:#5a5852; font-family:var(--mono); }
+        .ai-gp-year-amt { font-size:8px; color:#7a7872; font-family:var(--mono); }
+
+        .ai-goal-ctrl { display:flex; align-items:center; gap:10px; padding:12px 20px; border-bottom:1px solid rgba(255,255,255,.05); background:rgba(255,255,255,.02); flex-wrap:wrap; }
+        .ai-goal-input { background:#3d3c38; border:1px solid rgba(255,255,255,.1); color:#f0ede6; font-size:13px; padding:7px 12px; border-radius:6px; outline:none; font-family:var(--mono); width:140px; text-align:right; }
+        .ai-goal-label { font-size:11px; color:#9a9890; }
+        .ai-goal-btn { background:linear-gradient(135deg,#c8b89a 0%,#a89878 100%); color:#1a1916; border:none; border-radius:6px; padding:8px 20px; font-size:13px; font-weight:700; cursor:pointer; }
+        .ai-goal-btn:hover { filter:brightness(1.1); }
+
+        .ai-goal-grid { display:grid; grid-template-columns:repeat(3,1fr); }
+        .ai-goal-col { padding:18px 20px; border-right:1px solid rgba(255,255,255,.1); }
+        .ai-goal-col:last-child { border-right:none; }
+        .ai-goal-ai-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+        .ai-goal-logo { width:24px; height:24px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
+        .logo-c { background:#d97706; color:#fff; }
+        .logo-g { background:#4285f4; color:#fff; }
+        .logo-x { background:#1a1a1a; color:#fff; border:1px solid #444; }
+        .ai-goal-ai-name { font-size:13px; font-weight:700; color:#ccc9bf; }
+        .ai-goal-placeholder { font-size:12px; color:#7a7872; padding:20px 0; text-align:center; }
+
+        .ai-consensus { padding:16px 20px; border-top:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.02); }
+
+        .ai-main-layout { display:grid; grid-template-columns:250px 1fr; gap:16px; margin-top:16px; }
+        .ai-stock-sidebar { background:#2c2b27; border:1px solid rgba(255,255,255,.1); border-radius:12px; overflow:hidden; align-self:stretch; display:flex; flex-direction:column; }
+        .ai-sb-header { padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.1); }
+        .ai-sb-title { font-size:12px; font-weight:700; color:#ccc9bf; letter-spacing:.1em; text-transform:uppercase; display:flex; align-items:center; justify-content:space-between; }
+        .ai-sb-summary { font-size:11px; color:#9a9890; margin-top:4px; }
+        .ai-sb-summary strong { color:#f0ede6; font-family:var(--mono); }
+        .ai-sb-list { flex:1; overflow-y:auto; }
+        .ai-sb-item { display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid rgba(255,255,255,.04); cursor:pointer; transition:background .15s; }
+        .ai-sb-item:hover { background:rgba(255,255,255,.04); }
+        .ai-sb-item.active { background:rgba(200,184,154,.1); border-left:3px solid #c8b89a; padding-left:13px; }
+        .ai-sb-item-info { flex:1; min-width:0; }
+        .ai-sb-item-sym { font-size:13px; font-weight:700; font-family:var(--mono); color:#f0ede6; }
+        .ai-sb-item-name { font-size:10px; color:#9a9890; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .ai-sb-item-right { text-align:right; flex-shrink:0; }
+        .ai-sb-item-shares { font-size:10px; color:#9a9890; }
+        .ai-sb-item-val { font-size:12px; font-weight:600; font-family:var(--mono); color:#f0ede6; margin-top:1px; }
+        .ai-sb-item-pct { display:inline-block; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:600; font-family:var(--mono); margin-top:2px; }
+        .ai-pct-up { background:rgba(74,173,110,.15); color:#4aad6e; }
+        .ai-pct-down { background:rgba(232,103,90,.15); color:#e8675a; }
+
+        .ai-analysis-main { min-width:0; }
+        .ai-tv-wrap { background:#2c2b27; border:1px solid rgba(255,255,255,.1); border-radius:12px; overflow:hidden; margin-bottom:14px; }
+        .ai-tv-header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid rgba(255,255,255,.1); flex-wrap:wrap; gap:8px; }
+        .ai-tv-stock-info { display:flex; align-items:center; gap:10px; }
+        .ai-tv-sym { font-size:16px; font-weight:800; font-family:var(--mono); color:#f0ede6; }
+        .ai-tv-name { font-size:12px; color:#9a9890; }
+        .ai-tv-price { font-size:18px; font-weight:700; font-family:var(--mono); color:#f0ede6; }
+        .ai-tv-select { background:#3d3c38; border:1px solid rgba(255,255,255,.1); color:#f0ede6; font-size:12px; padding:5px 10px; border-radius:5px; outline:none; }
+        .ai-tv-chart { width:100%; height:450px; background:#222; border-radius:0 0 12px 12px; }
+
+        .ai-analyze-bar { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+        .ai-analyze-btn { background:linear-gradient(135deg,#c8b89a 0%,#a89878 100%); color:#1a1916; border:none; border-radius:8px; padding:10px 28px; font-size:14px; font-weight:700; cursor:pointer; }
+        .ai-analyze-btn:hover { filter:brightness(1.1); }
+        .ai-analyze-status { font-size:12px; color:#9a9890; }
+
+        .ai-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+        .ai-col { background:#2c2b27; border:1px solid rgba(255,255,255,.1); border-radius:12px; overflow:hidden; }
+        .ai-head { display:flex; align-items:center; gap:8px; padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.1); }
+        .ai-logo { width:26px; height:26px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0; }
+        .ai-name { font-size:13px; font-weight:700; color:#ccc9bf; }
+        .ai-model { font-size:9px; color:#9a9890; }
+        .ai-body { padding:14px; max-height:700px; overflow-y:auto; }
+        .ai-sec { margin-bottom:14px; }
+        .ai-sec:last-child { margin-bottom:0; }
+        .ai-sec-title { font-size:10px; font-weight:700; color:#c8b89a; letter-spacing:.06em; text-transform:uppercase; margin-bottom:6px; padding-bottom:5px; border-bottom:1px solid rgba(255,255,255,.05); }
+        .ai-sec-body { font-size:12px; color:#ccc9bf; line-height:1.7; }
+
+        .ai-footer { font-size:11px; color:#6b6a64; margin-top:1.5rem; text-align:center; padding-top:1rem; border-top:1px solid rgba(255,255,255,.06); }
+
         @media (max-width: 768px) {
             .db-hero-val { font-size:1.8rem; }
             .db-kpi-grid { grid-template-columns:1fr !important; }
@@ -326,4 +455,11 @@
             /* 投資收支表：手機上隱藏月份、買入、賣出、金額列，只顯示淨流出 */
             .cf-invest-hdr-hide { display: none !important; }
             #cf-invest-body tr > td:nth-child(n+1):nth-child(-n+6) { display: none !important; }
+            .ai-asset-overview { grid-template-columns:repeat(2,1fr); }
+            .ai-main-layout { grid-template-columns:1fr; }
+            .ai-sb-list { max-height:200px; }
+            .ai-goal-grid { grid-template-columns:1fr; }
+            .ai-goal-col { border-right:none; border-bottom:1px solid rgba(255,255,255,.1); }
+            .ai-grid { grid-template-columns:1fr; }
+            .ai-macro-strip { flex-direction:column; }
         }

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 分析 — 版面預覽 V3</title>
+<style>
+  :root { --bg:#1a1916; --card:#2c2b27; --border:rgba(255,255,255,.1); --text:#f0ede6; --sub:#9a9890; --accent:#c8b89a; --mono:'Courier New',monospace; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; padding:20px; min-height:100vh; }
+
+  /* 標題 */
+  .page-header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+  .page-title { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; }
+  .page-sub { font-size:12px; color:#7a7872; margin-top:3px; }
+
+  /* 資料驗證狀態列 */
+  .data-status { display:flex; gap:16px; align-items:center; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 16px; margin-bottom:14px; }
+  .ds-title { font-size:10px; font-weight:700; color:#7a7872; letter-spacing:.08em; text-transform:uppercase; margin-right:4px; }
+  .ds-item { display:flex; align-items:center; gap:5px; }
+  .ds-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .ds-ok { background:#4aad6e; }
+  .ds-warn { background:#f59e0b; }
+  .ds-stale { background:#e8675a; }
+  .ds-label { font-size:10px; color:var(--sub); }
+  .ds-time { font-size:10px; font-family:var(--mono); color:#7a7872; }
+  .ds-refresh { background:none; border:1px solid var(--border); color:var(--accent); font-size:10px; padding:4px 10px; border-radius:4px; cursor:pointer; margin-left:auto; }
+  .ds-refresh:hover { background:rgba(255,255,255,.05); }
+
+  /* 宏觀指標 */
+  .macro-strip { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .macro-chip { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px; flex:1; min-width:150px; }
+  .macro-chip-label { font-size:9px; font-weight:600; color:#7a7872; letter-spacing:.06em; text-transform:uppercase; }
+  .macro-chip-val { font-size:1.05rem; font-weight:700; font-family:var(--mono); margin-top:2px; }
+  .macro-chip-chg { font-size:10px; font-family:var(--mono); }
+  .up { color:#4aad6e; } .down { color:#e8675a; }
+
+  /* ===== 全面資產概況 ===== */
+  .asset-overview { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+  .asset-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+  .asset-card-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .asset-card-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .ac-icon-stock { background:rgba(74,173,110,.15); }
+  .ac-icon-prop { background:rgba(100,149,237,.15); }
+  .ac-icon-cash { background:rgba(200,184,154,.15); }
+  .ac-icon-debt { background:rgba(232,103,90,.15); }
+  .asset-card-title { font-size:11px; font-weight:700; color:var(--sub); letter-spacing:.04em; }
+  .asset-card-val { font-size:1.3rem; font-weight:800; font-family:var(--mono); margin-bottom:8px; }
+  .ac-val-green { color:#4aad6e; }
+  .ac-val-blue { color:#6495ed; }
+  .ac-val-gold { color:var(--accent); }
+  .ac-val-red { color:#e8675a; }
+  .asset-card-detail { font-size:10px; color:var(--sub); line-height:1.8; }
+  .asset-card-detail strong { color:#ccc9bf; }
+  .asset-detail-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.04); }
+  .asset-detail-row:last-child { border-bottom:none; }
+  .adr-label { font-size:10px; color:var(--sub); }
+  .adr-val { font-size:10px; font-weight:600; font-family:var(--mono); color:#ccc9bf; }
+  .adr-sub { font-size:9px; color:#7a7872; font-family:var(--mono); }
+  .asset-source { font-size:9px; color:#5a5852; margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,.05); }
+
+  /* ===== 5年目標進度追蹤 ===== */
+  .goal-section { background:var(--card); border:1px solid var(--border); border-radius:12px; margin-bottom:16px; overflow:hidden; }
+  .goal-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); }
+  .goal-title { font-size:15px; font-weight:700; }
+  .goal-title span { color:var(--accent); }
+  .goal-badge { font-size:11px; color:var(--sub); background:rgba(255,255,255,.05); padding:4px 12px; border-radius:20px; }
+
+  /* 進度追蹤條 */
+  .goal-progress { padding:20px 20px 10px; border-bottom:1px solid rgba(255,255,255,.05); }
+  .gp-stats { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+  .gp-current { font-size:12px; color:var(--sub); }
+  .gp-current strong { font-size:1.4rem; font-weight:800; color:#4aad6e; font-family:var(--mono); }
+  .gp-target { font-size:12px; color:var(--sub); text-align:right; }
+  .gp-target strong { font-size:1.1rem; font-weight:700; color:var(--accent); font-family:var(--mono); }
+  .gp-bar-wrap { position:relative; height:28px; background:rgba(255,255,255,.06); border-radius:14px; overflow:hidden; margin-bottom:10px; }
+  .gp-bar-fill { height:100%; border-radius:14px; background:linear-gradient(90deg,#4aad6e 0%,#c8b89a 100%); transition:width .6s ease; display:flex; align-items:center; justify-content:flex-end; padding-right:12px; }
+  .gp-bar-pct { font-size:12px; font-weight:800; color:#1a1916; font-family:var(--mono); text-shadow:0 1px 2px rgba(0,0,0,.2); }
+  .gp-timeline { display:flex; justify-content:space-between; padding:0 2px; }
+  .gp-year { text-align:center; flex:1; }
+  .gp-year-dot { width:8px; height:8px; border-radius:50%; margin:0 auto 4px; }
+  .gp-dot-done { background:#4aad6e; }
+  .gp-dot-now { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+  .gp-dot-future { background:rgba(255,255,255,.12); }
+  .gp-year-label { font-size:8px; color:#5a5852; font-family:var(--mono); }
+  .gp-year-amt { font-size:8px; color:#7a7872; font-family:var(--mono); }
+  .gp-year.highlight .gp-year-label { color:var(--accent); font-weight:700; }
+  .gp-year.highlight .gp-year-amt { color:var(--text); }
+
+  /* 目標控制列 */
+  .goal-ctrl { display:flex; align-items:center; gap:10px; padding:12px 20px; border-bottom:1px solid rgba(255,255,255,.05); background:rgba(255,255,255,.02); flex-wrap:wrap; }
+  .goal-input { background:#3d3c38; border:1px solid var(--border); color:var(--text); font-size:13px; padding:7px 12px; border-radius:6px; outline:none; font-family:var(--mono); width:140px; text-align:right; }
+  .goal-label { font-size:11px; color:var(--sub); }
+  .goal-btn { background:linear-gradient(135deg,#c8b89a 0%,#a89878 100%); color:#1a1916; border:none; border-radius:6px; padding:8px 20px; font-size:13px; font-weight:700; cursor:pointer; }
+  .goal-btn:hover { filter:brightness(1.1); }
+
+  /* AI 三欄建議 */
+  .goal-grid { display:grid; grid-template-columns:repeat(3,1fr); }
+  .goal-col { padding:18px 20px; border-right:1px solid var(--border); }
+  .goal-col:last-child { border-right:none; }
+  .goal-ai-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .goal-ai-logo { width:24px; height:24px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
+  .logo-c { background:#d97706; color:#fff; }
+  .logo-g { background:#4285f4; color:#fff; }
+  .logo-x { background:#1a1a1a; color:#fff; border:1px solid #444; }
+  .goal-ai-name { font-size:13px; font-weight:700; color:#ccc9bf; }
+  .goal-item { margin-bottom:14px; }
+  .goal-item:last-child { margin-bottom:0; }
+  .goal-item-label { font-size:10px; font-weight:700; color:var(--accent); letter-spacing:.04em; margin-bottom:4px; }
+  .goal-item-text { font-size:12px; color:#ccc9bf; line-height:1.65; }
+
+  /* 共識 vs 分歧 */
+  .consensus { padding:16px 20px; border-top:1px solid var(--border); background:rgba(255,255,255,.02); }
+  .cons-title { font-size:11px; font-weight:700; color:#7a7872; letter-spacing:.06em; text-transform:uppercase; margin-bottom:10px; }
+  .cons-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .cons-box { padding:12px; border-radius:8px; }
+  .cons-agree { background:rgba(74,173,110,.08); border:1px solid rgba(74,173,110,.15); }
+  .cons-differ { background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.12); }
+  .cons-box-title { font-size:10px; font-weight:700; margin-bottom:6px; letter-spacing:.04em; }
+  .cons-agree .cons-box-title { color:#4aad6e; }
+  .cons-differ .cons-box-title { color:#f59e0b; }
+  .cons-box-text { font-size:11px; color:#ccc9bf; line-height:1.6; }
+
+  /* ===== 主佈局 ===== */
+  .main-layout { display:grid; grid-template-columns:250px 1fr; gap:16px; }
+
+  /* 左側持股 */
+  .stock-sidebar { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; align-self:stretch; position:sticky; top:20px; display:flex; flex-direction:column; }
+  .sb-header { padding:14px 16px; border-bottom:1px solid var(--border); }
+  .sb-title { font-size:12px; font-weight:700; color:#ccc9bf; letter-spacing:.1em; text-transform:uppercase; }
+  .sb-summary { font-size:11px; color:var(--sub); margin-top:4px; }
+  .sb-summary strong { color:var(--text); font-family:var(--mono); }
+  .sb-list { flex:1; overflow-y:auto; }
+  .sb-item { display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid rgba(255,255,255,.04); cursor:pointer; transition:background .15s; }
+  .sb-item:hover { background:rgba(255,255,255,.04); }
+  .sb-item.active { background:rgba(200,184,154,.1); border-left:3px solid var(--accent); padding-left:13px; }
+  .sb-item-info { flex:1; min-width:0; }
+  .sb-item-sym { font-size:13px; font-weight:700; font-family:var(--mono); }
+  .sb-item-name { font-size:10px; color:var(--sub); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sb-item-right { text-align:right; flex-shrink:0; }
+  .sb-item-shares { font-size:10px; color:var(--sub); }
+  .sb-item-val { font-size:12px; font-weight:600; font-family:var(--mono); margin-top:1px; }
+  .sb-item-pct { display:inline-block; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:600; font-family:var(--mono); margin-top:2px; }
+  .pct-up { background:rgba(74,173,110,.15); color:#4aad6e; }
+  .pct-down { background:rgba(232,103,90,.15); color:#e8675a; }
+
+  /* 右側 */
+  .analysis-main { min-width:0; }
+
+  /* TradingView */
+  .tv-wrap { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:14px; }
+  .tv-header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:8px; }
+  .tv-stock-info { display:flex; align-items:center; gap:10px; }
+  .tv-stock-sym { font-size:16px; font-weight:800; font-family:var(--mono); }
+  .tv-stock-name { font-size:12px; color:var(--sub); }
+  .tv-stock-price { font-size:18px; font-weight:700; font-family:var(--mono); }
+  .tv-select { background:#3d3c38; border:1px solid var(--border); color:var(--text); font-size:12px; padding:5px 10px; border-radius:5px; outline:none; }
+  .tv-chart { width:100%; height:400px; background:#222; display:flex; align-items:center; justify-content:center; color:#555; font-size:13px; }
+
+  /* 分析按鈕 */
+  .analyze-bar { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .analyze-btn { background:linear-gradient(135deg,#c8b89a 0%,#a89878 100%); color:#1a1916; border:none; border-radius:8px; padding:10px 28px; font-size:14px; font-weight:700; cursor:pointer; }
+  .analyze-btn:hover { filter:brightness(1.1); }
+  .analyze-status { font-size:12px; color:var(--sub); }
+
+  /* AI 三欄 */
+  .ai-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .ai-col { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .ai-head { display:flex; align-items:center; gap:8px; padding:12px 14px; border-bottom:1px solid var(--border); }
+  .ai-logo { width:26px; height:26px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0; }
+  .ai-name { font-size:13px; font-weight:700; color:#ccc9bf; }
+  .ai-model { font-size:9px; color:var(--sub); }
+  .ai-body { padding:14px; max-height:650px; overflow-y:auto; }
+  .ai-sec { margin-bottom:14px; }
+  .ai-sec:last-child { margin-bottom:0; }
+  .ai-sec-title { font-size:10px; font-weight:700; color:var(--accent); letter-spacing:.06em; text-transform:uppercase; margin-bottom:6px; padding-bottom:5px; border-bottom:1px solid rgba(255,255,255,.05); }
+  .ai-sec-body { font-size:12px; color:#ccc9bf; line-height:1.7; }
+
+  .footer { font-size:11px; color:#6b6a64; margin-top:1.5rem; text-align:center; padding-top:1rem; border-top:1px solid rgba(255,255,255,.06); }
+
+  @media (max-width:900px) {
+    .asset-overview { grid-template-columns:repeat(2,1fr); }
+    .main-layout { grid-template-columns:1fr; }
+    .stock-sidebar { position:static; }
+    .sb-list { max-height:200px; }
+    .goal-grid { grid-template-columns:1fr; }
+    .goal-col { border-right:none; border-bottom:1px solid var(--border); }
+    .ai-grid { grid-template-columns:1fr; }
+    .macro-strip { flex-direction:column; }
+    .cons-grid { grid-template-columns:1fr; }
+    .gp-timeline { overflow-x:auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 標題 -->
+<div class="page-header">
+  <div>
+    <div class="page-title">AI 智慧分析</div>
+    <p class="page-sub">Claude · Gemini · Grok 三引擎獨立分析 · 股票 + 固定資產 + 現金 + 負債全面診斷 · TradingView 即時圖表</p>
+  </div>
+</div>
+
+<!-- ===== 資料驗證狀態列 ===== -->
+<div class="data-status">
+  <span class="ds-title">資料來源驗證</span>
+  <div class="ds-item"><span class="ds-dot ds-ok"></span><span class="ds-label">持股報價</span><span class="ds-time">12:35:02</span></div>
+  <div class="ds-item"><span class="ds-dot ds-ok"></span><span class="ds-label">VIX/原油</span><span class="ds-time">12:35:02</span></div>
+  <div class="ds-item"><span class="ds-dot ds-ok"></span><span class="ds-label">匯率</span><span class="ds-time">12:34:58</span></div>
+  <div class="ds-item"><span class="ds-dot ds-ok"></span><span class="ds-label">固定資產</span><span class="ds-time">手動</span></div>
+  <div class="ds-item"><span class="ds-dot ds-ok"></span><span class="ds-label">現金存款</span><span class="ds-time">手動</span></div>
+  <div class="ds-item"><span class="ds-dot ds-ok"></span><span class="ds-label">負債明細</span><span class="ds-time">收支管理</span></div>
+  <div class="ds-item"><span class="ds-dot ds-warn"></span><span class="ds-label">FED 利率</span><span class="ds-time">2025/03 FOMC</span></div>
+  <div class="ds-item"><span class="ds-dot ds-warn"></span><span class="ds-label">CPI</span><span class="ds-time">2025/03</span></div>
+  <button class="ds-refresh">重新抓取全部</button>
+</div>
+
+<!-- 宏觀指標 -->
+<div class="macro-strip">
+  <div class="macro-chip"><div class="macro-chip-label">VIX 恐慌指數</div><div class="macro-chip-val">18.32 <span class="macro-chip-chg down">-2.15%</span></div></div>
+  <div class="macro-chip"><div class="macro-chip-label">WTI 原油</div><div class="macro-chip-val">$63.58 <span class="macro-chip-chg up">+0.87%</span></div></div>
+  <div class="macro-chip"><div class="macro-chip-label">FED 利率</div><div class="macro-chip-val">4.25-4.50%</div></div>
+  <div class="macro-chip"><div class="macro-chip-label">CPI 通膨 YoY</div><div class="macro-chip-val">2.4% <span class="macro-chip-chg down">-0.4%</span></div></div>
+</div>
+
+<!-- ===== 全面資產概況（連動資產總覽 + 收支管理） ===== -->
+<div class="asset-overview">
+  <!-- 股票投資 -->
+  <div class="asset-card">
+    <div class="asset-card-head"><div class="asset-card-icon ac-icon-stock">📈</div><div class="asset-card-title">股票投資</div></div>
+    <div class="asset-card-val ac-val-green">$10,250,000</div>
+    <div class="asset-card-detail">
+      <div class="asset-detail-row"><span class="adr-label">台股（5 檔）</span><span class="adr-val">$7,100,000</span></div>
+      <div class="asset-detail-row"><span class="adr-label">美股（3 檔）</span><span class="adr-val">$3,150,000</span></div>
+      <div class="asset-detail-row"><span class="adr-label">佔總資產</span><span class="adr-val" style="color:var(--accent)">62.3%</span></div>
+    </div>
+    <div class="asset-source">來源：持股總覽 · 即時報價</div>
+  </div>
+  <!-- 固定資產 -->
+  <div class="asset-card">
+    <div class="asset-card-head"><div class="asset-card-icon ac-icon-prop">🏠</div><div class="asset-card-title">固定資產</div></div>
+    <div class="asset-card-val ac-val-blue">$3,800,000</div>
+    <div class="asset-card-detail">
+      <div class="asset-detail-row"><span class="adr-label">自住房產</span><span class="adr-val">$2,800,000</span></div>
+      <div class="asset-detail-row"><span class="adr-label">車輛</span><span class="adr-val">$800,000</span></div>
+      <div class="asset-detail-row"><span class="adr-label">其他</span><span class="adr-val">$200,000</span></div>
+    </div>
+    <div class="asset-source">來源：資產總覽 · 手動估值</div>
+  </div>
+  <!-- 現金存款 -->
+  <div class="asset-card">
+    <div class="asset-card-head"><div class="asset-card-icon ac-icon-cash">💰</div><div class="asset-card-title">現金存款</div></div>
+    <div class="asset-card-val ac-val-gold">$2,350,000</div>
+    <div class="asset-card-detail">
+      <div class="asset-detail-row"><span class="adr-label">活存帳戶</span><span class="adr-val">$850,000</span></div>
+      <div class="asset-detail-row"><span class="adr-label">定存</span><span class="adr-val">$1,200,000</span></div>
+      <div class="asset-detail-row"><span class="adr-label">外幣（USD）</span><span class="adr-val">$300,000</span></div>
+    </div>
+    <div class="asset-source">來源：資產總覽 · 手動更新</div>
+  </div>
+  <!-- 負債 -->
+  <div class="asset-card">
+    <div class="asset-card-head"><div class="asset-card-icon ac-icon-debt">🏦</div><div class="asset-card-title">負債總額</div></div>
+    <div class="asset-card-val ac-val-red">-$3,550,000</div>
+    <div class="asset-card-detail">
+      <div class="asset-detail-row">
+        <span class="adr-label">房貸</span>
+        <span class="adr-val">-$2,800,000</span>
+      </div>
+      <div class="asset-detail-row" style="padding-left:8px">
+        <span class="adr-sub">利率 2.06% · 剩 22 年 · 月付 $14,500</span>
+      </div>
+      <div class="asset-detail-row">
+        <span class="adr-label">信貸</span>
+        <span class="adr-val">-$500,000</span>
+      </div>
+      <div class="asset-detail-row" style="padding-left:8px">
+        <span class="adr-sub">利率 3.5% · 剩 3 年 · 月付 $15,200</span>
+      </div>
+      <div class="asset-detail-row">
+        <span class="adr-label">其他貸款</span>
+        <span class="adr-val">-$250,000</span>
+      </div>
+      <div class="asset-detail-row" style="padding-left:8px">
+        <span class="adr-sub">利率 5.0% · 剩 2 年 · 月付 $11,000</span>
+      </div>
+    </div>
+    <div class="asset-source">來源：收支管理 · 貸款明細</div>
+  </div>
+</div>
+
+<!-- ===== 5 年目標進度追蹤 + AI 策略 ===== -->
+<div class="goal-section">
+  <div class="goal-header">
+    <div class="goal-title">5 年資產目標 — <span>$50,000,000</span></div>
+    <span class="goal-badge">2026 → 2031 · 三 AI 調整策略</span>
+  </div>
+
+  <!-- 進度追蹤 -->
+  <div class="goal-progress">
+    <div class="gp-stats">
+      <div class="gp-current">目前總資產<br><strong>$12,850,000</strong></div>
+      <div style="text-align:center">
+        <div style="font-size:10px;color:#7a7872;margin-bottom:2px">剩餘差額</div>
+        <div style="font-size:1rem;font-weight:700;font-family:var(--mono);color:#e8675a">$37,150,000</div>
+      </div>
+      <div class="gp-target">5 年目標<br><strong>$50,000,000</strong></div>
+    </div>
+    <!-- 進度條 -->
+    <div class="gp-bar-wrap">
+      <div class="gp-bar-fill" style="width:25.7%">
+        <span class="gp-bar-pct">25.7%</span>
+      </div>
+    </div>
+    <!-- 年度里程碑 -->
+    <div class="gp-timeline">
+      <div class="gp-year highlight"><div class="gp-year-dot gp-dot-now"></div><div class="gp-year-label">2026</div><div class="gp-year-amt">1,285萬</div></div>
+      <div class="gp-year"><div class="gp-year-dot gp-dot-future"></div><div class="gp-year-label">2027</div><div class="gp-year-amt">2,100萬</div></div>
+      <div class="gp-year"><div class="gp-year-dot gp-dot-future"></div><div class="gp-year-label">2028</div><div class="gp-year-amt">2,950萬</div></div>
+      <div class="gp-year"><div class="gp-year-dot gp-dot-future"></div><div class="gp-year-label">2029</div><div class="gp-year-amt">3,600萬</div></div>
+      <div class="gp-year"><div class="gp-year-dot gp-dot-future"></div><div class="gp-year-label">2030</div><div class="gp-year-amt">4,350萬</div></div>
+      <div class="gp-year highlight"><div class="gp-year-dot gp-dot-future" style="background:var(--accent)"></div><div class="gp-year-label">2031</div><div class="gp-year-amt">5,000萬</div></div>
+    </div>
+  </div>
+
+  <!-- 目標參數 -->
+  <div class="goal-ctrl">
+    <span class="goal-label">目標金額</span>
+    <input class="goal-input" value="50,000,000" />
+    <span class="goal-label">年限</span>
+    <input class="goal-input" value="5" style="width:60px" />
+    <span class="goal-label">年</span>
+    <span class="goal-label" style="margin-left:12px">每月定期投入</span>
+    <input class="goal-input" value="50,000" style="width:100px" />
+    <span class="goal-label">TWD</span>
+    <button class="goal-btn" style="margin-left:auto">產生 AI 策略建議</button>
+  </div>
+
+  <!-- 三 AI 策略 -->
+  <div class="goal-grid">
+    <!-- Claude -->
+    <div class="goal-col">
+      <div class="goal-ai-head"><div class="goal-ai-logo logo-c">C</div><div class="goal-ai-name">Claude</div></div>
+      <div class="goal-item">
+        <div class="goal-item-label">全面資產診斷</div>
+        <div class="goal-item-text">淨資產 1,285 萬（總資產 1,640 萬 − 負債 355 萬）。股票佔比 62% 偏高，現金 14% 偏低，固定資產 23% 流動性差。<br><strong style="color:var(--accent)">負債評估：</strong>房貸利率 2.06% 低於投資報酬，可持續；信貸 3.5% 建議優先清償；其他貸款 5% 應加速還款。</div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-item-label">調整策略</div>
+        <div class="goal-item-text">
+          <strong style="color:#e8675a">賣出：</strong>NVIDIA 減碼 30%（獲利了結）<br>
+          <strong style="color:#4aad6e">買入：</strong>00679B 加碼至 20%、新增 SCHD<br>
+          <strong style="color:var(--accent)">持有：</strong>台積電維持核心、金融股持有收息<br>
+          <strong style="color:var(--sub)">現金：</strong>保留 150 萬等市場回調加碼<br>
+          <strong style="color:#6495ed">負債：</strong>信貸 50 萬優先 6 個月內清償，每月多還 $8,000
+        </div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-item-label">達成路徑</div>
+        <div class="goal-item-text">需年化報酬 <strong style="color:#4aad6e">32%</strong>（含每月 5 萬定投 + 債務優化省息 18 萬/年）。前 2 年清償高利負債、中期集中成長、後期穩健。成功率估 <strong style="color:var(--accent)">38%</strong>（目標極具挑戰性）。</div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-item-label">風險警示</div>
+        <div class="goal-item-text" style="color:#e8675a">負債月付 $40,700 佔收入比偏高。若股市回撤 -20%，淨資產跌至 980 萬。建議維持 6 個月緊急備用金（至少 85 萬）。</div>
+      </div>
+    </div>
+    <!-- Gemini -->
+    <div class="goal-col">
+      <div class="goal-ai-head"><div class="goal-ai-logo logo-g">G</div><div class="goal-ai-name">Gemini</div></div>
+      <div class="goal-item">
+        <div class="goal-item-label">全面資產診斷</div>
+        <div class="goal-item-text">持股 beta 1.35 偏高，台股佔比 72%，海外配置不足。定存 120 萬利率過低應活化。<br><strong style="color:var(--accent)">負債評估：</strong>總負債 355 萬，負債資產比 21.6%，尚屬安全。房貸利率低可維持，但信貸+其他月付 $26,200 壓縮投資現金流。</div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-item-label">調整策略</div>
+        <div class="goal-item-text">
+          <strong style="color:#e8675a">賣出：</strong>獲利了結部分台股金融股<br>
+          <strong style="color:#4aad6e">買入：</strong>VOO 25%、VNQ(REITs) 5%<br>
+          <strong style="color:var(--accent)">持有：</strong>台積電核心不動<br>
+          <strong style="color:var(--sub)">定期：</strong>每月 VOO 2萬 + 台積電 2萬 + 債券 1萬<br>
+          <strong style="color:#6495ed">活化：</strong>定存 120 萬轉入高息活存或短債 ETF，年多賺 3-4 萬
+        </div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-item-label">達成路徑</div>
+        <div class="goal-item-text">核心+衛星策略，需年化 <strong style="color:#4aad6e">32%</strong>（極高難度）。考量固定資產增值 + 負債遞減效應，實質淨資產年成長可能高於投資報酬。成功率估 <strong style="color:var(--accent)">30%</strong>。</div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-item-label">風險警示</div>
+        <div class="goal-item-text" style="color:#e8675a">台幣升值 5% 侵蝕海外報酬。房貸升息至 3%+ 月付增 $3,500。建議保留至少 85 萬現金備用，不宜全數投入。</div>
+      </div>
+    </div>
+    <!-- Grok -->
+    <div class="goal-col">
+      <div class="goal-ai-head"><div class="goal-ai-logo logo-x">X</div><div class="goal-ai-name">Grok</div></div>
+      <div class="goal-item">
+        <div class="goal-item-label">全面資產診斷</div>
+        <div class="goal-item-text">X 輿情：AI 概念股情緒高漲但估值分歧加大。配置進攻性強，順風報酬高但逆風回撤大。<br><strong style="color:var(--accent)">負債評估：</strong>房貸 2.06% 是「好債」，低於通膨率可持續。信貸+其他 75 萬應提前還清。現金 235 萬中 85 萬鎖備用金、150 萬可投入。</div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-item-label">調整策略</div>
+        <div class="goal-item-text">
+          <strong style="color:#e8675a">賣出：</strong>NVIDIA 趁熱度高出脫 50%<br>
+          <strong style="color:#4aad6e">買入：</strong>能源/公用事業 ETF、GLD 5%<br>
+          <strong style="color:var(--accent)">持有：</strong>金融股殖利率 5%+ 繼續收息<br>
+          <strong style="color:#6495ed">負債：</strong>其他貸款（5%）立即清償，信貸加速還款<br>
+          <strong style="color:var(--sub)">槓桿：</strong>房貸低利期可考慮適度增貸投入市場
+        </div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-item-label">達成路徑</div>
+        <div class="goal-item-text">激進年化 <strong style="color:#4aad6e">35%+</strong> 方可 5 年達標。清償高利債後每月可投入增加 $26,200。複利 + 負債釋放現金流，預估 <strong style="color:var(--accent)">實際需 7-8 年</strong>。成功率 <strong style="color:var(--accent)">25%</strong>。</div>
+      </div>
+      <div class="goal-item">
+        <div class="goal-item-label">風險警示</div>
+        <div class="goal-item-text" style="color:#e8675a">若 NVIDIA 回調 40%，加上房貸升息至 3%，淨資產跌至 900 萬。增貸投入風險極高，僅限高確信度機會。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 共識 vs 分歧 -->
+  <div class="consensus">
+    <div class="cons-title">三 AI 共識 vs 分歧</div>
+    <div class="cons-grid">
+      <div class="cons-box cons-agree">
+        <div class="cons-box-title">三家共識（高信心度）</div>
+        <div class="cons-box-text">
+          1. 台積電維持核心持股<br>
+          2. NVIDIA 應減碼獲利了結（幅度不同）<br>
+          3. 信貸+其他貸款（利率 3.5-5%）應優先清償<br>
+          4. 房貸利率 2.06% 為「好債」，不急著還<br>
+          5. 維持至少 85 萬緊急備用金<br>
+          6. 5 年 5000 萬極具挑戰（需年化 30%+），實際需 7-9 年
+        </div>
+      </div>
+      <div class="cons-box cons-differ">
+        <div class="cons-box-title">意見分歧（需自行判斷）</div>
+        <div class="cons-box-text">
+          1. NVIDIA 減碼幅度：Claude 30% / Gemini 不減 / Grok 50%<br>
+          2. 定存活化：Gemini 建議轉短債 ETF / 其他未提<br>
+          3. 增貸投入：僅 Grok 建議房貸增貸（風險極高）<br>
+          4. 海外配置：Claude 含蓄 / Gemini 積極 40% / Grok 中性<br>
+          5. 還債順序：Claude 信貸優先 / Grok 其他貸款優先（利率更高）
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 主佈局：左持股 + 右分析 ===== -->
+<div class="main-layout">
+
+  <!-- 左側持股清單 -->
+  <div class="stock-sidebar">
+    <div class="sb-header">
+      <div class="sb-title" style="display:flex;align-items:center;justify-content:space-between">持股清單 <span style="font-size:9px;color:var(--accent);font-weight:400;cursor:pointer;letter-spacing:0">← 持股總覽</span></div>
+      <div class="sb-summary">共 8 檔 · 總市值 <strong>$10,250,000</strong></div>
+    </div>
+    <div class="sb-list">
+      <div class="sb-item active" onclick="document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));this.classList.add('active')">
+        <div class="sb-item-info"><div class="sb-item-sym">2330</div><div class="sb-item-name">台積電</div></div>
+        <div class="sb-item-right"><div class="sb-item-shares">5 股</div><div class="sb-item-val">$4,500</div><div><span class="sb-item-pct pct-up">+2.3%</span></div></div>
+      </div>
+      <div class="sb-item" onclick="document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));this.classList.add('active')">
+        <div class="sb-item-info"><div class="sb-item-sym">2882</div><div class="sb-item-name">國泰金</div></div>
+        <div class="sb-item-right"><div class="sb-item-shares">2,000 股</div><div class="sb-item-val">$136,000</div><div><span class="sb-item-pct pct-up">+1.1%</span></div></div>
+      </div>
+      <div class="sb-item" onclick="document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));this.classList.add('active')">
+        <div class="sb-item-info"><div class="sb-item-sym">00679B</div><div class="sb-item-name">元大美債20年</div></div>
+        <div class="sb-item-right"><div class="sb-item-shares">500 股</div><div class="sb-item-val">$15,750</div><div><span class="sb-item-pct pct-down">-0.5%</span></div></div>
+      </div>
+      <div class="sb-item" onclick="document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));this.classList.add('active')">
+        <div class="sb-item-info"><div class="sb-item-sym">NVDA</div><div class="sb-item-name">NVIDIA</div></div>
+        <div class="sb-item-right"><div class="sb-item-shares">20 股</div><div class="sb-item-val">$17,800</div><div><span class="sb-item-pct pct-up">+3.8%</span></div></div>
+      </div>
+      <div class="sb-item" onclick="document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));this.classList.add('active')">
+        <div class="sb-item-info"><div class="sb-item-sym">AAPL</div><div class="sb-item-name">Apple</div></div>
+        <div class="sb-item-right"><div class="sb-item-shares">10 股</div><div class="sb-item-val">$1,890</div><div><span class="sb-item-pct pct-down">-0.7%</span></div></div>
+      </div>
+      <div class="sb-item" onclick="document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));this.classList.add('active')">
+        <div class="sb-item-info"><div class="sb-item-sym">2886</div><div class="sb-item-name">兆豐金</div></div>
+        <div class="sb-item-right"><div class="sb-item-shares">3,000 股</div><div class="sb-item-val">$120,000</div><div><span class="sb-item-pct pct-up">+0.6%</span></div></div>
+      </div>
+      <div class="sb-item" onclick="document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));this.classList.add('active')">
+        <div class="sb-item-info"><div class="sb-item-sym">VOO</div><div class="sb-item-name">Vanguard S&P 500</div></div>
+        <div class="sb-item-right"><div class="sb-item-shares">15 股</div><div class="sb-item-val">$7,350</div><div><span class="sb-item-pct pct-up">+1.2%</span></div></div>
+      </div>
+      <div class="sb-item" onclick="document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));this.classList.add('active')">
+        <div class="sb-item-info"><div class="sb-item-sym">2891</div><div class="sb-item-name">中信金</div></div>
+        <div class="sb-item-right"><div class="sb-item-shares">5,000 股</div><div class="sb-item-val">$160,000</div><div><span class="sb-item-pct pct-up">+0.9%</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右側分析區 -->
+  <div class="analysis-main">
+    <!-- TradingView -->
+    <div class="tv-wrap">
+      <div class="tv-header">
+        <div class="tv-stock-info">
+          <div><span class="tv-stock-sym">2330</span> <span class="tv-stock-name">台積電</span></div>
+          <div class="tv-stock-price up">$900.00 <span style="font-size:12px">+2.3%</span></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <select class="tv-select"><option>日線</option><option>週線</option><option>月線</option><option>5分</option><option>15分</option><option>1小時</option></select>
+        </div>
+      </div>
+      <div class="tv-chart">[ TradingView Advanced Chart — K線 + MA5/10/20/60 + RSI + MACD + 布林通道 + KD + 成交量 ]</div>
+    </div>
+
+    <!-- 分析按鈕 -->
+    <div class="analyze-bar">
+      <button class="analyze-btn">開始分析此股票</button>
+      <span class="analyze-status">點擊左側持股自動切換圖表 · 按下按鈕觸發 AI 分析</span>
+    </div>
+
+    <!-- AI 三欄個股分析 -->
+    <div class="ai-grid">
+      <div class="ai-col">
+        <div class="ai-head"><div class="ai-logo logo-c">C</div><div><div class="ai-name">Claude</div><div class="ai-model">claude-sonnet-4</div></div></div>
+        <div class="ai-body">
+          <div class="ai-sec"><div class="ai-sec-title">產業分析</div><div class="ai-sec-body">半導體受惠 AI 伺服器需求，2025 全球晶圓代工預估成長 20%。先進製程 3nm/2nm 為主要驅動力...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">產業龍頭</div><div class="ai-sec-body">台積電 60%+ 市佔穩居龍頭。三星 12%、Intel Foundry 4%。技術差距約 1-2 年...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">財務分析</div><div class="ai-sec-body">2024Q4 EPS 14.45，YoY +57%。毛利率 59%，ROE 32.8%。自由現金流 2,100 億...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">風險分析</div><div class="ai-sec-body">中度。地緣政治、客戶集中度、資本支出壓力 320-360 億美元...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">護城河</div><div class="ai-sec-body">極寬。先進製程壁壘、客戶轉換成本極高、規模經濟、專利群。短期無法複製...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">技術分析</div><div class="ai-sec-body">RSI 58 中性偏多。MACD 翻正，均線多頭排列。布林通道中軌上方，支撐 850 壓力 920...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">籌碼分析</div><div class="ai-sec-body">外資近 5 日淨買超 15,200 張，投信連買 3 日。三大法人合計買超，融資維持率穩定...</div></div>
+        </div>
+      </div>
+      <div class="ai-col">
+        <div class="ai-head"><div class="ai-logo logo-g">G</div><div><div class="ai-name">Gemini</div><div class="ai-model">gemini-2.5-flash</div></div></div>
+        <div class="ai-body">
+          <div class="ai-sec"><div class="ai-sec-title">產業分析</div><div class="ai-sec-body">全球半導體 2025 預估達 6,970 億美元。AI 晶片帶動 CoWoS 先進封裝產能吃緊...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">產業龍頭</div><div class="ai-sec-body">TSMC 邏輯製程領先，三星記憶體稱霸。關注 Intel 18A、Rapidus 2nm...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">財務分析</div><div class="ai-sec-body">營收連 6 月雙位數成長。淨利率 42.3% 同業最高。殖利率 1.2%...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">風險分析</div><div class="ai-sec-body">中度。美中科技戰、電力供應疑慮、匯率波動...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">護城河</div><div class="ai-sec-body">極寬。製程技術、專利群、客戶生態系多重護城河。EUV 設備優先權...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">技術分析</div><div class="ai-sec-body">週線上升趨勢完整。KD 65 未超買。月線 MACD 金叉。量能配合突破前高機率高...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">籌碼分析</div><div class="ai-sec-body">外資持股 75.2%，近月增 0.3%。期貨淨多單增加。Put/Call 0.82 偏多...</div></div>
+        </div>
+      </div>
+      <div class="ai-col">
+        <div class="ai-head"><div class="ai-logo logo-x">X</div><div><div class="ai-name">Grok</div><div class="ai-model">grok-3</div></div></div>
+        <div class="ai-body">
+          <div class="ai-sec"><div class="ai-sec-title">產業分析</div><div class="ai-sec-body">AI 基礎設施投資方興未艾，資料中心 CapEx 加碼。邊緣 AI 2026 年將成新引擎...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">產業龍頭</div><div class="ai-sec-body">TSMC 先進邏輯無可匹敵。NVIDIA AI 加速器稱王。ASML 壟斷 EUV。三巨頭共生...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">財務分析</div><div class="ai-sec-body">本益比 22x 低於 5 年均值 25x。PEG 0.8。EPS 預估成長 25%+...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">風險分析</div><div class="ai-sec-body">中度。台海情勢、日本/美國廠延遲、AI 泡沫化擔憂...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">護城河</div><div class="ai-sec-body">極寬。X 社群 TSMC 技術領先信心度極高，85% 正面情緒...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">技術分析</div><div class="ai-sec-body">日線多方吞噬型態。量放大 1.3 倍均量。5 日線穿 20 日線，短線偏多...</div></div>
+          <div class="ai-sec"><div class="ai-sec-title">籌碼分析</div><div class="ai-sec-body">自營商買超避險減。外資現貨期貨同步作多。散戶信用交易下降，籌碼安定...</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="footer">AI 分析僅供參考，不構成投資建議 · 三 AI 獨立分析同一份驗證資料（含持股、固定資產、現金、負債明細）· 共識處信心度高，分歧處請自行判斷</p>
+
+</body>
+</html>
