@@ -500,8 +500,30 @@ function initChart() {
     bbUpperLine = chart.addLineSeries({ color: 'rgba(200,184,154,.3)', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
     bbLowerLine = chart.addLineSeries({ color: 'rgba(200,184,154,.3)', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
 
-    generateHistory();
+    // Try to load real price data, fallback to simulation
+    fetchRealPrice().then(() => generateHistory()).catch(() => generateHistory());
+
     new ResizeObserver(() => chart.applyOptions({ width: c.clientWidth, height: c.clientHeight })).observe(c);
+}
+
+async function fetchRealPrice() {
+    try {
+        // 获取真实台股指数数据
+        const resp = await fetch('https://query2.finance.yahoo.com/v8/finance/chart/^TWII?interval=1d&range=3mo', {
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        const data = await resp.json();
+        if (data.chart && data.chart.result && data.chart.result[0]) {
+            const result = data.chart.result[0];
+            const closes = result.indicators.quote[0].close.filter(c => c);
+            if (closes.length > 0) {
+                ps.base = Math.round(closes[closes.length - 1]);
+                toast('已載入真實台股指數數據', 'info');
+                return true;
+            }
+        }
+    } catch(e) { console.log('Real data fetch failed, using simulation:', e.message); }
+    return false;
 }
 
 function generateHistory() {
@@ -537,8 +559,8 @@ function generateHistory() {
 
     ps.price = p; ps.open = p; ps.high = p; ps.low = p;
     ps.candleOpen = p; ps.candleHigh = p; ps.candleLow = p;
-    ps.base = p; currentPrice = p;
     ps.closes = closes;
+    currentPrice = p;  // 初始化 currentPrice
 
     candleSeries.setData(candles);
     volumeSeries.setData(vols);
@@ -762,6 +784,9 @@ function closePosition(index, reason) {
 function simulateTick() {
     if (simPaused) return;
 
+    // 定期同步真实价格 (每分钟一次)
+    fetchCurrentPrice();
+
     const momentum = ps.trend * 0.7;
     const meanRev = (ps.base - ps.price) * 0.001;
     const noise = (Math.random() - 0.5) * ps.volatility * 0.4;
@@ -817,6 +842,29 @@ function simulateTick() {
     updatePositionsUI();
     updateAccountBar();
     updateIndicatorsUI();
+}
+
+let lastRealPriceFetch = 0;
+async function fetchCurrentPrice() {
+    const now = Date.now();
+    if (now - lastRealPriceFetch < 5000) return; // 每 5 秒最多一次
+    lastRealPriceFetch = now;
+    try {
+        const resp = await fetch('https://query2.finance.yahoo.com/v8/finance/chart/^TWII?interval=1d', {
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        const data = await resp.json();
+        if (data.chart?.result?.[0]?.indicators?.quote?.[0]?.close) {
+            const closes = data.chart.result[0].indicators.quote[0].close.filter(c => c);
+            if (closes.length > 0) {
+                const realPrice = Math.round(closes[closes.length - 1]);
+                // 用真实价格调整基准，但保持小幅波动
+                if (Math.abs(realPrice - ps.base) > 50) {
+                    ps.base = realPrice; // 跳空时同步
+                }
+            }
+        }
+    } catch(e) { }
 }
 
 function startSim() { if (simInterval) clearInterval(simInterval); simInterval = setInterval(simulateTick, simSpeed); }
