@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台指期模擬交易</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root {
+            --ink: #1a1916; --ink2: #3d3c38; --ink3: #6b6a64; --ink4: #9a9890;
+            --paper: #f0ede6; --border: rgba(255,255,255,.1);
+            --green: #4aad6e; --red: #d9534f; --gold: #c8b89a;
+            --mono: 'SF Mono','Cascadia Code','JetBrains Mono','Fira Code','Consolas','Menlo',monospace;
+        }
+        body { background: #1a1916; color: #ccc9bf; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; }
+        * { box-sizing: border-box; }
+
+        /* ===== Login ===== */
+        .login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .login-card { background: #2c2b27; border: 1px solid var(--border); border-radius: 16px; padding: 40px; max-width: 420px; width: 100%; text-align: center; }
+        .login-title { font-size: 1.8rem; font-weight: 800; color: var(--paper); margin-bottom: 8px; letter-spacing: -.02em; }
+        .login-sub { color: var(--ink4); font-size: 14px; margin-bottom: 32px; }
+        .login-btn { width: 100%; background: #fff; color: #333; border: none; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background .2s; }
+        .login-btn:hover { background: #f0f0f0; }
+        .login-hint { color: var(--ink3); font-size: 12px; margin-top: 16px; }
+
+        /* ===== Header ===== */
+        .app-header { background: #2c2b27; border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+        .app-title { font-size: 1.4rem; font-weight: 800; color: var(--paper); letter-spacing: -.01em; }
+        .app-title span { color: var(--gold); }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .header-btn { background: #3d3c38; border: 1px solid var(--border); color: #ccc9bf; padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: background .2s; font-family: inherit; }
+        .header-btn:hover { background: #4a4940; }
+        .user-badge { font-size: 12px; color: var(--ink4); }
+
+        /* ===== Layout ===== */
+        .main-layout { display: grid; grid-template-columns: 1fr 340px; gap: 0; min-height: calc(100vh - 65px); }
+        .left-panel { display: flex; flex-direction: column; }
+        .right-panel { background: #232220; border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+
+        /* ===== Price Bar ===== */
+        .price-bar { background: #2c2b27; border-bottom: 1px solid var(--border); padding: 16px 20px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+        .pb-main { display: flex; align-items: baseline; gap: 12px; }
+        .pb-symbol { font-size: 18px; font-weight: 800; font-family: var(--mono); color: var(--paper); }
+        .pb-name { font-size: 13px; color: var(--ink4); }
+        .pb-price { font-size: 28px; font-weight: 700; font-family: var(--mono); }
+        .pb-change { font-size: 15px; font-weight: 600; font-family: var(--mono); margin-left: 8px; }
+        .pb-stats { display: flex; gap: 20px; margin-left: auto; }
+        .pb-stat { text-align: center; }
+        .pb-stat-label { font-size: 10px; color: var(--ink3); text-transform: uppercase; letter-spacing: .06em; }
+        .pb-stat-val { font-size: 14px; font-weight: 600; font-family: var(--mono); color: var(--paper); margin-top: 2px; }
+
+        /* ===== Chart ===== */
+        .chart-wrap { flex: 1; min-height: 400px; position: relative; background: #1a1916; }
+
+        /* ===== Account Bar ===== */
+        .account-bar { background: #2c2b27; border-top: 1px solid var(--border); padding: 12px 20px; display: flex; gap: 24px; flex-wrap: wrap; }
+        .ab-item { }
+        .ab-label { font-size: 10px; color: var(--ink3); text-transform: uppercase; letter-spacing: .04em; }
+        .ab-value { font-size: 16px; font-weight: 700; font-family: var(--mono); color: var(--paper); margin-top: 2px; }
+
+        /* ===== Positions Table ===== */
+        .positions-section { background: #2c2b27; border-top: 1px solid var(--border); }
+        .section-tabs { display: flex; border-bottom: 1px solid var(--border); }
+        .sec-tab { padding: 10px 20px; font-size: 13px; font-weight: 600; color: var(--ink4); cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s; }
+        .sec-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+        .sec-tab:hover:not(.active) { color: #ccc9bf; }
+        .sec-content { display: none; }
+        .sec-content.active { display: block; }
+        .pos-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .pos-table th { font-size: 11px; color: var(--ink4); font-weight: 600; text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+        .pos-table th.r { text-align: right; }
+        .pos-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.04); }
+        .pos-table td.r { text-align: right; font-family: var(--mono); font-weight: 600; }
+        .pos-table tr:hover { background: rgba(255,255,255,.02); }
+        .pos-empty { text-align: center; padding: 32px; color: var(--ink3); font-size: 13px; }
+        .close-btn { background: #4a3f2f; border: 1px solid rgba(255,255,255,.12); color: var(--paper); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit; font-weight: 600; transition: background .2s; }
+        .close-btn:hover { background: #5a4f3f; }
+
+        /* ===== Right Panel: Order ===== */
+        .order-section { padding: 20px; border-bottom: 1px solid var(--border); }
+        .order-title { font-size: 14px; font-weight: 700; color: var(--paper); margin-bottom: 16px; letter-spacing: .04em; }
+        .order-tabs { display: flex; gap: 0; margin-bottom: 16px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+        .order-tab { flex: 1; padding: 10px; text-align: center; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .2s; border: none; }
+        .order-tab.buy { background: transparent; color: var(--ink4); }
+        .order-tab.buy.active { background: rgba(74,173,110,.15); color: var(--green); }
+        .order-tab.sell { background: transparent; color: var(--ink4); }
+        .order-tab.sell.active { background: rgba(217,83,79,.15); color: var(--red); }
+        .order-field { margin-bottom: 14px; }
+        .order-label { font-size: 11px; color: var(--ink4); margin-bottom: 6px; font-weight: 600; letter-spacing: .04em; }
+        .order-select, .order-input { width: 100%; background: #3d3c38; border: 1px solid var(--border); color: var(--paper); padding: 10px 12px; border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; }
+        .order-select:focus, .order-input:focus { border-color: rgba(255,255,255,.25); }
+        .lot-control { display: flex; align-items: center; gap: 0; }
+        .lot-btn { width: 40px; height: 42px; background: #3d3c38; border: 1px solid var(--border); color: var(--paper); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .2s; }
+        .lot-btn:first-child { border-radius: 8px 0 0 8px; }
+        .lot-btn:last-child { border-radius: 0 8px 8px 0; }
+        .lot-btn:hover { background: #4a4940; }
+        .lot-input { flex: 1; height: 42px; background: #3d3c38; border: 1px solid var(--border); border-left: none; border-right: none; color: var(--paper); text-align: center; font-size: 16px; font-weight: 700; font-family: var(--mono); outline: none; }
+        .order-submit { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 800; cursor: pointer; transition: all .2s; font-family: inherit; letter-spacing: .02em; }
+        .order-submit.buy-btn { background: linear-gradient(135deg, #2d8f4e, #4aad6e); color: #fff; }
+        .order-submit.buy-btn:hover { filter: brightness(1.1); }
+        .order-submit.sell-btn { background: linear-gradient(135deg, #b33a3a, #d9534f); color: #fff; }
+        .order-submit.sell-btn:hover { filter: brightness(1.1); }
+        .order-info { margin-top: 12px; background: #2c2b27; border-radius: 8px; padding: 12px; font-size: 12px; }
+        .oi-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .oi-row:last-child { margin-bottom: 0; }
+        .oi-label { color: var(--ink4); }
+        .oi-value { color: var(--paper); font-family: var(--mono); font-weight: 600; }
+
+        /* ===== Right Panel: Stats ===== */
+        .stats-section { padding: 20px; flex: 1; overflow-y: auto; }
+        .stats-title { font-size: 14px; font-weight: 700; color: var(--paper); margin-bottom: 16px; letter-spacing: .04em; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stat-card { background: #2c2b27; border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+        .stat-card-label { font-size: 10px; color: var(--ink4); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+        .stat-card-val { font-size: 18px; font-weight: 700; font-family: var(--mono); color: var(--paper); }
+        .stat-card-full { grid-column: 1 / -1; }
+
+        /* ===== Toast ===== */
+        .toast { position: fixed; top: 20px; right: 20px; padding: 14px 24px; border-radius: 10px; font-size: 14px; font-weight: 600; z-index: 9999; transform: translateX(120%); transition: transform .3s ease; }
+        .toast.show { transform: translateX(0); }
+        .toast.success { background: rgba(74,173,110,.9); color: #fff; }
+        .toast.error { background: rgba(217,83,79,.9); color: #fff; }
+        .toast.info { background: rgba(200,184,154,.9); color: #1a1916; }
+
+        /* ===== Reset Modal ===== */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.7); z-index: 5000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .modal-box { background: #2c2b27; border: 1px solid var(--border); border-radius: 14px; padding: 28px; max-width: 400px; width: 100%; }
+        .modal-title { font-size: 18px; font-weight: 700; color: var(--paper); margin-bottom: 12px; }
+        .modal-text { font-size: 14px; color: var(--ink4); margin-bottom: 20px; line-height: 1.6; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .modal-btn { padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: background .2s; }
+        .modal-btn.cancel { background: #3d3c38; color: #ccc9bf; }
+        .modal-btn.cancel:hover { background: #4a4940; }
+        .modal-btn.danger { background: var(--red); color: #fff; }
+        .modal-btn.danger:hover { filter: brightness(1.1); }
+
+        /* ===== Scrollbar ===== */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
+
+        /* ===== Mobile ===== */
+        @media (max-width: 900px) {
+            .main-layout { grid-template-columns: 1fr; }
+            .right-panel { border-left: none; border-top: 1px solid var(--border); }
+            .price-bar { padding: 12px 16px; gap: 16px; }
+            .pb-price { font-size: 22px; }
+            .pb-stats { margin-left: 0; width: 100%; justify-content: space-between; }
+            .account-bar { padding: 10px 16px; gap: 16px; }
+            .chart-wrap { min-height: 300px; }
+            .stat-grid { grid-template-columns: 1fr; }
+        }
+
+        /* price color helpers */
+        .c-up { color: var(--green) !important; }
+        .c-down { color: var(--red) !important; }
+        .c-flat { color: var(--ink4) !important; }
+        .bg-long { background: rgba(74,173,110,.12); }
+        .bg-short { background: rgba(217,83,79,.12); }
+        .tag-long { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: rgba(74,173,110,.15); color: var(--green); }
+        .tag-short { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: rgba(217,83,79,.15); color: var(--red); }
+        .tag-win { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: rgba(74,173,110,.15); color: var(--green); }
+        .tag-lose { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: rgba(217,83,79,.15); color: var(--red); }
+
+        /* nav link */
+        .nav-link { color: var(--gold); text-decoration: none; font-size: 13px; }
+        .nav-link:hover { text-decoration: underline; }
+
+        /* speed control */
+        .speed-bar { display: flex; align-items: center; gap: 8px; padding: 8px 20px; background: #232220; border-top: 1px solid var(--border); }
+        .speed-label { font-size: 11px; color: var(--ink4); white-space: nowrap; }
+        .speed-btns { display: flex; gap: 4px; }
+        .speed-btn { padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--ink4); font-family: var(--mono); transition: all .2s; }
+        .speed-btn.active { background: var(--gold); color: #1a1916; border-color: var(--gold); }
+        .speed-btn:hover:not(.active) { background: rgba(255,255,255,.05); }
+        .pause-btn { padding: 4px 12px; border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--ink4); transition: all .2s; margin-left: 4px; }
+        .pause-btn.paused { background: var(--red); color: #fff; border-color: var(--red); }
+    </style>
+</head>
+<body>
+
+<!-- ==================== LOGIN ==================== -->
+<div id="loginScreen" class="login-screen">
+    <div class="login-card">
+        <div style="font-size:40px;margin-bottom:16px">📈</div>
+        <div class="login-title">台指期模擬交易</div>
+        <div class="login-sub">Futures Paper Trading Simulator</div>
+        <button class="login-btn" onclick="loginWithGoogle()">
+            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            使用 Google 帳號登入
+        </button>
+        <div class="login-hint">使用與家族管理系統相同的帳號</div>
+    </div>
+</div>
+
+<!-- ==================== MAIN APP ==================== -->
+<div id="mainApp" style="display:none">
+    <!-- Header -->
+    <div class="app-header">
+        <div style="display:flex;align-items:center;gap:16px">
+            <div class="app-title">台指期<span>模擬交易</span></div>
+            <a href="index.html" class="nav-link">← 回管理系統</a>
+        </div>
+        <div class="header-right">
+            <span class="user-badge" id="userEmail2"></span>
+            <button class="header-btn" onclick="showResetModal()">重置帳戶</button>
+            <button class="header-btn" onclick="logout()">登出</button>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+        <!-- LEFT: Chart + Positions -->
+        <div class="left-panel">
+            <!-- Price Bar -->
+            <div class="price-bar">
+                <div class="pb-main">
+                    <span class="pb-symbol" id="pbSymbol">TX</span>
+                    <span class="pb-name" id="pbName">台指期 近月</span>
+                </div>
+                <div style="display:flex;align-items:baseline;gap:4px">
+                    <span class="pb-price" id="pbPrice">—</span>
+                    <span class="pb-change" id="pbChange">—</span>
+                </div>
+                <div class="pb-stats">
+                    <div class="pb-stat">
+                        <div class="pb-stat-label">開盤</div>
+                        <div class="pb-stat-val" id="pbOpen">—</div>
+                    </div>
+                    <div class="pb-stat">
+                        <div class="pb-stat-label">最高</div>
+                        <div class="pb-stat-val" id="pbHigh">—</div>
+                    </div>
+                    <div class="pb-stat">
+                        <div class="pb-stat-label">最低</div>
+                        <div class="pb-stat-val" id="pbLow">—</div>
+                    </div>
+                    <div class="pb-stat">
+                        <div class="pb-stat-label">成交量</div>
+                        <div class="pb-stat-val" id="pbVol">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="chart-wrap" id="chartContainer"></div>
+
+            <!-- Speed Control -->
+            <div class="speed-bar">
+                <span class="speed-label">行情速度：</span>
+                <div class="speed-btns">
+                    <button class="speed-btn" data-speed="3000" onclick="setSpeed(3000,this)">1x</button>
+                    <button class="speed-btn active" data-speed="1500" onclick="setSpeed(1500,this)">2x</button>
+                    <button class="speed-btn" data-speed="750" onclick="setSpeed(750,this)">4x</button>
+                    <button class="speed-btn" data-speed="350" onclick="setSpeed(350,this)">8x</button>
+                </div>
+                <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸ 暫停</button>
+                <span style="margin-left:auto;font-size:11px;color:var(--ink3);font-family:var(--mono)" id="simTime"></span>
+            </div>
+
+            <!-- Account Bar -->
+            <div class="account-bar">
+                <div class="ab-item">
+                    <div class="ab-label">帳戶權益</div>
+                    <div class="ab-value" id="abEquity">$1,000,000</div>
+                </div>
+                <div class="ab-item">
+                    <div class="ab-label">可用保證金</div>
+                    <div class="ab-value" id="abAvailable">$1,000,000</div>
+                </div>
+                <div class="ab-item">
+                    <div class="ab-label">已用保證金</div>
+                    <div class="ab-value" id="abUsed">$0</div>
+                </div>
+                <div class="ab-item">
+                    <div class="ab-label">未實現損益</div>
+                    <div class="ab-value" id="abUnrealized">$0</div>
+                </div>
+                <div class="ab-item">
+                    <div class="ab-label">已實現損益</div>
+                    <div class="ab-value" id="abRealized">$0</div>
+                </div>
+            </div>
+
+            <!-- Positions / History Tabs -->
+            <div class="positions-section">
+                <div class="section-tabs">
+                    <div class="sec-tab active" data-tab="positions" onclick="switchSecTab('positions',this)">持倉部位</div>
+                    <div class="sec-tab" data-tab="history" onclick="switchSecTab('history',this)">交易紀錄</div>
+                </div>
+                <div id="secPositions" class="sec-content active">
+                    <table class="pos-table">
+                        <thead>
+                            <tr>
+                                <th>商品</th>
+                                <th>方向</th>
+                                <th>口數</th>
+                                <th class="r">開倉均價</th>
+                                <th class="r">現價</th>
+                                <th class="r">未實現損益</th>
+                                <th class="r">報酬率</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="posBody">
+                            <tr><td colspan="8" class="pos-empty">目前無持倉部位</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="secHistory" class="sec-content">
+                    <table class="pos-table">
+                        <thead>
+                            <tr>
+                                <th>時間</th>
+                                <th>商品</th>
+                                <th>方向</th>
+                                <th>口數</th>
+                                <th class="r">開倉價</th>
+                                <th class="r">平倉價</th>
+                                <th class="r">損益</th>
+                                <th>結果</th>
+                            </tr>
+                        </thead>
+                        <tbody id="histBody">
+                            <tr><td colspan="8" class="pos-empty">暫無交易紀錄</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Order Panel + Stats -->
+        <div class="right-panel">
+            <!-- Order Section -->
+            <div class="order-section">
+                <div class="order-title">下單面板</div>
+                <div class="order-tabs">
+                    <div class="order-tab buy active" onclick="setDirection('long',this)">做多 Long</div>
+                    <div class="order-tab sell" onclick="setDirection('short',this)">做空 Short</div>
+                </div>
+                <div class="order-field">
+                    <div class="order-label">商品</div>
+                    <select class="order-select" id="orderProduct" onchange="updateOrderInfo()">
+                        <option value="TX">台指期 TX（大台）</option>
+                        <option value="MTX">小型台指 MTX（小台）</option>
+                    </select>
+                </div>
+                <div class="order-field">
+                    <div class="order-label">口數</div>
+                    <div class="lot-control">
+                        <button class="lot-btn" onclick="changeLots(-1)">−</button>
+                        <input type="number" class="lot-input" id="orderLots" value="1" min="1" max="100" onchange="updateOrderInfo()">
+                        <button class="lot-btn" onclick="changeLots(1)">+</button>
+                    </div>
+                </div>
+                <div class="order-info">
+                    <div class="oi-row">
+                        <span class="oi-label">每點價值</span>
+                        <span class="oi-value" id="oiPointVal">NT$200</span>
+                    </div>
+                    <div class="oi-row">
+                        <span class="oi-label">原始保證金</span>
+                        <span class="oi-value" id="oiMargin">NT$184,000</span>
+                    </div>
+                    <div class="oi-row">
+                        <span class="oi-label">維持保證金</span>
+                        <span class="oi-value" id="oiMaintain">NT$141,000</span>
+                    </div>
+                    <div class="oi-row">
+                        <span class="oi-label">預估委託價</span>
+                        <span class="oi-value" id="oiPrice">—</span>
+                    </div>
+                </div>
+                <button class="order-submit buy-btn" id="orderBtn" onclick="placeOrder()">
+                    買入做多
+                </button>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="stats-section">
+                <div class="stats-title">績效統計</div>
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-label">總交易次數</div>
+                        <div class="stat-card-val" id="stTrades">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">勝率</div>
+                        <div class="stat-card-val" id="stWinRate">—</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">已實現損益</div>
+                        <div class="stat-card-val" id="stPnl">$0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">最大獲利</div>
+                        <div class="stat-card-val c-up" id="stMaxWin">$0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">最大虧損</div>
+                        <div class="stat-card-val c-down" id="stMaxLoss">$0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">獲利因子</div>
+                        <div class="stat-card-val" id="stPF">—</div>
+                    </div>
+                    <div class="stat-card stat-card-full">
+                        <div class="stat-card-label">權益曲線</div>
+                        <div id="equityCurve" style="height:100px;margin-top:8px"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Reset Modal -->
+<div class="modal-overlay" id="resetModal" style="display:none">
+    <div class="modal-box">
+        <div class="modal-title">重置帳戶</div>
+        <div class="modal-text">確定要重置模擬帳戶嗎？這將清除所有持倉部位和交易紀錄，帳戶餘額恢復為 NT$1,000,000。</div>
+        <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="hideResetModal()">取消</button>
+            <button class="modal-btn danger" onclick="resetAccount()">確認重置</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAt8QWDrmdYxnIsjEWX6DJ5tHXnDPDSwdM",
+        authDomain: "rebecca-financial-platform.firebaseapp.com",
+        projectId: "rebecca-financial-platform",
+        storageBucket: "rebecca-financial-platform.firebasestorage.app",
+        messagingSenderId: "335938745651",
+        appId: "1:335938745651:web:2c090e33a72db1a5adfa46"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    window._fb = { auth, db, doc, getDoc, setDoc };
+
+    window.loginWithGoogle = async () => {
+        try { await signInWithPopup(auth, provider); } catch(e) { alert('登入失敗：' + e.message); }
+    };
+    window.logout = async () => {
+        await signOut(auth);
+        location.reload();
+    };
+
+    onAuthStateChanged(auth, user => {
+        if (user) {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            document.getElementById('userEmail2').textContent = user.email;
+            window.currentUser = user;
+            initApp();
+        } else {
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('mainApp').style.display = 'none';
+        }
+    });
+</script>
+
+<script>
+// ==================== CONFIG ====================
+const PRODUCTS = {
+    TX:  { name: '台指期', pointValue: 200, initialMargin: 184000, maintMargin: 141000 },
+    MTX: { name: '小型台指', pointValue: 50,  initialMargin: 46000,  maintMargin: 35250 }
+};
+const INITIAL_BALANCE = 1000000;
+
+// ==================== STATE ====================
+let account = {
+    balance: INITIAL_BALANCE,
+    realizedPnl: 0,
+    positions: [],   // { id, product, direction, lots, entryPrice, entryTime }
+    history: [],     // { id, product, direction, lots, entryPrice, exitPrice, pnl, entryTime, exitTime }
+    equityCurve: []  // { time, equity }
+};
+let currentDirection = 'long';
+let currentPrice = null;
+let simPaused = false;
+let simSpeed = 1500;
+let simInterval = null;
+
+// Price simulation state
+let priceState = {
+    base: 21000,
+    price: 21000,
+    open: 21000,
+    high: 21000,
+    low: 21000,
+    volume: 0,
+    trend: 0,
+    volatility: 30,
+    candleData: [],
+    ticksInCandle: 0,
+    candleOpen: 21000,
+    candleHigh: 21000,
+    candleLow: 21000,
+    candleVol: 0,
+    simMinute: 0, // simulated minute counter
+    simDay: 0,
+};
+
+// Chart
+let chart = null;
+let candleSeries = null;
+let volumeSeries = null;
+let markers = [];
+
+// ==================== INIT ====================
+async function initApp() {
+    await loadAccount();
+    initChart();
+    startPriceSimulation();
+    updateUI();
+}
+
+// ==================== FIREBASE ====================
+async function saveAccount() {
+    if (!window.currentUser || !window._fb) return;
+    const { db, doc, setDoc } = window._fb;
+    try {
+        await setDoc(doc(db, 'futuresTrading', window.currentUser.uid), {
+            balance: account.balance,
+            realizedPnl: account.realizedPnl,
+            positions: account.positions,
+            history: account.history.slice(-200), // keep last 200
+            equityCurve: account.equityCurve.slice(-500),
+            updatedAt: new Date().toISOString()
+        });
+    } catch(e) { console.error('Save error:', e); }
+}
+
+async function loadAccount() {
+    if (!window.currentUser || !window._fb) return;
+    const { db, doc, getDoc } = window._fb;
+    try {
+        const snap = await getDoc(doc(db, 'futuresTrading', window.currentUser.uid));
+        if (snap.exists()) {
+            const d = snap.data();
+            account.balance = d.balance ?? INITIAL_BALANCE;
+            account.realizedPnl = d.realizedPnl ?? 0;
+            account.positions = d.positions ?? [];
+            account.history = d.history ?? [];
+            account.equityCurve = d.equityCurve ?? [];
+        }
+    } catch(e) { console.error('Load error:', e); }
+}
+
+// ==================== CHART ====================
+function initChart() {
+    const container = document.getElementById('chartContainer');
+    chart = LightweightCharts.createChart(container, {
+        width: container.clientWidth,
+        height: container.clientHeight,
+        layout: { background: { color: '#1a1916' }, textColor: '#9a9890' },
+        grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
+        crosshair: { mode: 0 },
+        rightPriceScale: { borderColor: 'rgba(255,255,255,.1)' },
+        timeScale: { borderColor: 'rgba(255,255,255,.1)', timeVisible: true, secondsVisible: false }
+    });
+    candleSeries = chart.addCandlestickSeries({
+        upColor: '#4aad6e', downColor: '#d9534f',
+        borderUpColor: '#4aad6e', borderDownColor: '#d9534f',
+        wickUpColor: '#4aad6e', wickDownColor: '#d9534f'
+    });
+    volumeSeries = chart.addHistogramSeries({
+        color: 'rgba(200,184,154,.2)',
+        priceFormat: { type: 'volume' },
+        priceScaleId: '',
+    });
+    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
+
+    // Generate initial history
+    generateHistoricalCandles();
+
+    // Resize observer
+    const ro = new ResizeObserver(() => {
+        chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+    });
+    ro.observe(container);
+}
+
+function generateHistoricalCandles() {
+    // Generate ~200 candles of historical 1-min data
+    const now = Math.floor(Date.now() / 1000);
+    let p = priceState.base;
+    const candles = [];
+    const vols = [];
+
+    for (let i = 200; i >= 1; i--) {
+        const time = now - i * 60;
+        const trend = (Math.random() - 0.48) * 0.3; // slight upward bias
+        const vol = priceState.volatility * (0.5 + Math.random());
+        const o = p;
+        const move1 = (Math.random() - 0.5) * vol;
+        const move2 = (Math.random() - 0.5) * vol;
+        const c = Math.round(o + trend * vol + (Math.random() - 0.5) * vol * 0.5);
+        const h = Math.round(Math.max(o, c) + Math.random() * vol * 0.5);
+        const l = Math.round(Math.min(o, c) - Math.random() * vol * 0.5);
+        const v = Math.round(200 + Math.random() * 800);
+        candles.push({ time, open: o, high: h, low: l, close: c });
+        vols.push({ time, value: v, color: c >= o ? 'rgba(74,173,110,.3)' : 'rgba(217,83,79,.3)' });
+        p = c;
+    }
+
+    priceState.price = p;
+    priceState.open = p;
+    priceState.high = p;
+    priceState.low = p;
+    priceState.candleOpen = p;
+    priceState.candleHigh = p;
+    priceState.candleLow = p;
+    priceState.base = p;
+    currentPrice = p;
+
+    candleSeries.setData(candles);
+    volumeSeries.setData(vols);
+    priceState.candleData = candles;
+}
+
+// ==================== PRICE SIMULATION ====================
+function simulateTick() {
+    if (simPaused) return;
+
+    // Random walk with mean reversion and momentum
+    const r = Math.random();
+    const momentum = priceState.trend * 0.7;
+    const meanRev = (priceState.base - priceState.price) * 0.001;
+    const noise = (Math.random() - 0.5) * priceState.volatility * 0.4;
+
+    // Occasional trend changes
+    if (Math.random() < 0.02) {
+        priceState.trend = (Math.random() - 0.5) * 2;
+    }
+    // Occasional volatility spikes
+    if (Math.random() < 0.01) {
+        priceState.volatility = 20 + Math.random() * 60;
+    } else {
+        priceState.volatility = priceState.volatility * 0.99 + 30 * 0.01;
+    }
+
+    const change = Math.round(momentum + meanRev + noise);
+    priceState.price += change;
+    priceState.volume++;
+    priceState.ticksInCandle++;
+
+    // Update candle
+    priceState.candleHigh = Math.max(priceState.candleHigh, priceState.price);
+    priceState.candleLow = Math.min(priceState.candleLow, priceState.price);
+    priceState.candleVol += Math.round(10 + Math.random() * 50);
+
+    // Day stats
+    priceState.high = Math.max(priceState.high, priceState.price);
+    priceState.low = Math.min(priceState.low, priceState.price);
+
+    currentPrice = priceState.price;
+
+    // Every ~20 ticks = 1 candle (1 min simulated)
+    const now = Math.floor(Date.now() / 1000);
+    if (priceState.ticksInCandle >= 20) {
+        const candle = {
+            time: now,
+            open: priceState.candleOpen,
+            high: priceState.candleHigh,
+            low: priceState.candleLow,
+            close: priceState.price
+        };
+        candleSeries.update(candle);
+        volumeSeries.update({
+            time: now,
+            value: priceState.candleVol,
+            color: priceState.price >= priceState.candleOpen ? 'rgba(74,173,110,.3)' : 'rgba(217,83,79,.3)'
+        });
+
+        // Reset candle
+        priceState.ticksInCandle = 0;
+        priceState.candleOpen = priceState.price;
+        priceState.candleHigh = priceState.price;
+        priceState.candleLow = priceState.price;
+        priceState.candleVol = 0;
+        priceState.simMinute++;
+
+        // Equity curve sample
+        const equity = calcEquity();
+        account.equityCurve.push({ time: now, equity });
+    } else {
+        // Update current candle in real-time
+        candleSeries.update({
+            time: now,
+            open: priceState.candleOpen,
+            high: priceState.candleHigh,
+            low: priceState.candleLow,
+            close: priceState.price
+        });
+    }
+
+    updatePriceBar();
+    updatePositionsUI();
+    updateAccountBar();
+}
+
+function startPriceSimulation() {
+    if (simInterval) clearInterval(simInterval);
+    simInterval = setInterval(simulateTick, simSpeed);
+}
+
+function setSpeed(ms, el) {
+    simSpeed = ms;
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    startPriceSimulation();
+}
+
+function togglePause() {
+    simPaused = !simPaused;
+    const btn = document.getElementById('pauseBtn');
+    if (simPaused) {
+        btn.textContent = '▶ 繼續';
+        btn.classList.add('paused');
+    } else {
+        btn.textContent = '⏸ 暫停';
+        btn.classList.remove('paused');
+    }
+}
+
+// ==================== UI UPDATES ====================
+function updatePriceBar() {
+    const p = currentPrice;
+    const change = p - priceState.open;
+    const changePct = ((change / priceState.open) * 100).toFixed(2);
+    const cls = change > 0 ? 'c-up' : change < 0 ? 'c-down' : 'c-flat';
+
+    document.getElementById('pbPrice').textContent = fmtInt(p);
+    document.getElementById('pbPrice').className = 'pb-price ' + cls;
+    document.getElementById('pbChange').textContent = `${change >= 0 ? '+' : ''}${change} (${change >= 0 ? '+' : ''}${changePct}%)`;
+    document.getElementById('pbChange').className = 'pb-change ' + cls;
+    document.getElementById('pbOpen').textContent = fmtInt(priceState.open);
+    document.getElementById('pbHigh').textContent = fmtInt(priceState.high);
+    document.getElementById('pbLow').textContent = fmtInt(priceState.low);
+    document.getElementById('pbVol').textContent = fmtInt(priceState.candleVol);
+    document.getElementById('oiPrice').textContent = 'NT$' + fmtInt(p);
+}
+
+function updateAccountBar() {
+    const equity = calcEquity();
+    const unrealized = calcTotalUnrealized();
+    const usedMargin = calcUsedMargin();
+    const available = equity - usedMargin;
+
+    document.getElementById('abEquity').textContent = fmtMoney(equity);
+    document.getElementById('abAvailable').textContent = fmtMoney(available);
+    document.getElementById('abAvailable').className = 'ab-value' + (available < 0 ? ' c-down' : '');
+    document.getElementById('abUsed').textContent = fmtMoney(usedMargin);
+    document.getElementById('abUnrealized').textContent = fmtMoney(unrealized);
+    document.getElementById('abUnrealized').className = 'ab-value ' + (unrealized > 0 ? 'c-up' : unrealized < 0 ? 'c-down' : '');
+    document.getElementById('abRealized').textContent = fmtMoney(account.realizedPnl);
+    document.getElementById('abRealized').className = 'ab-value ' + (account.realizedPnl > 0 ? 'c-up' : account.realizedPnl < 0 ? 'c-down' : '');
+}
+
+function updatePositionsUI() {
+    const tbody = document.getElementById('posBody');
+    if (account.positions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="pos-empty">目前無持倉部位</td></tr>';
+        return;
+    }
+    tbody.innerHTML = account.positions.map((pos, i) => {
+        const prod = PRODUCTS[pos.product];
+        const pnl = calcPositionPnl(pos);
+        const roi = ((pnl / (prod.initialMargin * pos.lots)) * 100).toFixed(2);
+        const cls = pnl > 0 ? 'c-up' : pnl < 0 ? 'c-down' : 'c-flat';
+        return `<tr>
+            <td><strong>${pos.product}</strong> <span style="color:var(--ink3);font-size:11px">${prod.name}</span></td>
+            <td><span class="tag-${pos.direction === 'long' ? 'long' : 'short'}">${pos.direction === 'long' ? '多' : '空'}</span></td>
+            <td style="font-family:var(--mono);font-weight:600">${pos.lots}</td>
+            <td class="r">${fmtInt(pos.entryPrice)}</td>
+            <td class="r">${fmtInt(currentPrice)}</td>
+            <td class="r ${cls}">${fmtMoney(pnl)}</td>
+            <td class="r ${cls}">${roi}%</td>
+            <td class="r"><button class="close-btn" onclick="closePosition(${i})">平倉</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function updateHistoryUI() {
+    const tbody = document.getElementById('histBody');
+    if (account.history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="pos-empty">暫無交易紀錄</td></tr>';
+        return;
+    }
+    tbody.innerHTML = account.history.slice().reverse().map(h => {
+        const cls = h.pnl > 0 ? 'c-up' : h.pnl < 0 ? 'c-down' : 'c-flat';
+        return `<tr>
+            <td style="font-size:12px;color:var(--ink4);white-space:nowrap">${h.exitTime || ''}</td>
+            <td><strong>${h.product}</strong></td>
+            <td><span class="tag-${h.direction === 'long' ? 'long' : 'short'}">${h.direction === 'long' ? '多' : '空'}</span></td>
+            <td style="font-family:var(--mono);font-weight:600">${h.lots}</td>
+            <td class="r">${fmtInt(h.entryPrice)}</td>
+            <td class="r">${fmtInt(h.exitPrice)}</td>
+            <td class="r ${cls}">${fmtMoney(h.pnl)}</td>
+            <td>${h.pnl > 0 ? '<span class="tag-win">獲利</span>' : h.pnl < 0 ? '<span class="tag-lose">虧損</span>' : '<span style="color:var(--ink4);font-size:11px">打平</span>'}</td>
+        </tr>`;
+    }).join('');
+}
+
+function updateStatsUI() {
+    const hist = account.history;
+    const total = hist.length;
+    const wins = hist.filter(h => h.pnl > 0).length;
+    const losses = hist.filter(h => h.pnl < 0).length;
+    const winRate = total > 0 ? (wins / total * 100).toFixed(1) + '%' : '—';
+    const maxWin = total > 0 ? Math.max(0, ...hist.map(h => h.pnl)) : 0;
+    const maxLoss = total > 0 ? Math.min(0, ...hist.map(h => h.pnl)) : 0;
+    const totalWins = hist.filter(h => h.pnl > 0).reduce((s, h) => s + h.pnl, 0);
+    const totalLosses = Math.abs(hist.filter(h => h.pnl < 0).reduce((s, h) => s + h.pnl, 0));
+    const pf = totalLosses > 0 ? (totalWins / totalLosses).toFixed(2) : totalWins > 0 ? '∞' : '—';
+
+    document.getElementById('stTrades').textContent = total;
+    document.getElementById('stWinRate').textContent = winRate;
+    document.getElementById('stWinRate').className = 'stat-card-val ' + (wins > losses ? 'c-up' : wins < losses ? 'c-down' : '');
+    document.getElementById('stPnl').textContent = fmtMoney(account.realizedPnl);
+    document.getElementById('stPnl').className = 'stat-card-val ' + (account.realizedPnl > 0 ? 'c-up' : account.realizedPnl < 0 ? 'c-down' : '');
+    document.getElementById('stMaxWin').textContent = fmtMoney(maxWin);
+    document.getElementById('stMaxLoss').textContent = fmtMoney(maxLoss);
+    document.getElementById('stPF').textContent = pf;
+
+    // Equity curve
+    renderEquityCurve();
+}
+
+function renderEquityCurve() {
+    const container = document.getElementById('equityCurve');
+    container.innerHTML = '';
+    const data = account.equityCurve;
+    if (data.length < 2) {
+        container.innerHTML = '<span style="font-size:11px;color:var(--ink3)">交易後顯示</span>';
+        return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = container.clientWidth || 280;
+    canvas.height = 100;
+    container.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const recent = data.slice(-100);
+    const vals = recent.map(d => d.equity);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const range = max - min || 1;
+    const w = canvas.width;
+    const h = canvas.height;
+    const pad = 4;
+
+    ctx.strokeStyle = vals[vals.length-1] >= vals[0] ? '#4aad6e' : '#d9534f';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    vals.forEach((v, i) => {
+        const x = pad + (i / (vals.length - 1)) * (w - pad * 2);
+        const y = h - pad - ((v - min) / range) * (h - pad * 2);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Fill
+    const lastX = pad + ((vals.length - 1) / (vals.length - 1)) * (w - pad * 2);
+    ctx.lineTo(lastX, h);
+    ctx.lineTo(pad, h);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    const color = vals[vals.length-1] >= vals[0] ? '74,173,110' : '217,83,79';
+    grad.addColorStop(0, `rgba(${color},.15)`);
+    grad.addColorStop(1, `rgba(${color},0)`);
+    ctx.fillStyle = grad;
+    ctx.fill();
+}
+
+function updateUI() {
+    updatePriceBar();
+    updateAccountBar();
+    updatePositionsUI();
+    updateHistoryUI();
+    updateStatsUI();
+    updateOrderInfo();
+}
+
+// ==================== CALCULATIONS ====================
+function calcPositionPnl(pos) {
+    const prod = PRODUCTS[pos.product];
+    const diff = pos.direction === 'long'
+        ? currentPrice - pos.entryPrice
+        : pos.entryPrice - currentPrice;
+    return diff * prod.pointValue * pos.lots;
+}
+
+function calcTotalUnrealized() {
+    return account.positions.reduce((sum, pos) => sum + calcPositionPnl(pos), 0);
+}
+
+function calcUsedMargin() {
+    return account.positions.reduce((sum, pos) => {
+        return sum + PRODUCTS[pos.product].initialMargin * pos.lots;
+    }, 0);
+}
+
+function calcEquity() {
+    return account.balance + calcTotalUnrealized();
+}
+
+// ==================== ORDER ====================
+function setDirection(dir, el) {
+    currentDirection = dir;
+    document.querySelectorAll('.order-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+
+    const btn = document.getElementById('orderBtn');
+    if (dir === 'long') {
+        btn.textContent = '買入做多';
+        btn.className = 'order-submit buy-btn';
+    } else {
+        btn.textContent = '賣出做空';
+        btn.className = 'order-submit sell-btn';
+    }
+}
+
+function changeLots(delta) {
+    const input = document.getElementById('orderLots');
+    let v = parseInt(input.value) || 1;
+    v = Math.max(1, Math.min(100, v + delta));
+    input.value = v;
+    updateOrderInfo();
+}
+
+function updateOrderInfo() {
+    const product = document.getElementById('orderProduct').value;
+    const lots = parseInt(document.getElementById('orderLots').value) || 1;
+    const prod = PRODUCTS[product];
+
+    document.getElementById('oiPointVal').textContent = 'NT$' + fmtInt(prod.pointValue);
+    document.getElementById('oiMargin').textContent = 'NT$' + fmtInt(prod.initialMargin * lots);
+    document.getElementById('oiMaintain').textContent = 'NT$' + fmtInt(prod.maintMargin * lots);
+    if (currentPrice) {
+        document.getElementById('oiPrice').textContent = 'NT$' + fmtInt(currentPrice);
+    }
+
+    // Update symbol display
+    document.getElementById('pbSymbol').textContent = product;
+    document.getElementById('pbName').textContent = prod.name + ' 近月';
+}
+
+function placeOrder() {
+    if (!currentPrice) { toast('價格載入中...', 'error'); return; }
+
+    const product = document.getElementById('orderProduct').value;
+    const lots = parseInt(document.getElementById('orderLots').value) || 1;
+    const prod = PRODUCTS[product];
+    const requiredMargin = prod.initialMargin * lots;
+    const available = calcEquity() - calcUsedMargin();
+
+    if (requiredMargin > available) {
+        toast(`保證金不足！需要 NT$${fmtInt(requiredMargin)}，可用 NT$${fmtInt(Math.floor(available))}`, 'error');
+        return;
+    }
+
+    const position = {
+        id: Date.now(),
+        product,
+        direction: currentDirection,
+        lots,
+        entryPrice: currentPrice,
+        entryTime: new Date().toLocaleString('zh-TW')
+    };
+
+    account.positions.push(position);
+    toast(`${currentDirection === 'long' ? '做多' : '做空'} ${product} ${lots}口 @ ${fmtInt(currentPrice)}`, 'success');
+
+    // Add marker on chart
+    addChartMarker(currentDirection === 'long' ? 'buy' : 'sell', currentPrice);
+
+    updateUI();
+    saveAccount();
+}
+
+function closePosition(index) {
+    const pos = account.positions[index];
+    if (!pos) return;
+
+    const pnl = calcPositionPnl(pos);
+    const record = {
+        id: Date.now(),
+        product: pos.product,
+        direction: pos.direction,
+        lots: pos.lots,
+        entryPrice: pos.entryPrice,
+        exitPrice: currentPrice,
+        pnl: pnl,
+        entryTime: pos.entryTime,
+        exitTime: new Date().toLocaleString('zh-TW')
+    };
+
+    account.history.push(record);
+    account.balance += pnl;
+    account.realizedPnl += pnl;
+    account.positions.splice(index, 1);
+
+    const pnlStr = pnl >= 0 ? `+${fmtInt(pnl)}` : fmtInt(pnl);
+    toast(`平倉 ${pos.product} ${pos.direction === 'long' ? '多' : '空'} ${pos.lots}口 | 損益 NT$${pnlStr}`, pnl >= 0 ? 'success' : 'error');
+
+    // Add marker on chart
+    addChartMarker(pos.direction === 'long' ? 'sell' : 'buy', currentPrice, true);
+
+    updateUI();
+    saveAccount();
+}
+
+function addChartMarker(side, price, isClose) {
+    const time = Math.floor(Date.now() / 1000);
+    markers.push({
+        time,
+        position: side === 'buy' ? 'belowBar' : 'aboveBar',
+        color: side === 'buy' ? '#4aad6e' : '#d9534f',
+        shape: side === 'buy' ? 'arrowUp' : 'arrowDown',
+        text: isClose ? '平' : (side === 'buy' ? '多' : '空')
+    });
+    markers.sort((a, b) => a.time - b.time);
+    candleSeries.setMarkers(markers);
+}
+
+// ==================== TABS ====================
+function switchSecTab(tab, el) {
+    document.querySelectorAll('.sec-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.sec-content').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(tab === 'positions' ? 'secPositions' : 'secHistory').classList.add('active');
+}
+
+// ==================== RESET ====================
+function showResetModal() { document.getElementById('resetModal').style.display = 'flex'; }
+function hideResetModal() { document.getElementById('resetModal').style.display = 'none'; }
+
+function resetAccount() {
+    account = {
+        balance: INITIAL_BALANCE,
+        realizedPnl: 0,
+        positions: [],
+        history: [],
+        equityCurve: [{ time: Math.floor(Date.now() / 1000), equity: INITIAL_BALANCE }]
+    };
+    markers = [];
+    candleSeries.setMarkers([]);
+    hideResetModal();
+    updateUI();
+    saveAccount();
+    toast('帳戶已重置', 'info');
+}
+
+// ==================== TOAST ====================
+function toast(msg, type) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast ' + (type || 'info');
+    setTimeout(() => el.classList.add('show'), 10);
+    setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ==================== HELPERS ====================
+function fmtInt(n) {
+    return Math.round(n).toLocaleString('zh-TW');
+}
+function fmtMoney(n) {
+    const prefix = n < 0 ? '-' : '';
+    return prefix + 'NT$' + Math.abs(Math.round(n)).toLocaleString('zh-TW');
+}
+
+// Expose to global
+window.setDirection = setDirection;
+window.changeLots = changeLots;
+window.updateOrderInfo = updateOrderInfo;
+window.placeOrder = placeOrder;
+window.closePosition = closePosition;
+window.switchSecTab = switchSecTab;
+window.showResetModal = showResetModal;
+window.hideResetModal = hideResetModal;
+window.resetAccount = resetAccount;
+window.setSpeed = setSpeed;
+window.togglePause = togglePause;
+window.initApp = initApp;
+</script>
+
+</body>
+</html>
