@@ -57,6 +57,24 @@
         .pause-btn { padding: 3px 10px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--ink4); margin-left: 4px; }
         .pause-btn.paused { background: var(--red); color: #fff; border-color: var(--red); }
 
+        /* Timeframe bar */
+        .tf-bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #2c2b27; border-bottom: 1px solid var(--border); }
+        .tf-btn { padding: 5px 12px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--ink4); font-family: var(--mono); }
+        .tf-btn.active { background: var(--gold); color: #1a1916; border-color: var(--gold); }
+        .tf-btn:hover:not(.active) { color: var(--paper); border-color: rgba(255,255,255,.2); }
+
+        /* Editable items */
+        .editable { cursor: pointer; }
+        .editable:hover { background: rgba(200,184,154,.08); border-radius: 4px; }
+        .param-item.editable:hover { background: #3d3c38; }
+        .edit-btn { background: transparent; border: 1px solid var(--border); color: var(--ink4); padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; font-family: inherit; margin-right: 4px; }
+        .edit-btn:hover { background: #3d3c38; color: var(--paper); }
+        .del-btn { background: rgba(217,83,79,.1); border: 1px solid rgba(217,83,79,.3); color: var(--red); padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; font-family: inherit; }
+        .del-btn:hover { background: rgba(217,83,79,.25); }
+        .input-field { width: 100%; padding: 8px 10px; background: #1a1916; border: 1px solid var(--border); border-radius: 6px; color: var(--paper); font-family: var(--mono); font-size: 14px; margin-top: 4px; }
+        .input-field:focus { outline: none; border-color: var(--gold); }
+        .field-label { font-size: 11px; color: var(--ink4); display: block; margin-top: 10px; }
+
         /* Account Bar */
         .account-bar { background: #2c2b27; border-top: 1px solid var(--border); padding: 8px 16px; display: flex; gap: 20px; flex-wrap: wrap; }
         .ab-label { font-size: 9px; color: var(--ink3); text-transform: uppercase; letter-spacing: .03em; }
@@ -224,21 +242,30 @@
                 </div>
             </div>
 
-            <div class="chart-wrap" id="chartContainer"></div>
-
-            <div class="speed-bar">
-                <span class="speed-label">速度：</span>
-                <button class="speed-btn" onclick="setSpeed(3000,this)">1x</button>
-                <button class="speed-btn active" onclick="setSpeed(1500,this)">2x</button>
-                <button class="speed-btn" onclick="setSpeed(750,this)">4x</button>
-                <button class="speed-btn" onclick="setSpeed(350,this)">8x</button>
-                <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸</button>
+            <div class="tf-bar">
+                <span class="speed-label">週期：</span>
+                <button class="tf-btn active" onclick="switchTf(1,this)">1分</button>
+                <button class="tf-btn" onclick="switchTf(5,this)">5分</button>
+                <button class="tf-btn" onclick="switchTf(15,this)">15分</button>
+                <button class="tf-btn" onclick="switchTf(30,this)">30分</button>
                 <span style="margin-left:auto;font-size:10px;color:var(--ink3);font-family:var(--mono)" id="simTime"></span>
             </div>
 
+            <div class="chart-wrap" id="chartContainer"></div>
+
+            <div class="speed-bar">
+                <span class="speed-label">輪詢：</span>
+                <button class="speed-btn" onclick="setSpeed(3000,this)">慢</button>
+                <button class="speed-btn active" onclick="setSpeed(1500,this)">中</button>
+                <button class="speed-btn" onclick="setSpeed(750,this)">快</button>
+                <button class="speed-btn" onclick="setSpeed(350,this)">極快</button>
+                <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸</button>
+            </div>
+
             <div class="account-bar">
-                <div><div class="ab-label">帳戶權益</div><div class="ab-value" id="abEquity">$1,000,000</div></div>
-                <div><div class="ab-label">可用保證金</div><div class="ab-value" id="abAvailable">$1,000,000</div></div>
+                <div class="editable" onclick="editBalance()" title="點擊編輯餘額"><div class="ab-label">帳戶餘額 ✎</div><div class="ab-value" id="abBalance">$0</div></div>
+                <div><div class="ab-label">帳戶權益</div><div class="ab-value" id="abEquity">$0</div></div>
+                <div><div class="ab-label">可用保證金</div><div class="ab-value" id="abAvailable">$0</div></div>
                 <div><div class="ab-label">已用保證金</div><div class="ab-value" id="abUsed">$0</div></div>
                 <div><div class="ab-label">未實現損益</div><div class="ab-value" id="abUnrealized">$0</div></div>
                 <div><div class="ab-label">已實現損益</div><div class="ab-value" id="abRealized">$0</div></div>
@@ -260,9 +287,9 @@
                 <div id="secHistory" class="sec-content">
                     <table class="pos-table">
                         <thead><tr>
-                            <th>時間</th><th>方向</th><th class="r">進場</th><th class="r">出場</th><th class="r">損益</th><th>進場原因</th><th>出場原因</th>
+                            <th>時間</th><th>方向</th><th class="r">進場</th><th class="r">出場</th><th class="r">損益</th><th>進場原因</th><th>出場原因</th><th class="r">操作</th>
                         </tr></thead>
-                        <tbody id="histBody"><tr><td colspan="7" class="pos-empty">暫無紀錄</td></tr></tbody>
+                        <tbody id="histBody"><tr><td colspan="8" class="pos-empty">暫無紀錄</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -282,9 +309,10 @@
                 </div>
                 <div class="param-grid">
                     <div class="param-item"><span class="param-label">商品</span><span class="param-val">TX 大台</span></div>
-                    <div class="param-item"><span class="param-label">每次口數</span><span class="param-val">1 口</span></div>
-                    <div class="param-item"><span class="param-label">停損</span><span class="param-val">-100 點</span></div>
-                    <div class="param-item"><span class="param-label">停利</span><span class="param-val">+150 點</span></div>
+                    <div class="param-item editable" onclick="editSetting('lots')" title="點擊編輯"><span class="param-label">每次口數 ✎</span><span class="param-val" id="paramLots">1 口</span></div>
+                    <div class="param-item editable" onclick="editSetting('stopLoss')" title="點擊編輯"><span class="param-label">停損 ✎</span><span class="param-val" id="paramSL">-100 點</span></div>
+                    <div class="param-item editable" onclick="editSetting('takeProfit')" title="點擊編輯"><span class="param-label">停利 ✎</span><span class="param-val" id="paramTP">+150 點</span></div>
+                    <div class="param-item editable" onclick="editSetting('trailingStop')" title="點擊編輯" style="grid-column:1/-1"><span class="param-label">移動停損 ✎</span><span class="param-val" id="paramTrail">關閉</span></div>
                 </div>
             </div>
 
@@ -369,8 +397,10 @@
 <div class="modal-overlay" id="resetModal" style="display:none">
     <div class="modal-box">
         <div class="modal-title">重置帳戶</div>
-        <div class="modal-text">確定要重置嗎？所有持倉、紀錄將清除，餘額恢復為 NT$1,000,000。</div>
-        <div class="modal-actions">
+        <div class="modal-text">所有持倉、交易紀錄、權益曲線都會清除。請輸入重置後的起始餘額：</div>
+        <label class="field-label">起始餘額（NT$，可填 0）</label>
+        <input type="number" id="resetBalance" class="input-field" value="0" min="0" step="10000">
+        <div class="modal-actions" style="margin-top:16px">
             <button class="modal-btn cancel" onclick="hideResetModal()">取消</button>
             <button class="modal-btn danger" onclick="resetAccount()">確認重置</button>
         </div>
@@ -411,12 +441,10 @@
 <script>
 // ==================== CONFIG ====================
 const PRODUCT = { name: '台指期', pointValue: 200, initialMargin: 184000, maintMargin: 141000 };
-const INITIAL_BALANCE = 1000000;
-const STOP_LOSS = 100;   // points
-const TAKE_PROFIT = 150; // points
+const DEFAULT_SETTINGS = { stopLoss: 100, takeProfit: 150, trailingStop: 0, lots: 1 };
 
 // ==================== STATE ====================
-let account = { balance: INITIAL_BALANCE, realizedPnl: 0, positions: [], history: [], equityCurve: [] };
+let account = { balance: 0, realizedPnl: 0, positions: [], history: [], equityCurve: [], settings: { ...DEFAULT_SETTINGS } };
 let autoTrading = false;
 let currentPrice = null;
 let simPaused = false, simSpeed = 1500, simInterval = null;
@@ -431,13 +459,17 @@ let ps = {
 };
 
 // Live data state
-let currentBar = null;        // 當前分鐘正在形成中的 K 線
+let currentBar = null;        // 當前週期正在形成中的 K 線
 let lastQuote = null;         // 最新即時報價快照
 let lastQuoteAt = 0;          // 最後一次成功 poll 時間
 let dataSource = '';          // 'taifex' 或 'yahoo-twii'
 let pollIntervalMs = 3000;    // 即時輪詢間隔
 let livePollTimer = null;
 let synthetic = false;        // 真實資料都抓不到時才啟用
+
+// Timeframe
+let rawBars = [];             // 從 proxy 取得的原始 1 分 K 線（source of truth）
+let currentTf = 1;            // 目前顯示的週期（分鐘）
 
 // Indicator state
 let ind = { ma5: null, ma20: null, ma60: null, rsi: null, macd: null, macdSignal: null, macdHist: null, bbUpper: null, bbMiddle: null, bbLower: null, prevMa5: null, prevMa20: null, prevMacdHist: null };
@@ -464,6 +496,7 @@ async function saveAccount() {
             balance: account.balance, realizedPnl: account.realizedPnl,
             positions: account.positions, history: account.history.slice(-200),
             equityCurve: account.equityCurve.slice(-500),
+            settings: account.settings,
             updatedAt: new Date().toISOString()
         });
     } catch(e) { console.error('Save:', e); }
@@ -475,11 +508,12 @@ async function loadAccount() {
         const snap = await getDoc(doc(db, 'futuresAutoTrading', window.currentUser.uid));
         if (snap.exists()) {
             const d = snap.data();
-            account.balance = d.balance ?? INITIAL_BALANCE;
+            account.balance = d.balance ?? 0;
             account.realizedPnl = d.realizedPnl ?? 0;
             account.positions = d.positions ?? [];
             account.history = d.history ?? [];
             account.equityCurve = d.equityCurve ?? [];
+            account.settings = { ...DEFAULT_SETTINGS, ...(d.settings || {}) };
         }
     } catch(e) { console.error('Load:', e); }
 }
@@ -521,7 +555,8 @@ async function loadHistoryFromProxy() {
         const bars = data.bars || [];
         if (bars.length < 30) throw new Error('bars too few');
         dataSource = data.source || '';
-        buildChartFromBars(bars, data.symbol);
+        rawBars = bars;
+        rebuildChartFromRaw();
         updateSourceLabel();
         toast(`已載入 ${bars.length} 根 ${sourceName()}真實 K 線`, 'success');
     } catch (e) {
@@ -531,6 +566,44 @@ async function loadHistoryFromProxy() {
         toast('無法取得真實資料，使用模擬', 'error');
     }
 }
+
+// 聚合 1 分 K 為 N 分 K
+function aggregateBars(bars, tf) {
+    if (tf <= 1) return bars.slice();
+    const size = tf * 60;
+    const out = [];
+    let cur = null;
+    for (const b of bars) {
+        const bucket = Math.floor(b.time / size) * size;
+        if (!cur || cur.time !== bucket) {
+            if (cur) out.push(cur);
+            cur = { time: bucket, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume };
+        } else {
+            cur.high = Math.max(cur.high, b.high);
+            cur.low = Math.min(cur.low, b.low);
+            cur.close = b.close;
+            cur.volume += b.volume;
+        }
+    }
+    if (cur) out.push(cur);
+    return out;
+}
+
+function rebuildChartFromRaw() {
+    if (rawBars.length === 0) return;
+    const aggregated = aggregateBars(rawBars, currentTf);
+    buildChartFromBars(aggregated);
+    currentBar = null;
+}
+
+window.switchTf = function(tf, el) {
+    if (tf === currentTf) return;
+    currentTf = tf;
+    document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+    rebuildChartFromRaw();
+    toast(`切換為 ${tf} 分 K`, 'info');
+};
 
 function sourceName() {
     if (dataSource === 'taifex') return '台指期近月';
@@ -699,15 +772,42 @@ function evaluateStrategy() {
     if (hasPosition) {
         const pos = account.positions[0];
         const diff = pos.direction === 'long' ? currentPrice - pos.entryPrice : pos.entryPrice - currentPrice;
+        const SL = account.settings.stopLoss;
+        const TP = account.settings.takeProfit;
+        const TRAIL = account.settings.trailingStop;
 
-        // Stop loss
-        if (diff <= -STOP_LOSS) {
-            closePosition(0, `停損觸發：虧損 ${Math.abs(diff)} 點 ≥ ${STOP_LOSS} 點上限`);
+        // 追蹤 watermark 供移動停損使用
+        if (pos.direction === 'long') {
+            pos.highWatermark = Math.max(pos.highWatermark ?? pos.entryPrice, currentPrice);
+        } else {
+            pos.lowWatermark = Math.min(pos.lowWatermark ?? pos.entryPrice, currentPrice);
+        }
+
+        // 移動停損：僅在已有獲利（watermark 超出入場價）後啟動
+        if (TRAIL > 0) {
+            if (pos.direction === 'long' && pos.highWatermark > pos.entryPrice) {
+                const trailStop = pos.highWatermark - TRAIL;
+                if (currentPrice <= trailStop) {
+                    closePosition(0, `移動停損：從高點 ${pos.highWatermark} 回落 ${pos.highWatermark - currentPrice} 點（距離 ${TRAIL}）`);
+                    return;
+                }
+            } else if (pos.direction === 'short' && pos.lowWatermark < pos.entryPrice) {
+                const trailStop = pos.lowWatermark + TRAIL;
+                if (currentPrice >= trailStop) {
+                    closePosition(0, `移動停損：從低點 ${pos.lowWatermark} 反彈 ${currentPrice - pos.lowWatermark} 點（距離 ${TRAIL}）`);
+                    return;
+                }
+            }
+        }
+
+        // 固定停損
+        if (diff <= -SL) {
+            closePosition(0, `停損觸發：虧損 ${Math.abs(diff)} 點 ≥ ${SL} 點上限`);
             return;
         }
-        // Take profit
-        if (diff >= TAKE_PROFIT) {
-            closePosition(0, `停利觸發：獲利 ${diff} 點 ≥ ${TAKE_PROFIT} 點目標`);
+        // 固定停利
+        if (diff >= TP) {
+            closePosition(0, `停利觸發：獲利 ${diff} 點 ≥ ${TP} 點目標`);
             return;
         }
 
@@ -805,8 +905,9 @@ function evaluateStrategy() {
 
 function openPosition(direction, reason) {
     const pos = {
-        id: Date.now(), product: 'TX', direction, lots: 1,
-        entryPrice: currentPrice, entryTime: timeStr(), entryReason: reason
+        id: Date.now(), product: 'TX', direction, lots: account.settings.lots || 1,
+        entryPrice: currentPrice, entryTime: timeStr(), entryReason: reason,
+        highWatermark: currentPrice, lowWatermark: currentPrice
     };
     account.positions.push(pos);
     addChartMarker(direction === 'long' ? 'buy' : 'sell', currentPrice, false);
@@ -880,14 +981,15 @@ async function pollLiveQuote() {
         if (q.high) ps.high = Math.max(ps.high, Math.round(q.high));
         if (q.low) ps.low = Math.min(ps.low, Math.round(q.low));
 
-        // 計算當前分鐘的 K 線時間（對齊分鐘邊界）
+        // 計算當前週期的 K 線時間（對齊週期邊界）
         const nowSec = Math.floor(Date.now() / 1000);
-        const barTime = Math.floor(nowSec / 60) * 60;
+        const bucketSize = currentTf * 60;
+        const barTime = Math.floor(nowSec / bucketSize) * bucketSize;
 
         if (!currentBar) {
             currentBar = { time: barTime, open: price, high: price, low: price, close: price, volume: 0 };
         } else if (barTime > currentBar.time) {
-            // 分鐘切換：將上一根 K 線封板，啟動指標計算與策略
+            // 週期切換：將上一根 K 線封板，觸發指標計算與策略
             candleSeries.update({
                 time: currentBar.time,
                 open: currentBar.open, high: currentBar.high, low: currentBar.low, close: currentBar.close
@@ -1010,6 +1112,8 @@ function updatePriceBar() {
 
 function updateAccountBar() {
     const equity = calcEquity(), unr = calcTotalUnrealized(), used = calcUsedMargin(), avail = equity - used;
+    const balEl = document.getElementById('abBalance');
+    if (balEl) balEl.textContent = fmtMoney(account.balance);
     document.getElementById('abEquity').textContent = fmtMoney(equity);
     document.getElementById('abAvailable').textContent = fmtMoney(avail);
     document.getElementById('abAvailable').className = 'ab-value' + (avail < 0 ? ' c-down' : '');
@@ -1021,6 +1125,52 @@ function updateAccountBar() {
     realEl.textContent = fmtMoney(account.realizedPnl);
     realEl.className = 'ab-value ' + (account.realizedPnl > 0 ? 'c-up' : account.realizedPnl < 0 ? 'c-down' : '');
 }
+
+function updateParamsUI() {
+    const s = account.settings;
+    const slEl = document.getElementById('paramSL');
+    const tpEl = document.getElementById('paramTP');
+    const lotsEl = document.getElementById('paramLots');
+    const trailEl = document.getElementById('paramTrail');
+    if (slEl) slEl.textContent = `-${s.stopLoss} 點`;
+    if (tpEl) tpEl.textContent = `+${s.takeProfit} 點`;
+    if (lotsEl) lotsEl.textContent = `${s.lots || 1} 口`;
+    if (trailEl) trailEl.textContent = s.trailingStop > 0 ? `${s.trailingStop} 點` : '關閉';
+}
+
+function editBalance() {
+    const cur = account.balance;
+    const v = prompt(`輸入新的帳戶餘額（當前：${fmtMoney(cur)}）\n可自行設定起始資金`, String(cur));
+    if (v === null) return;
+    const n = parseFloat(String(v).replace(/[,\s]/g, ''));
+    if (!Number.isFinite(n)) { toast('金額無效', 'error'); return; }
+    account.balance = n;
+    saveAccount();
+    updateAccountBar();
+    toast('帳戶餘額已更新', 'success');
+}
+
+function editSetting(key) {
+    const cur = account.settings[key] ?? 0;
+    const meta = {
+        stopLoss:    { label: '停損點數', min: 1, hint: '虧損多少點時強制平倉' },
+        takeProfit:  { label: '停利點數', min: 1, hint: '獲利多少點時鎖利' },
+        trailingStop:{ label: '移動停損距離（0 = 關閉）', min: 0, hint: '價格從最有利點回撤此點數即平倉' },
+        lots:        { label: '每次交易口數', min: 1, hint: '1 口大台保證金 184,000' }
+    }[key];
+    if (!meta) return;
+    const v = prompt(`${meta.label}\n${meta.hint}\n當前：${cur}`, String(cur));
+    if (v === null) return;
+    const n = parseInt(v);
+    if (!Number.isFinite(n) || n < meta.min) { toast('數值無效', 'error'); return; }
+    account.settings[key] = n;
+    saveAccount();
+    updateParamsUI();
+    toast(`${meta.label} 已更新為 ${n}`, 'success');
+}
+
+window.editBalance = editBalance;
+window.editSetting = editSetting;
 
 function updatePositionsUI() {
     const tbody = document.getElementById('posBody');
@@ -1043,7 +1193,7 @@ function updatePositionsUI() {
 
 function updateHistoryUI() {
     const tbody = document.getElementById('histBody');
-    if (!account.history.length) { tbody.innerHTML = '<tr><td colspan="7" class="pos-empty">暫無紀錄</td></tr>'; return; }
+    if (!account.history.length) { tbody.innerHTML = '<tr><td colspan="8" class="pos-empty">暫無紀錄</td></tr>'; return; }
     tbody.innerHTML = account.history.slice().reverse().slice(0, 50).map(h => {
         const cls = h.pnl > 0 ? 'c-up' : h.pnl < 0 ? 'c-down' : 'c-flat';
         return `<tr>
@@ -1054,9 +1204,61 @@ function updateHistoryUI() {
             <td class="r ${cls}">${fmtMoney(h.pnl)}</td>
             <td><div class="reason-text">${h.entryReason || ''}</div></td>
             <td><div class="reason-text">${h.exitReason || ''}</div></td>
+            <td class="r" style="white-space:nowrap">
+                <button class="edit-btn" onclick="editHistory('${h.id}')">編輯</button>
+                <button class="del-btn" onclick="deleteHistory('${h.id}')">刪除</button>
+            </td>
         </tr>`;
     }).join('');
 }
+
+function deleteHistory(id) {
+    if (!confirm('確定刪除此筆交易紀錄？已實現損益會同步回調。')) return;
+    const idx = account.history.findIndex(h => String(h.id) === String(id));
+    if (idx < 0) return;
+    const h = account.history[idx];
+    account.balance -= h.pnl;
+    account.realizedPnl -= h.pnl;
+    account.history.splice(idx, 1);
+    saveAccount();
+    updateAllUI();
+    toast('已刪除，損益已同步回調', 'success');
+}
+
+function editHistory(id) {
+    const h = account.history.find(r => String(r.id) === String(id));
+    if (!h) return;
+    const e = prompt(`進場價（${h.direction === 'long' ? '多' : '空'}單）：`, h.entryPrice);
+    if (e === null) return;
+    const ne = parseFloat(e);
+    if (!Number.isFinite(ne)) { toast('進場價無效', 'error'); return; }
+    const x = prompt('出場價：', h.exitPrice);
+    if (x === null) return;
+    const nx = parseFloat(x);
+    if (!Number.isFinite(nx)) { toast('出場價無效', 'error'); return; }
+    const l = prompt('口數：', h.lots);
+    if (l === null) return;
+    const nl = parseInt(l);
+    if (!Number.isFinite(nl) || nl < 1) { toast('口數無效', 'error'); return; }
+
+    const diff = h.direction === 'long' ? nx - ne : ne - nx;
+    const newPnl = diff * PRODUCT.pointValue * nl;
+    const delta = newPnl - h.pnl;
+
+    h.entryPrice = Math.round(ne);
+    h.exitPrice = Math.round(nx);
+    h.lots = nl;
+    h.pnl = newPnl;
+    account.balance += delta;
+    account.realizedPnl += delta;
+
+    saveAccount();
+    updateAllUI();
+    toast(`已更新，損益差 ${fmtMoney(delta)}`, 'success');
+}
+
+window.editHistory = editHistory;
+window.deleteHistory = deleteHistory;
 
 function updateIndicatorsUI() {
     document.getElementById('indMA5').textContent = ind.ma5 ? fmtInt(ind.ma5) : '—';
@@ -1161,7 +1363,7 @@ function updateTradeLogUI() {
     }).join('');
 }
 
-function updateAllUI() { updatePriceBar(); updateAccountBar(); updatePositionsUI(); updateHistoryUI(); updateStatsUI(); updateIndicatorsUI(); updateTradeLogUI(); }
+function updateAllUI() { updatePriceBar(); updateAccountBar(); updatePositionsUI(); updateHistoryUI(); updateStatsUI(); updateIndicatorsUI(); updateTradeLogUI(); updateParamsUI(); }
 
 // ==================== ACTIONS ====================
 function toggleAutoTrade() {
@@ -1205,7 +1407,16 @@ function switchSecTab(tab, el) {
 function showResetModal() { document.getElementById('resetModal').style.display = 'flex'; }
 function hideResetModal() { document.getElementById('resetModal').style.display = 'none'; }
 function resetAccount() {
-    account = { balance: INITIAL_BALANCE, realizedPnl: 0, positions: [], history: [], equityCurve: [] };
+    const inputEl = document.getElementById('resetBalance');
+    const startBal = inputEl ? parseFloat(inputEl.value) || 0 : 0;
+    account = {
+        balance: startBal,
+        realizedPnl: 0,
+        positions: [],
+        history: [],
+        equityCurve: [],
+        settings: { ...account.settings }  // 保留現有策略設定
+    };
     tradeLogEntries = [];
     markers = [];
     candleSeries.setMarkers([]);
@@ -1216,7 +1427,7 @@ function resetAccount() {
     hideResetModal();
     updateAllUI();
     saveAccount();
-    toast('帳戶已重置', 'info');
+    toast(`帳戶已歸零 · 起始 ${fmtMoney(startBal)}`, 'info');
 }
 
 // ==================== CALC ====================
