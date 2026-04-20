@@ -430,6 +430,12 @@ let ps = {
     closes: [],   // array of close prices for indicator calc
 };
 
+// Real data replay
+let replayData = [];       // 真實台股 1 分 K 線陣列
+let replayIndex = 0;       // 下一根要回放的 K 線索引
+let fetchingMore = false;  // 避免重複抓取
+const TICKS_PER_CANDLE = 20;
+
 // Indicator state
 let ind = { ma5: null, ma20: null, ma60: null, rsi: null, macd: null, macdSignal: null, macdHist: null, bbUpper: null, bbMiddle: null, bbLower: null, prevMa5: null, prevMa20: null, prevMacdHist: null };
 
@@ -500,33 +506,102 @@ function initChart() {
     bbUpperLine = chart.addLineSeries({ color: 'rgba(200,184,154,.3)', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
     bbLowerLine = chart.addLineSeries({ color: 'rgba(200,184,154,.3)', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false });
 
-    // Try to load real price data, fallback to simulation
-    fetchRealPrice().then(() => generateHistory()).catch(() => generateHistory());
+    // 從 Yahoo 抓取真實的台股 1 分 K 線資料，失敗時才退回模擬
+    fetchRealHistory().then(ok => {
+        if (ok) buildChartFromReal();
+        else buildChartSynthetic();
+    });
 
     new ResizeObserver(() => chart.applyOptions({ width: c.clientWidth, height: c.clientHeight })).observe(c);
 }
 
-async function fetchRealPrice() {
-    try {
-        // 获取真实台股指数数据
-        const resp = await fetch('https://query2.finance.yahoo.com/v8/finance/chart/^TWII?interval=1d&range=3mo', {
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        const data = await resp.json();
-        if (data.chart && data.chart.result && data.chart.result[0]) {
-            const result = data.chart.result[0];
-            const closes = result.indicators.quote[0].close.filter(c => c);
-            if (closes.length > 0) {
-                ps.base = Math.round(closes[closes.length - 1]);
-                toast('已載入真實台股指數數據', 'info');
-                return true;
+async function fetchRealHistory() {
+    const urls = [
+        // 台指期近月 (Yahoo Finance 連續合約)
+        'https://query2.finance.yahoo.com/v8/finance/chart/TWT.F?interval=1m&range=5d',
+        // 退回加權指數作為代理
+        'https://query2.finance.yahoo.com/v8/finance/chart/^TWII?interval=1m&range=5d',
+        'https://query1.finance.yahoo.com/v8/finance/chart/^TWII?interval=1m&range=5d'
+    ];
+    for (const url of urls) {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) continue;
+            const data = await resp.json();
+            const result = data.chart?.result?.[0];
+            const times = result?.timestamp;
+            const q = result?.indicators?.quote?.[0];
+            if (!times || !q) continue;
+            const bars = [];
+            for (let i = 0; i < times.length; i++) {
+                if (q.close[i] == null || q.open[i] == null) continue;
+                bars.push({
+                    time: times[i],
+                    open: Math.round(q.open[i]),
+                    high: Math.round(q.high[i] ?? q.close[i]),
+                    low: Math.round(q.low[i] ?? q.close[i]),
+                    close: Math.round(q.close[i]),
+                    volume: Math.round(q.volume?.[i] || 500)
+                });
             }
-        }
-    } catch(e) { console.log('Real data fetch failed, using simulation:', e.message); }
+            if (bars.length < 50) continue;
+            replayData = bars;
+            const symbol = url.includes('TWT.F') ? '台指期連續' : '台股加權指數';
+            toast(`已載入 ${bars.length} 根真實${symbol} 1 分 K`, 'success');
+            return true;
+        } catch(e) { console.log('Fetch failed:', url, e.message); }
+    }
+    toast('無法載入真實資料，使用模擬', 'error');
     return false;
 }
 
-function generateHistory() {
+// 用真實 K 線建圖：前段作為歷史，後段留給「即時」回放
+function buildChartFromReal() {
+    const splitIdx = Math.max(60, Math.floor(replayData.length * 0.6));
+    const history = replayData.slice(0, splitIdx);
+    const candles = [], vols = [], m5 = [], m20 = [], m60 = [], bbu = [], bbl = [];
+    const closes = [];
+
+    for (const bar of history) {
+        candles.push({ time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close });
+        vols.push({ time: bar.time, value: bar.volume, color: bar.close >= bar.open ? 'rgba(74,173,110,.3)' : 'rgba(217,83,79,.3)' });
+        closes.push(bar.close);
+
+        if (closes.length >= 5) m5.push({ time: bar.time, value: avg(closes.slice(-5)) });
+        if (closes.length >= 20) {
+            const a = avg(closes.slice(-20));
+            m20.push({ time: bar.time, value: a });
+            const std = stddev(closes.slice(-20));
+            bbu.push({ time: bar.time, value: Math.round(a + 2 * std) });
+            bbl.push({ time: bar.time, value: Math.round(a - 2 * std) });
+        }
+        if (closes.length >= 60) m60.push({ time: bar.time, value: avg(closes.slice(-60)) });
+    }
+
+    const last = history[history.length - 1];
+    ps.base = last.close;
+    ps.price = last.close;
+    ps.open = history[0].open;
+    ps.high = Math.max(...history.map(b => b.high));
+    ps.low = Math.min(...history.map(b => b.low));
+    ps.candleOpen = last.close; ps.candleHigh = last.close; ps.candleLow = last.close; ps.candleVol = 0;
+    ps.closes = closes;
+    currentPrice = last.close;
+    replayIndex = splitIdx;
+
+    candleSeries.setData(candles);
+    volumeSeries.setData(vols);
+    ma5Line.setData(m5);
+    ma20Line.setData(m20);
+    ma60Line.setData(m60);
+    bbUpperLine.setData(bbu);
+    bbLowerLine.setData(bbl);
+
+    calcIndicators();
+}
+
+// 沒抓到真實資料時的後備：維持原本隨機走勢產生邏輯
+function buildChartSynthetic() {
     const now = Math.floor(Date.now() / 1000);
     let p = ps.base;
     const candles = [], vols = [], m5 = [], m20 = [], m60 = [], bbu = [], bbl = [];
@@ -545,7 +620,6 @@ function generateHistory() {
         closes.push(c);
         p = c;
 
-        // MA
         if (closes.length >= 5) m5.push({ time, value: avg(closes.slice(-5)) });
         if (closes.length >= 20) {
             const a = avg(closes.slice(-20));
@@ -560,7 +634,7 @@ function generateHistory() {
     ps.price = p; ps.open = p; ps.high = p; ps.low = p;
     ps.candleOpen = p; ps.candleHigh = p; ps.candleLow = p;
     ps.closes = closes;
-    currentPrice = p;  // 初始化 currentPrice
+    currentPrice = p;
 
     candleSeries.setData(candles);
     volumeSeries.setData(vols);
@@ -569,8 +643,6 @@ function generateHistory() {
     ma60Line.setData(m60);
     bbUpperLine.setData(bbu);
     bbLowerLine.setData(bbl);
-
-    // Calc initial indicators
     calcIndicators();
 }
 
@@ -783,10 +855,103 @@ function closePosition(index, reason) {
 // ==================== SIMULATION ====================
 function simulateTick() {
     if (simPaused) return;
+    if (replayData.length > 0) replayRealTick();
+    else syntheticTick();
+    updatePriceBar();
+    updatePositionsUI();
+    updateAccountBar();
+    updateIndicatorsUI();
+}
 
-    // 定期同步真实价格 (每分钟一次)
-    fetchCurrentPrice();
+// 回放真實 K 線：在每根 K 線內，分 20 次 tick 內插移動，收盤時以 Yahoo 原始 OHLC 定稿
+function replayRealTick() {
+    if (replayIndex >= replayData.length) {
+        // 已回放到最新資料，嘗試抓取新的 bar
+        fetchMoreRealData();
+        return;
+    }
+    const bar = replayData[replayIndex];
+    ps.ticksInCandle++;
+    const t = ps.ticksInCandle / TICKS_PER_CANDLE;
+    const range = Math.max(1, bar.high - bar.low);
+    // 路徑：open → (隨機觸及 high/low) → close，加上細微雜訊
+    const path = bar.open + (bar.close - bar.open) * t;
+    const wick = (Math.random() - 0.5) * range * 0.4;
+    let price = Math.round(path + wick);
+    price = Math.max(bar.low, Math.min(bar.high, price));
+    ps.price = price;
+    ps.candleHigh = Math.max(ps.candleHigh, price);
+    ps.candleLow = Math.min(ps.candleLow, price);
+    ps.candleVol += Math.round(bar.volume / TICKS_PER_CANDLE);
+    ps.high = Math.max(ps.high, price);
+    ps.low = Math.min(ps.low, price);
+    currentPrice = price;
 
+    if (ps.ticksInCandle >= TICKS_PER_CANDLE) {
+        // 定稿：用真實 OHLC
+        candleSeries.update({ time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close });
+        volumeSeries.update({ time: bar.time, value: bar.volume, color: bar.close >= bar.open ? 'rgba(74,173,110,.3)' : 'rgba(217,83,79,.3)' });
+
+        ps.closes.push(bar.close);
+        if (ps.closes.length > 500) ps.closes = ps.closes.slice(-500);
+
+        calcIndicators();
+        if (ind.ma5) ma5Line.update({ time: bar.time, value: ind.ma5 });
+        if (ind.ma20) ma20Line.update({ time: bar.time, value: ind.ma20 });
+        if (ind.ma60) ma60Line.update({ time: bar.time, value: ind.ma60 });
+        if (ind.bbUpper) bbUpperLine.update({ time: bar.time, value: ind.bbUpper });
+        if (ind.bbLower) bbLowerLine.update({ time: bar.time, value: ind.bbLower });
+
+        evaluateStrategy();
+        account.equityCurve.push({ time: bar.time, equity: calcEquity() });
+
+        replayIndex++;
+        ps.ticksInCandle = 0;
+        ps.candleOpen = bar.close;
+        ps.candleHigh = bar.close;
+        ps.candleLow = bar.close;
+        ps.candleVol = 0;
+    } else {
+        candleSeries.update({ time: bar.time, open: bar.open, high: ps.candleHigh, low: ps.candleLow, close: price });
+    }
+}
+
+// 回放結束後，向 Yahoo 要新的 1 分 K
+async function fetchMoreRealData() {
+    if (fetchingMore) return;
+    fetchingMore = true;
+    try {
+        const url = 'https://query2.finance.yahoo.com/v8/finance/chart/^TWII?interval=1m&range=1d';
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const result = data.chart?.result?.[0];
+        const times = result?.timestamp;
+        const q = result?.indicators?.quote?.[0];
+        if (!times || !q) return;
+        const lastTime = replayData[replayData.length - 1]?.time || 0;
+        let added = 0;
+        for (let i = 0; i < times.length; i++) {
+            if (times[i] <= lastTime || q.close[i] == null) continue;
+            replayData.push({
+                time: times[i],
+                open: Math.round(q.open[i]),
+                high: Math.round(q.high[i] ?? q.close[i]),
+                low: Math.round(q.low[i] ?? q.close[i]),
+                close: Math.round(q.close[i]),
+                volume: Math.round(q.volume?.[i] || 500)
+            });
+            added++;
+        }
+        if (added > 0) console.log(`新增 ${added} 根即時 K 線`);
+    } catch(e) { console.log('Fetch more failed:', e.message); }
+    finally {
+        // 5 秒後再嘗試（給 Yahoo 時間出新 bar）
+        setTimeout(() => { fetchingMore = false; }, 5000);
+    }
+}
+
+// 無真實資料時的後備
+function syntheticTick() {
     const momentum = ps.trend * 0.7;
     const meanRev = (ps.base - ps.price) * 0.001;
     const noise = (Math.random() - 0.5) * ps.volatility * 0.4;
@@ -804,67 +969,24 @@ function simulateTick() {
     currentPrice = ps.price;
 
     const now = Math.floor(Date.now() / 1000);
-
-    if (ps.ticksInCandle >= 20) {
-        // Complete candle
-        const candle = { time: now, open: ps.candleOpen, high: ps.candleHigh, low: ps.candleLow, close: ps.price };
-        candleSeries.update(candle);
+    if (ps.ticksInCandle >= TICKS_PER_CANDLE) {
+        candleSeries.update({ time: now, open: ps.candleOpen, high: ps.candleHigh, low: ps.candleLow, close: ps.price });
         volumeSeries.update({ time: now, value: ps.candleVol, color: ps.price >= ps.candleOpen ? 'rgba(74,173,110,.3)' : 'rgba(217,83,79,.3)' });
-
         ps.closes.push(ps.price);
         if (ps.closes.length > 300) ps.closes = ps.closes.slice(-300);
-
-        // Calc indicators & update chart lines
         calcIndicators();
         if (ind.ma5) ma5Line.update({ time: now, value: ind.ma5 });
         if (ind.ma20) ma20Line.update({ time: now, value: ind.ma20 });
         if (ind.ma60) ma60Line.update({ time: now, value: ind.ma60 });
         if (ind.bbUpper) bbUpperLine.update({ time: now, value: ind.bbUpper });
         if (ind.bbLower) bbLowerLine.update({ time: now, value: ind.bbLower });
-
-        // Evaluate strategy at each candle close
         evaluateStrategy();
-
-        // Equity curve
         account.equityCurve.push({ time: now, equity: calcEquity() });
-
-        // Reset candle
         ps.ticksInCandle = 0;
-        ps.candleOpen = ps.price;
-        ps.candleHigh = ps.price;
-        ps.candleLow = ps.price;
-        ps.candleVol = 0;
+        ps.candleOpen = ps.price; ps.candleHigh = ps.price; ps.candleLow = ps.price; ps.candleVol = 0;
     } else {
         candleSeries.update({ time: now, open: ps.candleOpen, high: ps.candleHigh, low: ps.candleLow, close: ps.price });
     }
-
-    updatePriceBar();
-    updatePositionsUI();
-    updateAccountBar();
-    updateIndicatorsUI();
-}
-
-let lastRealPriceFetch = 0;
-async function fetchCurrentPrice() {
-    const now = Date.now();
-    if (now - lastRealPriceFetch < 5000) return; // 每 5 秒最多一次
-    lastRealPriceFetch = now;
-    try {
-        const resp = await fetch('https://query2.finance.yahoo.com/v8/finance/chart/^TWII?interval=1d', {
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        const data = await resp.json();
-        if (data.chart?.result?.[0]?.indicators?.quote?.[0]?.close) {
-            const closes = data.chart.result[0].indicators.quote[0].close.filter(c => c);
-            if (closes.length > 0) {
-                const realPrice = Math.round(closes[closes.length - 1]);
-                // 用真实价格调整基准，但保持小幅波动
-                if (Math.abs(realPrice - ps.base) > 50) {
-                    ps.base = realPrice; // 跳空时同步
-                }
-            }
-        }
-    } catch(e) { }
 }
 
 function startSim() { if (simInterval) clearInterval(simInterval); simInterval = setInterval(simulateTick, simSpeed); }
