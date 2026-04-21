@@ -604,13 +604,25 @@ async function loadAccount() {
 // ==================== CHART ====================
 function initChart() {
     const c = document.getElementById('chartContainer');
+    const tpeTime = (ts) => {
+        const d = new Date(ts * 1000);
+        const hh = String((d.getUTCHours() + 8) % 24).padStart(2, '0');
+        const mm = String(d.getUTCMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+    };
     chart = LightweightCharts.createChart(c, {
         width: c.clientWidth, height: c.clientHeight,
         layout: { background: { color: '#1a1916' }, textColor: '#9a9890' },
         grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
         crosshair: { mode: 0 },
         rightPriceScale: { borderColor: 'rgba(255,255,255,.1)' },
-        timeScale: { borderColor: 'rgba(255,255,255,.1)', timeVisible: true, secondsVisible: false }
+        localization: { timeFormatter: tpeTime },
+        timeScale: {
+            borderColor: 'rgba(255,255,255,.1)',
+            timeVisible: true,
+            secondsVisible: false,
+            tickMarkFormatter: tpeTime
+        }
     });
     candleSeries = chart.addCandlestickSeries({
         upColor: '#4aad6e', downColor: '#d9534f',
