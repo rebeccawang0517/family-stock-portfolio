@@ -1106,7 +1106,7 @@ function toggleAIBattle() {
     updateAIToggleStatus();
     saveAIBattle();
     if (aiBattleEnabled) {
-        toast('AI 對戰已啟動，立即評估一次後每 5 分鐘觸發', 'success');
+        toast('AI 對戰已啟動，立即評估一次後每 15 分鐘觸發', 'success');
         // 開啟時立刻跑一次，不用等下一根 K
         runAIBattle();
     } else {
@@ -1114,9 +1114,9 @@ function toggleAIBattle() {
     }
 }
 
-// 時間節流：每 5 分鐘至多跑一次 AI 對戰
+// 時間節流：每 15 分鐘至多跑一次 AI 對戰（避免追高殺低）
 let lastAIRunAt = 0;
-const AI_INTERVAL_MS = 5 * 60 * 1000;
+const AI_INTERVAL_MS = 15 * 60 * 1000;
 function maybeRunAIBattle() {
     if (!aiBattleEnabled) return;
     const now = Date.now();
@@ -1162,6 +1162,50 @@ function aiContext() {
     const lastBars = agg.slice(-20).map(b => ({
         time: b.time, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume
     }));
+
+    // 當日 OHLC（從 rawBars 篩出今日台灣時間的 bars）
+    const tpeNow = new Date(Date.now() + 8 * 3600 * 1000);
+    const todayStartUtc = Date.UTC(tpeNow.getUTCFullYear(), tpeNow.getUTCMonth(), tpeNow.getUTCDate()) / 1000 - 8 * 3600;
+    const todayBars = rawBars.filter(b => b.time >= todayStartUtc);
+    let session = {};
+    if (todayBars.length) {
+        session = {
+            open: todayBars[0].open,
+            high: Math.max(...todayBars.map(b => b.high)),
+            low: Math.min(...todayBars.map(b => b.low))
+        };
+    }
+
+    // 近 60 根 5 分 K 擺動高低
+    const swingBars = agg.slice(-60);
+    const swing = swingBars.length ? {
+        high: Math.max(...swingBars.map(b => b.high)),
+        low: Math.min(...swingBars.map(b => b.low))
+    } : {};
+
+    // ATR(14) 5 分 K
+    let atr = null;
+    if (agg.length >= 15) {
+        const trs = [];
+        for (let i = agg.length - 14; i < agg.length; i++) {
+            const cur = agg[i], prev = agg[i - 1];
+            const tr = Math.max(cur.high - cur.low, Math.abs(cur.high - prev.close), Math.abs(cur.low - prev.close));
+            trs.push(tr);
+        }
+        atr = trs.reduce((s, v) => s + v, 0) / trs.length;
+    }
+
+    // 距均線距離
+    const distMa = {
+        ma20: ind.ma20 != null ? currentPrice - ind.ma20 : null,
+        ma60: ind.ma60 != null ? currentPrice - ind.ma60 : null
+    };
+
+    // 今日已實現損益
+    const todayPnl = (account.history || [])
+        .filter(h => h.id && h.id >= todayStartUtc * 1000)
+        .reduce((s, h) => s + (h.pnl || 0), 0);
+
     return {
         symbol: '台指期近一',
         price: currentPrice,
@@ -1171,6 +1215,8 @@ function aiContext() {
             rsi: ind.rsi, macd: ind.macd, macdHist: ind.macdHist,
             bbUpper: ind.bbUpper, bbLower: ind.bbLower
         },
+        session, swing, atr, distMa,
+        dailyPnl: todayPnl,
         balance: 0,    // filled per-AI below
         position: null
     };
