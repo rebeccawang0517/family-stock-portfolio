@@ -151,6 +151,20 @@
         .log-reason { color: var(--gold); font-size: 11px; margin-top: 2px; }
         .log-pnl { font-family: var(--mono); font-weight: 700; font-size: 11px; }
         .log-empty { text-align: center; padding: 20px; color: var(--ink3); font-size: 11px; }
+        .manual-trade { display: flex; flex-direction: column; gap: 10px; }
+        .mt-info { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .mt-info > div { background: #2c2b27; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+        .mt-info .k { font-size: 9px; color: var(--ink4); text-transform: uppercase; letter-spacing: .04em; }
+        .mt-info .v { font-size: 16px; font-weight: 700; font-family: var(--mono); color: var(--paper); }
+        .mt-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .mt-btn { padding: 14px; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; color: white; transition: filter .15s; }
+        .mt-btn:hover:not(:disabled) { filter: brightness(1.15); }
+        .mt-btn:disabled { opacity: .4; cursor: not-allowed; }
+        .mt-btn.long { background: var(--green); }
+        .mt-btn.short { background: var(--red); }
+        .mt-btn.close { background: #555; width: 100%; padding: 10px; font-size: 12px; }
+        .mt-pos-box { background: #2c2b27; border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .mt-pos-line { font-size: 12px; font-family: var(--mono); color: var(--paper); line-height: 1.5; }
 
         /* Stats */
         .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -370,28 +384,6 @@
                 </div>
             </div>
 
-            <div class="positions-section">
-                <div class="section-tabs">
-                    <div class="sec-tab active" onclick="switchSecTab('positions',this)">持倉部位</div>
-                    <div class="sec-tab" onclick="switchSecTab('history',this)">交易紀錄</div>
-                </div>
-                <div id="secPositions" class="sec-content active">
-                    <table class="pos-table">
-                        <thead><tr>
-                            <th>方向</th><th>口數</th><th class="r">開倉價</th><th class="r">現價</th><th class="r">損益</th><th>開倉原因</th><th></th>
-                        </tr></thead>
-                        <tbody id="posBody"><tr><td colspan="7" class="pos-empty">尚無持倉</td></tr></tbody>
-                    </table>
-                </div>
-                <div id="secHistory" class="sec-content">
-                    <table class="pos-table">
-                        <thead><tr>
-                            <th>時間</th><th>方向</th><th class="r">進場</th><th class="r">出場</th><th class="r">損益</th><th>進場原因</th><th>出場原因</th><th class="r">操作</th>
-                        </tr></thead>
-                        <tbody id="histBody"><tr><td colspan="8" class="pos-empty">暫無紀錄</td></tr></tbody>
-                    </table>
-                </div>
-            </div>
         </div>
 
         <!-- RIGHT: Auto Trading Panel -->
@@ -454,11 +446,22 @@
                 </div>
             </div>
 
-            <!-- Trade Log -->
+            <!-- Manual Trading -->
             <div class="rp-section" style="flex:1;display:flex;flex-direction:column;min-height:0">
-                <div class="rp-title">📋 交易日誌</div>
-                <div class="trade-log" id="tradeLog">
-                    <div class="log-empty">啟動自動交易後顯示</div>
+                <div class="rp-title">✋ 手動交易</div>
+                <div class="manual-trade">
+                    <div class="mt-info">
+                        <div><span class="k">當前價</span><span class="v" id="mtPrice">—</span></div>
+                        <div><span class="k">下單口數</span><span class="v" id="mtLots">1 口</span></div>
+                    </div>
+                    <div class="mt-buttons">
+                        <button class="mt-btn long" onclick="manualOpen('long')">📈 做多</button>
+                        <button class="mt-btn short" onclick="manualOpen('short')">📉 做空</button>
+                    </div>
+                    <div id="mtPosBox" class="mt-pos-box" style="display:none">
+                        <div class="mt-pos-line" id="mtPosDetail"></div>
+                        <button class="mt-btn close" onclick="manualCloseAll()">⬛ 平倉所有持倉</button>
+                    </div>
                 </div>
             </div>
 
@@ -1470,11 +1473,11 @@ function simulateTick() {
     if (simPaused) return;
     if (synthetic) { syntheticTick(); }
     updatePriceBar();
-    updatePositionsUI();
     updateAccountBar();
     updateIndicatorsUI();
     updateSimTime();
     renderAIBattle();
+    renderManualPanel();
 }
 
 function updateSimTime() {
@@ -1709,6 +1712,7 @@ window.editSetting = editSetting;
 
 function updatePositionsUI() {
     const tbody = document.getElementById('posBody');
+    if (!tbody) return;
     if (!account.positions.length) { tbody.innerHTML = '<tr><td colspan="7" class="pos-empty">尚無持倉</td></tr>'; return; }
     tbody.innerHTML = account.positions.map((pos, i) => {
         const pnl = calcPnl(pos);
@@ -1728,6 +1732,7 @@ function updatePositionsUI() {
 
 function updateHistoryUI() {
     const tbody = document.getElementById('histBody');
+    if (!tbody) return;
     if (!account.history.length) { tbody.innerHTML = '<tr><td colspan="8" class="pos-empty">暫無紀錄</td></tr>'; return; }
     tbody.innerHTML = account.history.slice().reverse().slice(0, 50).map(h => {
         const cls = h.pnl > 0 ? 'c-up' : h.pnl < 0 ? 'c-down' : 'c-flat';
@@ -1883,6 +1888,7 @@ function renderEquityCurve() {
 
 function updateTradeLogUI() {
     const el = document.getElementById('tradeLog');
+    if (!el) return;
     if (!tradeLogEntries.length) { el.innerHTML = '<div class="log-empty">啟動自動交易後顯示</div>'; return; }
     el.innerHTML = tradeLogEntries.slice().reverse().slice(0, 30).map(e => {
         let pnlHtml = '';
@@ -1898,7 +1904,7 @@ function updateTradeLogUI() {
     }).join('');
 }
 
-function updateAllUI() { updatePriceBar(); updateAccountBar(); updatePositionsUI(); updateHistoryUI(); updateStatsUI(); updateIndicatorsUI(); updateTradeLogUI(); updateParamsUI(); }
+function updateAllUI() { updatePriceBar(); updateAccountBar(); updateStatsUI(); updateIndicatorsUI(); updateParamsUI(); renderManualPanel(); }
 
 // ==================== ACTIONS ====================
 function toggleAutoTrade() {
@@ -1913,6 +1919,57 @@ function toggleAutoTrade() {
 function manualClose(index) {
     closePosition(index, '手動平倉');
 }
+
+function manualOpen(direction) {
+    if (currentPrice == null) { toast('尚無報價，無法下單', 'warn'); return; }
+    const lots = account.settings.lots || 1;
+    const need = PRODUCT.initialMargin * lots;
+    if ((account.balance || 0) < need) { toast(`保證金不足（需 ${fmtInt(need)}）`, 'error'); return; }
+    if (account.positions && account.positions.length) {
+        toast('已有持倉，請先平倉', 'warn');
+        return;
+    }
+    openPosition(direction, '手動下單');
+}
+
+function manualCloseAll() {
+    if (!account.positions || !account.positions.length) return;
+    for (let i = account.positions.length - 1; i >= 0; i--) {
+        closePosition(i, '手動平倉');
+    }
+}
+
+function renderManualPanel() {
+    const priceEl = document.getElementById('mtPrice');
+    if (!priceEl) return;
+    priceEl.textContent = currentPrice == null ? '—' : fmtInt(currentPrice);
+    const lots = account.settings?.lots || 1;
+    document.getElementById('mtLots').textContent = lots + ' 口';
+
+    const box = document.getElementById('mtPosBox');
+    const detail = document.getElementById('mtPosDetail');
+    const longBtn = document.querySelector('.mt-btn.long');
+    const shortBtn = document.querySelector('.mt-btn.short');
+    const has = account.positions && account.positions.length;
+    if (has) {
+        const p = account.positions[0];
+        const diff = p.direction === 'long' ? currentPrice - p.entryPrice : p.entryPrice - currentPrice;
+        const pnl = Math.round(diff * PRODUCT.pointValue * p.lots);
+        const cls = pnl >= 0 ? 'c-up' : 'c-down';
+        const sideTxt = p.direction === 'long' ? '🟢 做多' : '🔴 做空';
+        detail.innerHTML = `${sideTxt} ${p.lots} 口 @ ${fmtInt(p.entryPrice)}<br>浮動損益 <span class="${cls}">${pnl >= 0 ? '+' : ''}${fmtInt(pnl)}</span>`;
+        box.style.display = '';
+        if (longBtn) longBtn.disabled = true;
+        if (shortBtn) shortBtn.disabled = true;
+    } else {
+        box.style.display = 'none';
+        if (longBtn) longBtn.disabled = false;
+        if (shortBtn) shortBtn.disabled = false;
+    }
+}
+
+window.manualOpen = manualOpen;
+window.manualCloseAll = manualCloseAll;
 
 function addChartMarker(side, price, isClose) {
     markers.push({
