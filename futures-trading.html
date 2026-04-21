@@ -193,10 +193,11 @@
         .ai-battle { border-top: 1px solid var(--border); padding: 12px 16px; background: #23221f; }
         .ai-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .ai-head .title { font-size: 13px; font-weight: 700; color: var(--gold); }
-        .ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .ai-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         .ai-card { background: #2c2b27; border: 1px solid var(--border); border-radius: 10px; padding: 12px; min-width: 0; }
         .ai-card.claude { border-left: 3px solid #d97757; }
         .ai-card.grok { border-left: 3px solid #6366f1; }
+        .ai-card.auto { border-left: 3px solid #4aad6e; }
         .ai-card .name { font-size: 13px; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         .ai-card .name .badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,.05); color: var(--ink4); font-family: var(--mono); }
         .ai-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 11px; font-family: var(--mono); }
@@ -350,6 +351,21 @@
                         <div class="ai-pos" id="aiGrokPos">無持倉</div>
                         <div class="ai-last" id="aiGrokLast">等待首次信號…</div>
                         <div class="ai-history" id="aiGrokHistory"></div>
+                    </div>
+                    <div class="ai-card auto">
+                        <div class="name">
+                            <span>🤖 規則自動</span>
+                            <span class="badge" id="aiAutoBadge">—</span>
+                        </div>
+                        <div class="ai-kv">
+                            <span class="k">權益</span><span class="v" id="aiAutoEquity">$0</span>
+                            <span class="k">已實現</span><span class="v" id="aiAutoRealized">$0</span>
+                            <span class="k">交易</span><span class="v" id="aiAutoTrades">0</span>
+                            <span class="k">勝率</span><span class="v" id="aiAutoWin">—</span>
+                        </div>
+                        <div class="ai-pos" id="aiAutoPos">無持倉</div>
+                        <div class="ai-last" id="aiAutoLast">開關在右側 · 技術指標策略</div>
+                        <div class="ai-history" id="aiAutoHistory"></div>
                     </div>
                 </div>
             </div>
@@ -1332,17 +1348,84 @@ function renderAIBattle() {
             }
         }
     }
-    // 領先標記
-    const claudeEq = aiAccounts.claude.balance + aiUnrealized(aiAccounts.claude);
-    const grokEq = aiAccounts.grok.balance + aiUnrealized(aiAccounts.grok);
-    document.getElementById('aiClaudeBadge').className = 'badge';
-    document.getElementById('aiGrokBadge').className = 'badge';
-    if (claudeEq !== grokEq) {
-        const lead = claudeEq > grokEq ? 'aiClaudeBadge' : 'aiGrokBadge';
-        const trail = claudeEq > grokEq ? 'aiGrokBadge' : 'aiClaudeBadge';
-        const leadEl = document.getElementById(lead);
-        const trailEl = document.getElementById(trail);
-        leadEl.textContent = '👑 領先 ' + leadEl.textContent;
+    renderAutoCard();
+    // 三方領先標記
+    const eqs = {
+        claude: aiAccounts.claude.balance + aiUnrealized(aiAccounts.claude),
+        grok: aiAccounts.grok.balance + aiUnrealized(aiAccounts.grok),
+        auto: (account.balance || 0) + calcUnrealizedTotal()
+    };
+    const leader = Object.entries(eqs).sort((a,b) => b[1]-a[1])[0][0];
+    ['aiClaudeBadge','aiGrokBadge','aiAutoBadge'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.className = 'badge';
+    });
+    const leaderId = leader === 'claude' ? 'aiClaudeBadge' : (leader === 'grok' ? 'aiGrokBadge' : 'aiAutoBadge');
+    const leaderEl = document.getElementById(leaderId);
+    if (leaderEl && new Set(Object.values(eqs)).size > 1) {
+        leaderEl.textContent = '👑 領先 ' + leaderEl.textContent;
+    }
+}
+
+function calcUnrealizedTotal() {
+    if (!currentPrice || !account.positions) return 0;
+    return account.positions.reduce((sum, p) => {
+        const diff = p.direction === 'long' ? currentPrice - p.entryPrice : p.entryPrice - currentPrice;
+        return sum + Math.round(diff * PRODUCT.pointValue * p.lots);
+    }, 0);
+}
+
+function renderAutoCard() {
+    const unrealized = calcUnrealizedTotal();
+    const eq = (account.balance || 0) + unrealized;
+    document.getElementById('aiAutoEquity').textContent = '$' + fmtInt(eq);
+    const realized = account.realizedPnl || 0;
+    const realEl = document.getElementById('aiAutoRealized');
+    realEl.textContent = (realized >= 0 ? '+$' : '-$') + fmtInt(Math.abs(realized));
+    realEl.className = 'v ' + (realized >= 0 ? 'c-up' : 'c-down');
+    const hist = account.history || [];
+    document.getElementById('aiAutoTrades').textContent = hist.length;
+    const wins = hist.filter(h => h.pnl > 0).length;
+    document.getElementById('aiAutoWin').textContent = hist.length ? Math.round(wins/hist.length*100) + '%' : '—';
+    document.getElementById('aiAutoBadge').textContent = autoTrading ? 'ON' : 'OFF';
+
+    const posEl = document.getElementById('aiAutoPos');
+    if (account.positions && account.positions.length) {
+        const p = account.positions[0];
+        const diff = p.direction === 'long' ? currentPrice - p.entryPrice : p.entryPrice - currentPrice;
+        const u = Math.round(diff * PRODUCT.pointValue * p.lots);
+        posEl.textContent = `${p.direction === 'long' ? '🟢 多' : '🔴 空'} ${p.lots}口 @ ${fmtInt(p.entryPrice)} | 浮動 ${u >= 0 ? '+' : ''}${fmtInt(u)}`;
+        posEl.className = 'ai-pos ' + p.direction;
+    } else {
+        posEl.textContent = '無持倉';
+        posEl.className = 'ai-pos';
+    }
+
+    const lastEl = document.getElementById('aiAutoLast');
+    const sigText = document.getElementById('signalText');
+    lastEl.textContent = autoTrading ? (sigText ? sigText.textContent : '自動交易中…') : '開關在右側 · 技術指標策略';
+
+    const histEl = document.getElementById('aiAutoHistory');
+    if (histEl) {
+        if (!hist.length) {
+            histEl.innerHTML = '<div class="empty">暫無交易紀錄</div>';
+        } else {
+            histEl.innerHTML = hist.slice().reverse().map(h => {
+                const sideCls = h.direction === 'long' ? 'side-long' : 'side-short';
+                const sideTxt = h.direction === 'long' ? '多' : '空';
+                const pnlCls = h.pnl >= 0 ? 'pnl-up' : 'pnl-down';
+                const pnlTxt = (h.pnl >= 0 ? '+' : '') + fmtInt(h.pnl);
+                const openR = (h.entryReason || '—').replace(/</g, '&lt;');
+                const closeR = (h.exitReason || '—').replace(/</g, '&lt;');
+                return `<div class="hrow">
+                    <span class="${sideCls}">${sideTxt}${h.lots}</span>
+                    <span class="reasons">
+                        <span class="r-open">${openR} @ ${fmtInt(h.entryPrice)}</span>
+                        <span class="r-close">${closeR} @ ${fmtInt(h.exitPrice)}</span>
+                    </span>
+                    <span class="${pnlCls}">${pnlTxt}</span>
+                </div>`;
+            }).join('');
+        }
     }
 }
 
