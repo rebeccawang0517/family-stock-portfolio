@@ -98,30 +98,39 @@ async function callClaude(prompt) {
   return { raw, model };
 }
 
+const GROK_MODELS = ['grok-4-fast-reasoning', 'grok-4-fast-non-reasoning', 'grok-4', 'grok-3-mini', 'grok-3', 'grok-2-1212', 'grok-beta'];
+
 async function callGrok(prompt) {
   const key = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
   if (!key) throw new Error('GROK_API_KEY missing');
-  const model = 'grok-4-fast-reasoning';
-  const resp = await fetch('https://api.x.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${key}`,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 400,
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' }
-    })
-  });
-  if (!resp.ok) {
+  let lastErr = '';
+  for (const model of GROK_MODELS) {
+    const resp = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
+      })
+    });
+    if (resp.ok) {
+      const json = await resp.json();
+      const raw = json.choices?.[0]?.message?.content || '';
+      return { raw, model };
+    }
     const txt = await resp.text();
-    throw new Error(`Grok ${resp.status}: ${txt.slice(0, 300)}`);
+    lastErr = `${resp.status} (${model}): ${txt.slice(0, 200)}`;
+    // 401 = key invalid，無需試其他模型
+    if (resp.status === 401) break;
+    // 403/404 = 此模型沒權限，繼續試下一個
+    if (resp.status !== 403 && resp.status !== 404) break;
   }
-  const json = await resp.json();
-  const raw = json.choices?.[0]?.message?.content || '';
-  return { raw, model };
+  throw new Error(`Grok all models failed. Last: ${lastErr}`);
 }
 
 function parseSignal(raw) {
