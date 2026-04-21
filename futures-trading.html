@@ -1924,11 +1924,18 @@ function manualOpen(direction) {
     if (currentPrice == null) { toast('尚無報價，無法下單', 'warn'); return; }
     const lots = account.settings.lots || 1;
     const need = PRODUCT.initialMargin * lots;
-    if ((account.balance || 0) < need) { toast(`保證金不足（需 ${fmtInt(need)}）`, 'error'); return; }
+    // 已有持倉
     if (account.positions && account.positions.length) {
-        toast('已有持倉，請先平倉', 'warn');
-        return;
+        const cur = account.positions[0];
+        if (cur.direction === direction) {
+            toast(`已持有${direction === 'long' ? '多' : '空'}單，請先平倉再加碼`, 'warn');
+            return;
+        }
+        // 反向：自動反手（先平再開）
+        if (!confirm(`目前有${cur.direction === 'long' ? '多' : '空'}單，是否平倉後反手做${direction === 'long' ? '多' : '空'}？`)) return;
+        manualCloseAll();
     }
+    if ((account.balance || 0) < need) { toast(`保證金不足（需 ${fmtInt(need)}）`, 'error'); return; }
     openPosition(direction, '手動下單');
 }
 
@@ -1948,8 +1955,6 @@ function renderManualPanel() {
 
     const box = document.getElementById('mtPosBox');
     const detail = document.getElementById('mtPosDetail');
-    const longBtn = document.querySelector('.mt-btn.long');
-    const shortBtn = document.querySelector('.mt-btn.short');
     const has = account.positions && account.positions.length;
     if (has) {
         const p = account.positions[0];
@@ -1959,12 +1964,8 @@ function renderManualPanel() {
         const sideTxt = p.direction === 'long' ? '🟢 做多' : '🔴 做空';
         detail.innerHTML = `${sideTxt} ${p.lots} 口 @ ${fmtInt(p.entryPrice)}<br>浮動損益 <span class="${cls}">${pnl >= 0 ? '+' : ''}${fmtInt(pnl)}</span>`;
         box.style.display = '';
-        if (longBtn) longBtn.disabled = true;
-        if (shortBtn) shortBtn.disabled = true;
     } else {
         box.style.display = 'none';
-        if (longBtn) longBtn.disabled = false;
-        if (shortBtn) shortBtn.disabled = false;
     }
 }
 
