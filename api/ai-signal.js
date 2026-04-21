@@ -98,19 +98,33 @@ async function callClaude(prompt) {
   return { raw, model };
 }
 
-const GROK_MODELS = ['grok-4-fast-reasoning', 'grok-4-fast-non-reasoning', 'grok-4', 'grok-3-mini', 'grok-3', 'grok-2-1212', 'grok-beta'];
-
 async function callGrok(prompt) {
   const key = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
   if (!key) throw new Error('GROK_API_KEY missing');
+
+  // 先撈這支 key 能用的模型清單
+  let models = [];
+  try {
+    const mr = await fetch('https://api.x.ai/v1/models', {
+      headers: { 'Authorization': `Bearer ${key}` }
+    });
+    if (mr.ok) {
+      const mj = await mr.json();
+      models = (mj.data || []).map(m => m.id).filter(Boolean);
+    }
+  } catch {}
+
+  // 依偏好排序，沒撈到就用預設清單
+  const preferred = ['grok-4-fast-reasoning', 'grok-4-fast-non-reasoning', 'grok-4', 'grok-3-mini-fast', 'grok-3-mini', 'grok-3-fast', 'grok-3', 'grok-2-1212', 'grok-beta'];
+  const ordered = models.length
+    ? [...preferred.filter(m => models.includes(m)), ...models.filter(m => !preferred.includes(m))]
+    : preferred;
+
   let lastErr = '';
-  for (const model of GROK_MODELS) {
+  for (const model of ordered) {
     const resp = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${key}`,
-        'content-type': 'application/json'
-      },
+      headers: { 'Authorization': `Bearer ${key}`, 'content-type': 'application/json' },
       body: JSON.stringify({
         model,
         max_tokens: 400,
@@ -125,12 +139,9 @@ async function callGrok(prompt) {
     }
     const txt = await resp.text();
     lastErr = `${resp.status} (${model}): ${txt.slice(0, 200)}`;
-    // 401 = key invalid，無需試其他模型
-    if (resp.status === 401) break;
-    // 403/404 = 此模型沒權限，繼續試下一個
-    if (resp.status !== 403 && resp.status !== 404) break;
+    if (resp.status === 401) break; // key 無效，不用再試
   }
-  throw new Error(`Grok all models failed. Last: ${lastErr}`);
+  throw new Error(`Grok all models failed. Tried: ${ordered.slice(0,5).join(',')}. Last: ${lastErr}`);
 }
 
 function parseSignal(raw) {
