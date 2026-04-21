@@ -606,6 +606,7 @@ window.switchTf = function(tf, el) {
 };
 
 function sourceName() {
+    if (dataSource === 'twse-realtime') return '加權指數（即時）';
     if (dataSource === 'taifex') return '台指期近月';
     if (dataSource === 'yahoo-twii') return '台股加權指數(延遲)';
     return '';
@@ -614,7 +615,8 @@ function sourceName() {
 function updateSourceLabel() {
     const el = document.querySelector('.pb-name');
     if (!el) return;
-    el.textContent = dataSource === 'taifex' ? '台指期近月 · 即時'
+    el.textContent = dataSource === 'twse-realtime' ? '加權指數 · 即時'
+        : dataSource === 'taifex' ? '台指期近月 · 即時'
         : dataSource === 'yahoo-twii' ? '加權指數 · 延遲 15 分'
         : '模擬';
 }

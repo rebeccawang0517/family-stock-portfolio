@@ -1,6 +1,6 @@
-// 台指期近月即時行情 proxy
-// /api/taifex?type=quote  → 當前報價快照
-// /api/taifex?type=bars   → 近日 1 分 K 線歷史
+// 台股加權指數即時行情 proxy（台指期追蹤標的）
+// /api/taifex?type=quote  → 即時報價（TWSE 真實即時，無延遲）
+// /api/taifex?type=bars   → 近日 1 分 K 線歷史（Yahoo）
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,62 +21,55 @@ export default async function handler(req, res) {
   }
 }
 
-// 抓 TAIFEX MIS 即時報價（近月 TXF）
-async function fetchTaifexQuote() {
-  const url = 'https://mis.taifex.com.tw/futures/api/getQuoteListV1/';
-  const body = new URLSearchParams({
-    MarketType: '0',
-    SymbolType: 'F',
-    KindID: '1',
-    CID: 'TXF',
-    ExpireMonth: '',
-    RowSize: '全部',
-    PageNum: '1'
-  }).toString();
-
+// TWSE 即時加權指數（無延遲，盤中每 5 秒更新）
+async function fetchTwseQuote() {
+  const url = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0&_=' + Date.now();
   const resp = await fetch(url, {
-    method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Referer': 'https://mis.taifex.com.tw/futures/',
-      'Origin': 'https://mis.taifex.com.tw',
+      'Referer': 'https://mis.twse.com.tw/stock/fibest.jsp?stock=t00',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       'Accept': 'application/json'
-    },
-    body
+    }
   });
-  if (!resp.ok) throw new Error(`TAIFEX ${resp.status}`);
+  if (!resp.ok) throw new Error(`TWSE ${resp.status}`);
   const json = await resp.json();
-  const rows = json?.RtData?.QuoteList || json?.RtData?.Quote || [];
-  if (!Array.isArray(rows) || rows.length === 0) throw new Error('TAIFEX empty');
+  const q = json?.msgArray?.[0];
+  if (!q) throw new Error('TWSE empty');
 
-  // 第一筆通常就是近月
-  const q = rows[0];
   const num = v => {
     const n = parseFloat(v);
     return Number.isFinite(n) ? n : null;
   };
-  const price = num(q.CLastPrice) ?? num(q.CLastTradePrice) ?? num(q.CRefPrice);
-  if (price == null) throw new Error('TAIFEX no price');
+  const price = num(q.z) ?? num(q.l) ?? num(q.y);
+  if (price == null) throw new Error('TWSE no price');
+
+  const prevClose = num(q.y) ?? price;
+  const open = num(q.o) ?? price;
+  const high = num(q.h) ?? price;
+  const low = num(q.l) ?? price;
+  const change = price - prevClose;
+  const changePct = prevClose ? (change / prevClose) * 100 : 0;
+  const tlong = parseInt(q.tlong);
+  const timestamp = Number.isFinite(tlong) ? Math.floor(tlong / 1000) : Math.floor(Date.now() / 1000);
 
   return {
-    source: 'taifex',
-    symbol: q.SymbolID || q.CommodityID || 'TXF',
-    name: q.DispCName || q.DispEName || '台指期近月',
+    source: 'twse-realtime',
+    symbol: 't00',
+    name: '加權指數（即時）',
     price,
-    open: num(q.COpenPrice) ?? price,
-    high: num(q.CHighPrice) ?? price,
-    low: num(q.CLowPrice) ?? price,
-    prevClose: num(q.CRefPrice) ?? price,
-    change: num(q.CDiff) ?? 0,
-    changePct: num(q.CDiffPct) ?? 0,
-    volume: parseInt(q.CTotalVolume) || 0,
-    timestamp: Math.floor(Date.now() / 1000),
-    rawTime: q.CTime || q.CDate || null
+    open,
+    high,
+    low,
+    prevClose,
+    change,
+    changePct,
+    volume: parseInt(q.v) || 0,
+    timestamp,
+    rawTime: q.t || null
   };
 }
 
-// 備援：Yahoo ^TWII（15 分鐘延遲的加權指數）
+// 備援：Yahoo ^TWII（15 分鐘延遲）
 async function fetchYahooQuote() {
   const resp = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/^TWII?interval=1m&range=1d', {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
@@ -90,18 +83,19 @@ async function fetchYahooQuote() {
   const closes = q.close || [];
   let lastIdx = closes.length - 1;
   while (lastIdx > 0 && closes[lastIdx] == null) lastIdx--;
-  const price = Math.round(meta.regularMarketPrice ?? closes[lastIdx] ?? 0);
+  const price = meta.regularMarketPrice ?? closes[lastIdx] ?? 0;
+  const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? price;
   return {
     source: 'yahoo-twii',
     symbol: '^TWII',
     name: '台股加權指數（Yahoo 備援，約 15 分鐘延遲）',
     price,
-    open: Math.round(meta.regularMarketOpen ?? price),
-    high: Math.round(meta.regularMarketDayHigh ?? price),
-    low: Math.round(meta.regularMarketDayLow ?? price),
-    prevClose: Math.round(meta.chartPreviousClose ?? meta.previousClose ?? price),
-    change: Math.round((meta.regularMarketPrice ?? price) - (meta.chartPreviousClose ?? price)),
-    changePct: 0,
+    open: meta.regularMarketOpen ?? price,
+    high: meta.regularMarketDayHigh ?? price,
+    low: meta.regularMarketDayLow ?? price,
+    prevClose,
+    change: price - prevClose,
+    changePct: prevClose ? ((price - prevClose) / prevClose) * 100 : 0,
     volume: meta.regularMarketVolume || 0,
     timestamp: meta.regularMarketTime || Math.floor(Date.now() / 1000),
     rawTime: null
@@ -109,45 +103,12 @@ async function fetchYahooQuote() {
 }
 
 async function fetchQuote() {
-  try { return await fetchTaifexQuote(); }
-  catch (e) { console.log('TAIFEX quote failed:', e.message); }
+  try { return await fetchTwseQuote(); }
+  catch (e) { console.log('TWSE quote failed:', e.message); }
   return await fetchYahooQuote();
 }
 
-// 1 分 K 歷史：嘗試 TAIFEX 圖表資料，失敗退 Yahoo
-async function fetchTaifexBars(symbol) {
-  const url = 'https://mis.taifex.com.tw/futures/api/getChartData1m/';
-  const body = new URLSearchParams({ symbol }).toString();
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Referer': 'https://mis.taifex.com.tw/futures/',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    },
-    body
-  });
-  if (!resp.ok) throw new Error(`TAIFEX bars ${resp.status}`);
-  const json = await resp.json();
-  const raw = json?.RtData?.Quote || json?.data || json?.RtData?.QuoteList || [];
-  if (!Array.isArray(raw) || raw.length === 0) throw new Error('TAIFEX bars empty');
-
-  const bars = [];
-  for (const r of raw) {
-    const close = parseFloat(r.Close ?? r.close ?? r.CLastPrice);
-    if (!Number.isFinite(close)) continue;
-    bars.push({
-      time: parseTime(r.DateTime || r.Time || r.time || r.CDate),
-      open: parseFloat(r.Open ?? r.open ?? close),
-      high: parseFloat(r.High ?? r.high ?? close),
-      low: parseFloat(r.Low ?? r.low ?? close),
-      close,
-      volume: parseInt(r.Volume ?? r.volume) || 0
-    });
-  }
-  return bars;
-}
-
+// 1 分 K 歷史：Yahoo ^TWII 5 日資料
 async function fetchYahooBars() {
   const resp = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/^TWII?interval=1m&range=5d', {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
@@ -163,10 +124,10 @@ async function fetchYahooBars() {
     if (q.close?.[i] == null) continue;
     bars.push({
       time: times[i],
-      open: Math.round(q.open[i]),
-      high: Math.round(q.high[i] ?? q.close[i]),
-      low: Math.round(q.low[i] ?? q.close[i]),
-      close: Math.round(q.close[i]),
+      open: q.open[i] ?? q.close[i],
+      high: q.high[i] ?? q.close[i],
+      low: q.low[i] ?? q.close[i],
+      close: q.close[i],
       volume: q.volume?.[i] || 0
     });
   }
@@ -174,35 +135,6 @@ async function fetchYahooBars() {
 }
 
 async function fetchBars() {
-  // 先取得近月代號
-  let symbol = null;
-  try {
-    const q = await fetchTaifexQuote();
-    symbol = q.symbol;
-  } catch (e) {}
-
-  if (symbol) {
-    try {
-      const bars = await fetchTaifexBars(symbol);
-      if (bars.length > 0) return { source: 'taifex', symbol, bars };
-    } catch (e) { console.log('TAIFEX bars failed:', e.message); }
-  }
-
   const bars = await fetchYahooBars();
   return { source: 'yahoo-twii', symbol: '^TWII', bars };
-}
-
-function parseTime(t) {
-  if (!t) return Math.floor(Date.now() / 1000);
-  if (typeof t === 'number') return t > 1e12 ? Math.floor(t / 1000) : t;
-  // 格式可能："20240101 13:45:00" 或 ISO 字串
-  const s = String(t).trim();
-  const m = s.match(/^(\d{4})(\d{2})(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
-  if (m) {
-    // 台北時區 UTC+8
-    const iso = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}+08:00`;
-    return Math.floor(new Date(iso).getTime() / 1000);
-  }
-  const d = new Date(s);
-  return Number.isFinite(d.getTime()) ? Math.floor(d.getTime() / 1000) : Math.floor(Date.now() / 1000);
 }
