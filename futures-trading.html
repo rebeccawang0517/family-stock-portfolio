@@ -187,12 +187,35 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
 
+        /* AI Battle */
+        .ai-battle { border-top: 1px solid var(--border); padding: 12px 16px; background: #23221f; }
+        .ai-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .ai-head .title { font-size: 13px; font-weight: 700; color: var(--gold); }
+        .ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .ai-card { background: #2c2b27; border: 1px solid var(--border); border-radius: 10px; padding: 12px; min-width: 0; }
+        .ai-card.claude { border-left: 3px solid #d97757; }
+        .ai-card.grok { border-left: 3px solid #6366f1; }
+        .ai-card .name { font-size: 13px; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .ai-card .name .badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,.05); color: var(--ink4); font-family: var(--mono); }
+        .ai-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 11px; font-family: var(--mono); }
+        .ai-kv .k { color: var(--ink4); }
+        .ai-kv .v { color: var(--paper); text-align: right; font-weight: 700; }
+        .ai-pos { margin-top: 8px; padding: 6px 8px; background: #23221f; border-radius: 6px; font-size: 10px; font-family: var(--mono); color: var(--ink4); }
+        .ai-pos.long { color: var(--green); }
+        .ai-pos.short { color: var(--red); }
+        .ai-last { margin-top: 6px; font-size: 10px; color: var(--ink3); line-height: 1.4; padding: 4px 6px; background: rgba(255,255,255,.03); border-radius: 4px; min-height: 26px; }
+        .ai-curve { height: 40px; margin-top: 6px; }
+        .ai-winner { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+        .ai-winner.lead { background: rgba(74,173,110,.15); color: var(--green); }
+        .ai-winner.trail { background: rgba(217,83,79,.15); color: var(--red); }
+
         @media (max-width: 900px) {
             .main-layout { grid-template-columns: 1fr; }
             .right-panel { border-left: none; border-top: 1px solid var(--border); max-height: 60vh; }
             .chart-wrap { min-height: 280px; }
             .ind-grid { grid-template-columns: repeat(2, 1fr); }
             .stat-grid { grid-template-columns: 1fr; }
+            .ai-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -269,6 +292,49 @@
                 <div><div class="ab-label">已用保證金</div><div class="ab-value" id="abUsed">$0</div></div>
                 <div><div class="ab-label">未實現損益</div><div class="ab-value" id="abUnrealized">$0</div></div>
                 <div><div class="ab-label">已實現損益</div><div class="ab-value" id="abRealized">$0</div></div>
+            </div>
+
+            <!-- AI 對戰 -->
+            <div class="ai-battle" id="aiBattle">
+                <div class="ai-head">
+                    <span class="title">🤖 AI 對戰 · Claude vs Grok</span>
+                    <label class="toggle-switch" style="width:40px;height:22px">
+                        <input type="checkbox" id="aiToggle" onchange="toggleAIBattle()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-status off" id="aiStatus">OFF</span>
+                    <button class="header-btn" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="resetAIBattle()">重置 AI</button>
+                </div>
+                <div class="ai-grid">
+                    <div class="ai-card claude">
+                        <div class="name">
+                            <span>🧠 Claude</span>
+                            <span class="badge" id="aiClaudeBadge">—</span>
+                        </div>
+                        <div class="ai-kv">
+                            <span class="k">權益</span><span class="v" id="aiClaudeEquity">$0</span>
+                            <span class="k">已實現</span><span class="v" id="aiClaudeRealized">$0</span>
+                            <span class="k">交易</span><span class="v" id="aiClaudeTrades">0</span>
+                            <span class="k">勝率</span><span class="v" id="aiClaudeWin">—</span>
+                        </div>
+                        <div class="ai-pos" id="aiClaudePos">無持倉</div>
+                        <div class="ai-last" id="aiClaudeLast">等待首次信號…</div>
+                    </div>
+                    <div class="ai-card grok">
+                        <div class="name">
+                            <span>⚡ Grok</span>
+                            <span class="badge" id="aiGrokBadge">—</span>
+                        </div>
+                        <div class="ai-kv">
+                            <span class="k">權益</span><span class="v" id="aiGrokEquity">$0</span>
+                            <span class="k">已實現</span><span class="v" id="aiGrokRealized">$0</span>
+                            <span class="k">交易</span><span class="v" id="aiGrokTrades">0</span>
+                            <span class="k">勝率</span><span class="v" id="aiGrokWin">—</span>
+                        </div>
+                        <div class="ai-pos" id="aiGrokPos">無持倉</div>
+                        <div class="ai-last" id="aiGrokLast">等待首次信號…</div>
+                    </div>
+                </div>
             </div>
 
             <div class="positions-section">
@@ -481,10 +547,12 @@ let markers = [];
 // ==================== INIT ====================
 async function initApp() {
     await loadAccount();
+    await loadAIBattle();
     initChart();
     await loadHistoryFromProxy();
     startSim();
     updateAllUI();
+    renderAIBattle();
 }
 
 // ==================== FIREBASE ====================
@@ -905,6 +973,265 @@ function evaluateStrategy() {
     }
 }
 
+// ==================== AI BATTLE ====================
+const AI_INITIAL_BALANCE = 1000000; // 100 萬起始
+let aiAccounts = {
+    claude: { name: 'Claude', balance: AI_INITIAL_BALANCE, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' },
+    grok:   { name: 'Grok',   balance: AI_INITIAL_BALANCE, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' }
+};
+let aiBattleEnabled = false;
+
+async function loadAIBattle() {
+    if (!window.currentUser || !window._fb) return;
+    const { db, doc, getDoc } = window._fb;
+    try {
+        const snap = await getDoc(doc(db, 'futuresAIBattle', window.currentUser.uid));
+        if (snap.exists()) {
+            const d = snap.data();
+            if (d.aiAccounts) {
+                aiAccounts = { ...aiAccounts, ...d.aiAccounts };
+                ['claude','grok'].forEach(k => { aiAccounts[k].busy = false; });
+            }
+            aiBattleEnabled = !!d.aiBattleEnabled;
+            const t = document.getElementById('aiToggle');
+            if (t) t.checked = aiBattleEnabled;
+            updateAIToggleStatus();
+        }
+    } catch (e) { console.log('loadAIBattle:', e.message); }
+}
+
+async function saveAIBattle() {
+    if (!window.currentUser || !window._fb) return;
+    const { db, doc, setDoc } = window._fb;
+    try {
+        await setDoc(doc(db, 'futuresAIBattle', window.currentUser.uid), {
+            aiAccounts: serializeAIAccounts(),
+            aiBattleEnabled,
+            updatedAt: Date.now()
+        });
+    } catch (e) { console.log('saveAIBattle:', e.message); }
+}
+
+function serializeAIAccounts() {
+    const out = {};
+    for (const k of ['claude','grok']) {
+        const a = aiAccounts[k];
+        out[k] = {
+            name: a.name, balance: a.balance, realized: a.realized,
+            position: a.position, history: a.history.slice(-100),
+            curve: a.curve.slice(-200), lastSignal: a.lastSignal, badge: a.badge
+        };
+    }
+    return out;
+}
+
+function toggleAIBattle() {
+    aiBattleEnabled = document.getElementById('aiToggle').checked;
+    updateAIToggleStatus();
+    saveAIBattle();
+    if (aiBattleEnabled) toast('AI 對戰已啟動，每根 5 分 K 觸發評估', 'success');
+    else toast('AI 對戰已關閉', 'info');
+}
+
+function updateAIToggleStatus() {
+    const el = document.getElementById('aiStatus');
+    if (!el) return;
+    el.textContent = aiBattleEnabled ? 'ON' : 'OFF';
+    el.className = 'toggle-status ' + (aiBattleEnabled ? 'on' : 'off');
+}
+
+function resetAIBattle() {
+    if (!confirm('重置兩個 AI 帳戶為起始 100 萬？')) return;
+    ['claude','grok'].forEach(k => {
+        aiAccounts[k] = { name: aiAccounts[k].name, balance: AI_INITIAL_BALANCE, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' };
+    });
+    saveAIBattle();
+    renderAIBattle();
+    toast('AI 帳戶已重置', 'success');
+}
+
+function aiContext() {
+    const lastBars = rawBars.slice(-20).map(b => ({
+        time: b.time, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume
+    }));
+    return {
+        symbol: '台指期近一',
+        price: currentPrice,
+        bars: lastBars,
+        indicators: {
+            ma5: ind.ma5, ma20: ind.ma20, ma60: ind.ma60,
+            rsi: ind.rsi, macd: ind.macd, macdHist: ind.macdHist,
+            bbUpper: ind.bbUpper, bbLower: ind.bbLower
+        },
+        balance: 0,    // filled per-AI below
+        position: null
+    };
+}
+
+async function evaluateOneAI(aiKey) {
+    const a = aiAccounts[aiKey];
+    if (a.busy) return;
+    if (currentPrice == null || ind.ma5 == null) return;
+    a.busy = true;
+    a.badge = '思考中…';
+    renderAIBattle();
+    try {
+        const ctx = aiContext();
+        ctx.balance = aiAccounts[aiKey].balance + (a.position ? aiUnrealized(a) : 0);
+        ctx.position = a.position ? {
+            side: a.position.side, lots: a.position.lots,
+            entryPrice: a.position.entryPrice, unrealizedPnl: aiUnrealized(a)
+        } : null;
+        const resp = await fetch('/api/ai-signal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ai: aiKey, context: ctx })
+        });
+        const sig = await resp.json();
+        if (sig.error) throw new Error(sig.error);
+        a.lastSignal = { ...sig, at: Date.now() };
+        a.badge = `${sig.action} · ${sig.latencyMs}ms`;
+        applyAISignal(aiKey, sig);
+    } catch (e) {
+        a.badge = '失敗';
+        a.lastSignal = { action: 'error', reason: e.message, at: Date.now() };
+        console.log(`AI ${aiKey} failed:`, e.message);
+    } finally {
+        a.busy = false;
+        renderAIBattle();
+        saveAIBattle();
+    }
+}
+
+function aiUnrealized(a) {
+    if (!a.position || currentPrice == null) return 0;
+    const diff = a.position.side === 'long'
+        ? currentPrice - a.position.entryPrice
+        : a.position.entryPrice - currentPrice;
+    return Math.round(diff * PRODUCT.pointValue * a.position.lots);
+}
+
+function applyAISignal(aiKey, sig) {
+    const a = aiAccounts[aiKey];
+    const action = sig.action;
+    if (action === 'hold' || action === 'error') return;
+
+    if (a.position) {
+        // 已有部位只能 close（hold 已在前面 return）
+        if (action === 'close' || action === 'long' || action === 'short') {
+            const pnl = aiUnrealized(a);
+            const exitReason = sig.reason || '主動平倉';
+            a.history.push({
+                id: Date.now(), side: a.position.side, lots: a.position.lots,
+                entry: a.position.entryPrice, exit: currentPrice,
+                pnl, openTime: a.position.openTime, closeTime: timeStr(),
+                openReason: a.position.openReason, closeReason: exitReason
+            });
+            a.balance += pnl;
+            a.realized += pnl;
+            a.position = null;
+        }
+        return;
+    }
+
+    if (action === 'long' || action === 'short') {
+        const lots = Math.max(1, Math.min(5, sig.lots || 1));
+        if (a.balance < PRODUCT.initialMargin * lots) return;
+        a.position = {
+            side: action, lots, entryPrice: currentPrice,
+            openTime: timeStr(), openReason: sig.reason || '',
+            stopLoss: sig.stopLoss, takeProfit: sig.takeProfit
+        };
+    }
+}
+
+function checkAISLTP() {
+    if (currentPrice == null) return;
+    let dirty = false;
+    for (const k of ['claude','grok']) {
+        const a = aiAccounts[k];
+        if (!a.position) continue;
+        const diff = a.position.side === 'long'
+            ? currentPrice - a.position.entryPrice
+            : a.position.entryPrice - currentPrice;
+        let reason = null;
+        if (a.position.stopLoss && diff <= -a.position.stopLoss) reason = `停損 ${a.position.stopLoss} 點`;
+        else if (a.position.takeProfit && diff >= a.position.takeProfit) reason = `停利 ${a.position.takeProfit} 點`;
+        if (reason) {
+            const pnl = aiUnrealized(a);
+            a.history.push({
+                id: Date.now(), side: a.position.side, lots: a.position.lots,
+                entry: a.position.entryPrice, exit: currentPrice,
+                pnl, openTime: a.position.openTime, closeTime: timeStr(),
+                openReason: a.position.openReason, closeReason: reason
+            });
+            a.balance += pnl;
+            a.realized += pnl;
+            a.position = null;
+            dirty = true;
+        }
+    }
+    if (dirty) { renderAIBattle(); saveAIBattle(); }
+}
+
+async function runAIBattle() {
+    if (!aiBattleEnabled) return;
+    if (currentPrice == null) return;
+    // 兩個 AI 平行呼叫
+    await Promise.all([evaluateOneAI('claude'), evaluateOneAI('grok')]);
+    // 記錄權益曲線
+    for (const k of ['claude','grok']) {
+        const a = aiAccounts[k];
+        const eq = a.balance + aiUnrealized(a);
+        a.curve.push({ time: Math.floor(Date.now()/1000), eq });
+        if (a.curve.length > 500) a.curve = a.curve.slice(-500);
+    }
+    saveAIBattle();
+}
+
+function renderAIBattle() {
+    for (const k of ['claude','grok']) {
+        const a = aiAccounts[k];
+        const cap = k.charAt(0).toUpperCase() + k.slice(1);
+        const eq = a.balance + aiUnrealized(a);
+        document.getElementById(`ai${cap}Equity`).textContent = '$' + fmtInt(eq);
+        document.getElementById(`ai${cap}Realized`).textContent = (a.realized >= 0 ? '+$' : '-$') + fmtInt(Math.abs(a.realized));
+        document.getElementById(`ai${cap}Realized`).className = 'v ' + (a.realized >= 0 ? 'c-up' : 'c-down');
+        document.getElementById(`ai${cap}Trades`).textContent = a.history.length;
+        const wins = a.history.filter(h => h.pnl > 0).length;
+        document.getElementById(`ai${cap}Win`).textContent = a.history.length ? Math.round(wins / a.history.length * 100) + '%' : '—';
+        document.getElementById(`ai${cap}Badge`).textContent = a.badge || '—';
+
+        const posEl = document.getElementById(`ai${cap}Pos`);
+        if (a.position) {
+            const u = aiUnrealized(a);
+            posEl.textContent = `${a.position.side === 'long' ? '🟢 多' : '🔴 空'} ${a.position.lots}口 @ ${fmtInt(a.position.entryPrice)} | 浮動 ${u >= 0 ? '+' : ''}${fmtInt(u)}`;
+            posEl.className = 'ai-pos ' + a.position.side;
+        } else {
+            posEl.textContent = '無持倉';
+            posEl.className = 'ai-pos';
+        }
+
+        const lastEl = document.getElementById(`ai${cap}Last`);
+        if (a.lastSignal) {
+            const t = a.lastSignal.at ? new Date(a.lastSignal.at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '';
+            lastEl.textContent = `[${t}] ${a.lastSignal.action || '—'} · ${a.lastSignal.reason || ''}`;
+        }
+    }
+    // 領先標記
+    const claudeEq = aiAccounts.claude.balance + aiUnrealized(aiAccounts.claude);
+    const grokEq = aiAccounts.grok.balance + aiUnrealized(aiAccounts.grok);
+    document.getElementById('aiClaudeBadge').className = 'badge';
+    document.getElementById('aiGrokBadge').className = 'badge';
+    if (claudeEq !== grokEq) {
+        const lead = claudeEq > grokEq ? 'aiClaudeBadge' : 'aiGrokBadge';
+        const trail = claudeEq > grokEq ? 'aiGrokBadge' : 'aiClaudeBadge';
+        const leadEl = document.getElementById(lead);
+        const trailEl = document.getElementById(trail);
+        leadEl.textContent = '👑 領先 ' + leadEl.textContent;
+    }
+}
+
 function openPosition(direction, reason) {
     const pos = {
         id: Date.now(), product: 'TX', direction, lots: account.settings.lots || 1,
@@ -950,6 +1277,7 @@ function simulateTick() {
     updateAccountBar();
     updateIndicatorsUI();
     updateSimTime();
+    renderAIBattle();
 }
 
 function updateSimTime() {
@@ -1011,6 +1339,12 @@ async function pollLiveQuote() {
             evaluateStrategy();
             account.equityCurve.push({ time: currentBar.time, equity: calcEquity() });
 
+            // 把封板的 1 分 K 加入 rawBars，並在 5 分週期邊界觸發 AI 對戰
+            rawBars.push({ time: currentBar.time, open: currentBar.open, high: currentBar.high, low: currentBar.low, close: currentBar.close, volume: currentBar.volume });
+            if (rawBars.length > 2000) rawBars = rawBars.slice(-2000);
+            const isFiveMinBoundary = (currentBar.time + 60) % 300 === 0;
+            if (isFiveMinBoundary && aiBattleEnabled) runAIBattle();
+
             currentBar = { time: barTime, open: price, high: price, low: price, close: price, volume: 0 };
         } else {
             currentBar.high = Math.max(currentBar.high, price);
@@ -1026,6 +1360,7 @@ async function pollLiveQuote() {
 
         // 當前 K 線形成中也評估一次策略（用即時價判斷停損停利）
         evaluateStrategy();
+        checkAISLTP();
     } catch (e) {
         console.log('Poll failed:', e.message);
     }
