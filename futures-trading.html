@@ -303,7 +303,8 @@
                         <span class="toggle-slider"></span>
                     </label>
                     <span class="toggle-status off" id="aiStatus">OFF</span>
-                    <button class="header-btn" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="resetAIBattle()">重置 AI</button>
+                    <button class="header-btn" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="manualRunAIBattle()">立即測試</button>
+                    <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="resetAIBattle()">重置 AI</button>
                 </div>
                 <div class="ai-grid">
                     <div class="ai-card claude">
@@ -1029,8 +1030,38 @@ function toggleAIBattle() {
     aiBattleEnabled = document.getElementById('aiToggle').checked;
     updateAIToggleStatus();
     saveAIBattle();
-    if (aiBattleEnabled) toast('AI 對戰已啟動，每根 5 分 K 觸發評估', 'success');
-    else toast('AI 對戰已關閉', 'info');
+    if (aiBattleEnabled) {
+        toast('AI 對戰已啟動，立即評估一次後每 5 分鐘觸發', 'success');
+        // 開啟時立刻跑一次，不用等下一根 K
+        runAIBattle();
+    } else {
+        toast('AI 對戰已關閉', 'info');
+    }
+}
+
+// 時間節流：每 5 分鐘至多跑一次 AI 對戰
+let lastAIRunAt = 0;
+const AI_INTERVAL_MS = 5 * 60 * 1000;
+function maybeRunAIBattle() {
+    if (!aiBattleEnabled) return;
+    const now = Date.now();
+    if (now - lastAIRunAt < AI_INTERVAL_MS) return;
+    lastAIRunAt = now;
+    runAIBattle();
+}
+
+// 手動立即觸發（休盤測試用）
+async function manualRunAIBattle() {
+    if (currentPrice == null) { toast('尚無報價，稍候再試', 'warn'); return; }
+    if (!aiBattleEnabled) {
+        aiBattleEnabled = true;
+        const t = document.getElementById('aiToggle');
+        if (t) t.checked = true;
+        updateAIToggleStatus();
+    }
+    lastAIRunAt = Date.now();
+    toast('手動觸發 AI 評估中…', 'info');
+    await runAIBattle();
 }
 
 function updateAIToggleStatus() {
@@ -1051,7 +1082,9 @@ function resetAIBattle() {
 }
 
 function aiContext() {
-    const lastBars = rawBars.slice(-20).map(b => ({
+    // 把 1 分 K 聚合為 5 分 K 再餵給 AI（與 prompt 敘述一致）
+    const agg = aggregateBars(rawBars, 5);
+    const lastBars = agg.slice(-20).map(b => ({
         time: b.time, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume
     }));
     return {
@@ -1071,7 +1104,7 @@ function aiContext() {
 async function evaluateOneAI(aiKey) {
     const a = aiAccounts[aiKey];
     if (a.busy) return;
-    if (currentPrice == null || ind.ma5 == null) return;
+    if (currentPrice == null) return;
     a.busy = true;
     a.badge = '思考中…';
     renderAIBattle();
@@ -1339,11 +1372,10 @@ async function pollLiveQuote() {
             evaluateStrategy();
             account.equityCurve.push({ time: currentBar.time, equity: calcEquity() });
 
-            // 把封板的 1 分 K 加入 rawBars，並在 5 分週期邊界觸發 AI 對戰
+            // 把封板的 K 加入 rawBars，並每 5 分鐘觸發一次 AI 對戰
             rawBars.push({ time: currentBar.time, open: currentBar.open, high: currentBar.high, low: currentBar.low, close: currentBar.close, volume: currentBar.volume });
             if (rawBars.length > 2000) rawBars = rawBars.slice(-2000);
-            const isFiveMinBoundary = (currentBar.time + 60) % 300 === 0;
-            if (isFiveMinBoundary && aiBattleEnabled) runAIBattle();
+            maybeRunAIBattle();
 
             currentBar = { time: barTime, open: price, high: price, low: price, close: price, volume: 0 };
         } else {
