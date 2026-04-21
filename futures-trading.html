@@ -639,14 +639,42 @@ async function loadHistoryFromProxy() {
         if (bars.length < 30) throw new Error('bars too few');
         dataSource = data.source || '';
         rawBars = bars;
+        // ^TWII bars 約 15 分鐘延遲，用即時 TXF quote 把到當下時間之間的空白補齊
+        try { await fillGapWithLiveQuote(); } catch (e) { console.log('fillGap:', e.message); }
         rebuildChartFromRaw();
         updateSourceLabel();
-        toast(`已載入 ${bars.length} 根 ${sourceName()}真實 K 線`, 'success');
+        toast(`已載入 ${rawBars.length} 根 ${sourceName()}真實 K 線`, 'success');
     } catch (e) {
         console.log('載入歷史失敗:', e.message);
         synthetic = true;
         buildChartSynthetic();
         toast('無法取得真實資料，使用模擬', 'error');
+    }
+}
+
+// 用即時 TXF 報價把「rawBars 最後一根 ~ 當前時間」之間的延遲空白填上，只補最多 30 分鐘
+async function fillGapWithLiveQuote() {
+    const resp = await fetch('/api/taifex?type=quote');
+    if (!resp.ok) return;
+    const q = await resp.json();
+    if (!q || !q.price) return;
+    const price = Math.round(q.price);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const nowMinute = Math.floor(nowSec / 60) * 60;
+    const last = rawBars[rawBars.length - 1];
+    if (!last) return;
+    const gap = nowMinute - last.time;
+    if (gap <= 60) return;
+    if (gap > 30 * 60) {
+        // 空白超過 30 分鐘（跨夜盤/休市），只在末端加一根當下時間 bar，不補中間
+        rawBars.push({ time: nowMinute, open: price, high: price, low: price, close: price, volume: 0 });
+        return;
+    }
+    // 30 分鐘內的空白，每分鐘一根平 K 把時間軸串起來
+    let prevClose = last.close;
+    for (let t = last.time + 60; t <= nowMinute; t += 60) {
+        rawBars.push({ time: t, open: prevClose, high: Math.max(prevClose, price), low: Math.min(prevClose, price), close: price, volume: 0 });
+        prevClose = price;
     }
 }
 
