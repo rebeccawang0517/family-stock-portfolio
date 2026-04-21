@@ -204,6 +204,18 @@
         .ai-pos.long { color: var(--green); }
         .ai-pos.short { color: var(--red); }
         .ai-last { margin-top: 6px; font-size: 10px; color: var(--ink3); line-height: 1.4; padding: 4px 6px; background: rgba(255,255,255,.03); border-radius: 4px; min-height: 26px; }
+        .ai-history { margin-top: 8px; max-height: 220px; overflow-y: auto; font-size: 10px; font-family: var(--mono); }
+        .ai-history .hrow { padding: 5px 6px; border-top: 1px solid rgba(255,255,255,.05); display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: start; }
+        .ai-history .hrow:first-child { border-top: none; }
+        .ai-history .side-long { color: var(--green); font-weight: 700; }
+        .ai-history .side-short { color: var(--red); font-weight: 700; }
+        .ai-history .pnl-up { color: var(--green); }
+        .ai-history .pnl-down { color: var(--red); }
+        .ai-history .reasons { color: var(--ink3); line-height: 1.45; font-family: inherit; }
+        .ai-history .reasons .r-open::before { content: '進：'; color: var(--ink4); }
+        .ai-history .reasons .r-close::before { content: '出：'; color: var(--ink4); }
+        .ai-history .reasons .r-close { display: block; margin-top: 2px; }
+        .ai-history .empty { text-align: center; padding: 12px; color: var(--ink4); font-family: inherit; }
         .ai-curve { height: 40px; margin-top: 6px; }
         .ai-winner { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
         .ai-winner.lead { background: rgba(74,173,110,.15); color: var(--green); }
@@ -320,6 +332,7 @@
                         </div>
                         <div class="ai-pos" id="aiClaudePos">無持倉</div>
                         <div class="ai-last" id="aiClaudeLast">等待首次信號…</div>
+                        <div class="ai-history" id="aiClaudeHistory"></div>
                     </div>
                     <div class="ai-card grok">
                         <div class="name">
@@ -334,6 +347,7 @@
                         </div>
                         <div class="ai-pos" id="aiGrokPos">無持倉</div>
                         <div class="ai-last" id="aiGrokLast">等待首次信號…</div>
+                        <div class="ai-history" id="aiGrokHistory"></div>
                     </div>
                 </div>
             </div>
@@ -1250,6 +1264,31 @@ function renderAIBattle() {
             const t = a.lastSignal.at ? new Date(a.lastSignal.at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '';
             lastEl.textContent = `[${t}] ${a.lastSignal.action || '—'} · ${a.lastSignal.reason || ''}`;
         }
+
+        const histEl = document.getElementById(`ai${cap}History`);
+        if (histEl) {
+            if (!a.history.length) {
+                histEl.innerHTML = '<div class="empty">暫無交易紀錄</div>';
+            } else {
+                const rows = a.history.slice().reverse().map(h => {
+                    const sideCls = h.side === 'long' ? 'side-long' : 'side-short';
+                    const sideTxt = h.side === 'long' ? '多' : '空';
+                    const pnlCls = h.pnl >= 0 ? 'pnl-up' : 'pnl-down';
+                    const pnlTxt = (h.pnl >= 0 ? '+' : '') + fmtInt(h.pnl);
+                    const openR = (h.openReason || '—').replace(/</g, '&lt;');
+                    const closeR = (h.closeReason || '—').replace(/</g, '&lt;');
+                    return `<div class="hrow">
+                        <span class="${sideCls}">${sideTxt}${h.lots}</span>
+                        <span class="reasons">
+                            <span class="r-open">${openR} @ ${fmtInt(h.entry)}</span>
+                            <span class="r-close">${closeR} @ ${fmtInt(h.exit)}</span>
+                        </span>
+                        <span class="${pnlCls}">${pnlTxt}</span>
+                    </div>`;
+                }).join('');
+                histEl.innerHTML = rows;
+            }
+        }
     }
     // 領先標記
     const claudeEq = aiAccounts.claude.balance + aiUnrealized(aiAccounts.claude);
@@ -1393,6 +1432,8 @@ async function pollLiveQuote() {
         // 當前 K 線形成中也評估一次策略（用即時價判斷停損停利）
         evaluateStrategy();
         checkAISLTP();
+        // 每次 tick 都檢查一次 AI 節流（不必等 5 分 K 關閉）
+        maybeRunAIBattle();
     } catch (e) {
         console.log('Poll failed:', e.message);
     }
