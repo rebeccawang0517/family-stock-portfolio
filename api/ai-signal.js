@@ -36,7 +36,7 @@ export default async function handler(req, res) {
 }
 
 function buildPrompt(ctx) {
-  const { symbol, price, bars = [], indicators = {}, position = null, balance = 0, session = {}, swing = {}, atr = null, distMa = {}, dailyPnl = null } = ctx;
+  const { symbol, price, bars = [], indicators = {}, position = null, balance = 0, session = {}, swing = {}, atr = null, distMa = {}, dailyPnl = null, triggerEvent = null } = ctx;
   const recent = bars.slice(-20).map(b => `${formatTime(b.time)}: O=${r(b.open)} H=${r(b.high)} L=${r(b.low)} C=${r(b.close)} V=${b.volume || 0}`).join('\n');
   const ind = Object.entries(indicators).map(([k, v]) => `${k}=${r(v)}`).join(', ');
   const pos = position
@@ -49,7 +49,11 @@ function buildPrompt(ctx) {
   const distLine = `距 MA20：${r(distMa.ma20)} 點　距 MA60：${r(distMa.ma60)} 點`;
   const pnlLine = dailyPnl != null ? `今日已實現損益：${r(dailyPnl)} 元` : '';
 
+  const trigLine = triggerEvent ? `**本次評估觸發事件**：${triggerEvent}` : '';
+
   return `你是台指期當沖交易員，極度保守紀律嚴明。停損停利由系統固定（停損 150 點、停利 300 點），你只負責決定方向。必須只輸出 JSON。
+
+${trigLine}
 
 商品：${symbol}（台指期近一，1 點 = 200 元）
 當前價格：${r(price)}

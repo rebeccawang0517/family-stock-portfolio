@@ -1106,23 +1106,72 @@ function toggleAIBattle() {
     updateAIToggleStatus();
     saveAIBattle();
     if (aiBattleEnabled) {
-        toast('AI 對戰已啟動，立即評估一次後每 15 分鐘觸發', 'success');
-        // 開啟時立刻跑一次，不用等下一根 K
-        runAIBattle();
+        toast('AI 對戰已啟動，事件驅動：MA 交叉/突破前波高低時觸發', 'success');
+        // 開啟時立刻跑一次基準評估
+        runAIBattle('開啟 AI 對戰首次評估');
     } else {
         toast('AI 對戰已關閉', 'info');
     }
 }
 
-// 時間節流：每 15 分鐘至多跑一次 AI 對戰（避免追高殺低）
+// 事件驅動觸發：偵測到關鍵事件才呼叫 AI，最小間隔 60 秒
 let lastAIRunAt = 0;
-const AI_INTERVAL_MS = 15 * 60 * 1000;
+let prevMa5Gt = null;
+let lastBrokenHigh = null;
+let lastBrokenLow = null;
+const AI_MIN_INTERVAL_MS = 60 * 1000;
+const AI_HOLD_CHECK_MS = 10 * 60 * 1000;
+
+function detectAIEvent() {
+    if (currentPrice == null) return null;
+    const events = [];
+
+    // MA5 / MA20 交叉
+    if (ind.ma5 != null && ind.ma20 != null) {
+        const cur = ind.ma5 > ind.ma20;
+        if (prevMa5Gt !== null && prevMa5Gt !== cur) {
+            events.push(cur ? 'MA5 上穿 MA20（金叉）' : 'MA5 下穿 MA20（死叉）');
+        }
+        prevMa5Gt = cur;
+    }
+
+    // 突破近 30 根 5 分 K 高/低（已封板部分）
+    const agg = aggregateBars(rawBars, 5);
+    const recent = agg.slice(-30, -1);
+    if (recent.length >= 5) {
+        const hi = Math.max(...recent.map(b => b.high));
+        const lo = Math.min(...recent.map(b => b.low));
+        if (currentPrice > hi && lastBrokenHigh !== hi) {
+            events.push(`突破近 30 根 5 分 K 高 ${Math.round(hi)}`);
+            lastBrokenHigh = hi;
+        } else if (lastBrokenHigh != null && currentPrice < lastBrokenHigh - 30) {
+            lastBrokenHigh = null;
+        }
+        if (currentPrice < lo && lastBrokenLow !== lo) {
+            events.push(`跌破近 30 根 5 分 K 低 ${Math.round(lo)}`);
+            lastBrokenLow = lo;
+        } else if (lastBrokenLow != null && currentPrice > lastBrokenLow + 30) {
+            lastBrokenLow = null;
+        }
+    }
+
+    // 持倉超過 10 分鐘未評估 → 給 AI 機會 close
+    if (account.positions && account.positions.length) {
+        if (lastAIRunAt > 0 && Date.now() - lastAIRunAt > AI_HOLD_CHECK_MS) {
+            events.push('持倉超過 10 分鐘未評估');
+        }
+    }
+
+    return events.length ? events.join(' + ') : null;
+}
+
 function maybeRunAIBattle() {
     if (!aiBattleEnabled) return;
-    const now = Date.now();
-    if (now - lastAIRunAt < AI_INTERVAL_MS) return;
-    lastAIRunAt = now;
-    runAIBattle();
+    if (Date.now() - lastAIRunAt < AI_MIN_INTERVAL_MS) return;
+    const ev = detectAIEvent();
+    if (!ev) return;
+    lastAIRunAt = Date.now();
+    runAIBattle(ev);
 }
 
 // 手動立即觸發（休盤測試用）
@@ -1136,7 +1185,7 @@ async function manualRunAIBattle() {
     }
     lastAIRunAt = Date.now();
     toast('手動觸發 AI 評估中…', 'info');
-    await runAIBattle();
+    await runAIBattle('手動立即測試');
 }
 
 function updateAIToggleStatus() {
@@ -1222,7 +1271,7 @@ function aiContext() {
     };
 }
 
-async function evaluateOneAI(aiKey) {
+async function evaluateOneAI(aiKey, triggerEvent) {
     const a = aiAccounts[aiKey];
     if (a.busy) return;
     if (currentPrice == null) return;
@@ -1236,6 +1285,7 @@ async function evaluateOneAI(aiKey) {
             side: a.position.side, lots: a.position.lots,
             entryPrice: a.position.entryPrice, unrealizedPnl: aiUnrealized(a)
         } : null;
+        if (triggerEvent) ctx.triggerEvent = triggerEvent;
         const resp = await fetch('/api/ai-signal', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1328,11 +1378,12 @@ function checkAISLTP() {
     if (dirty) { renderAIBattle(); saveAIBattle(); }
 }
 
-async function runAIBattle() {
+async function runAIBattle(triggerEvent) {
     if (!aiBattleEnabled) return;
     if (currentPrice == null) return;
+    if (triggerEvent) toast(`AI 評估觸發：${triggerEvent}`, 'info');
     // 兩個 AI 平行呼叫
-    await Promise.all([evaluateOneAI('claude'), evaluateOneAI('grok')]);
+    await Promise.all([evaluateOneAI('claude', triggerEvent), evaluateOneAI('grok', triggerEvent)]);
     // 記錄權益曲線
     for (const k of ['claude','grok']) {
         const a = aiAccounts[k];
