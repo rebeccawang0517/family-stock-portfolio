@@ -122,7 +122,9 @@
         /* Indicator dashboard */
         .ind-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
         .ind-card { background: #2c2b27; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; text-align: center; }
-        .ind-label { font-size: 9px; color: var(--ink4); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+        .ind-label { font-size: 9px; color: var(--ink4); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; display: inline-flex; align-items: center; gap: 4px; }
+        .ind-dot { display: inline-block; width: 10px; height: 2px; border-radius: 1px; vertical-align: middle; }
+        .ind-dot.dashed { background: repeating-linear-gradient(to right, rgba(200,184,154,.6) 0 3px, transparent 3px 5px); }
         .ind-val { font-size: 15px; font-weight: 700; font-family: var(--mono); color: var(--paper); }
         .ind-sub { font-size: 9px; color: var(--ink3); margin-top: 2px; }
         .ind-card-full { grid-column: 1 / -1; }
@@ -402,15 +404,15 @@
                 <div class="rp-title">📊 技術指標</div>
                 <div class="ind-grid">
                     <div class="ind-card">
-                        <div class="ind-label">MA5</div>
+                        <div class="ind-label"><span class="ind-dot" style="background:#f0c040"></span>MA5</div>
                         <div class="ind-val" id="indMA5">—</div>
                     </div>
                     <div class="ind-card">
-                        <div class="ind-label">MA20</div>
+                        <div class="ind-label"><span class="ind-dot" style="background:#6495ed"></span>MA20</div>
                         <div class="ind-val" id="indMA20">—</div>
                     </div>
                     <div class="ind-card">
-                        <div class="ind-label">MA60</div>
+                        <div class="ind-label"><span class="ind-dot" style="background:#e8675a"></span>MA60</div>
                         <div class="ind-val" id="indMA60">—</div>
                     </div>
                     <div class="ind-card">
@@ -424,7 +426,7 @@
                         <div class="ind-sub" id="indMACDSub"></div>
                     </div>
                     <div class="ind-card">
-                        <div class="ind-label">布林帶</div>
+                        <div class="ind-label"><span class="ind-dot dashed"></span>布林帶</div>
                         <div class="ind-val" id="indBB">—</div>
                         <div class="ind-sub" id="indBBSub"></div>
                     </div>
