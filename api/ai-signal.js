@@ -73,8 +73,8 @@ ${recent}
 }
 
 async function callClaude(prompt) {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error('ANTHROPIC_API_KEY missing');
+  const key = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('CLAUDE_API_KEY missing');
   const model = 'claude-sonnet-4-6';
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -99,8 +99,8 @@ async function callClaude(prompt) {
 }
 
 async function callGrok(prompt) {
-  const key = process.env.XAI_API_KEY;
-  if (!key) throw new Error('XAI_API_KEY missing');
+  const key = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+  if (!key) throw new Error('GROK_API_KEY missing');
   const model = 'grok-4-fast-reasoning';
   const resp = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
