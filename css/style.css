@@ -1,6 +1,6 @@
         /* ===== 大地色系 CSS 變數 ===== */
         :root {
-            --ink:  #383a42;
+            --ink:  #1a1916;
             --ink2: #3d3c38;
             --ink3: #6b6a64;
             --ink4: #9a9890;
@@ -15,7 +15,7 @@
         }
 
         /* ===== 全站底色 & 字色 ===== */
-        body { background: #1a1916 !important; color: var(--ink); }
+        body { background: #202429!important; color: var(--ink); }
 
         /* ===== 卡片 / 容器 ===== */
         .bg-slate-800, .bg-slate-900 {
