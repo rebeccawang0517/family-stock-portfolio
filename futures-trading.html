@@ -1494,11 +1494,26 @@ function renderAutoCard() {
     }
 }
 
+function captureIndicatorSnapshot() {
+    const bbRange = (ind.bbUpper && ind.bbLower) ? (ind.bbUpper - ind.bbLower) : null;
+    return {
+        price: currentPrice,
+        ma5: ind.ma5, ma20: ind.ma20, ma60: ind.ma60,
+        rsi: ind.rsi, macd: ind.macd, macdHist: ind.macdHist,
+        bbUpper: ind.bbUpper, bbLower: ind.bbLower,
+        distMa20: (ind.ma20 != null) ? Math.round(currentPrice - ind.ma20) : null,
+        distMa60: (ind.ma60 != null) ? Math.round(currentPrice - ind.ma60) : null,
+        bbPct: (bbRange && bbRange > 0) ? +((currentPrice - ind.bbLower) / bbRange).toFixed(3) : null,
+        ma5GtMa20: (ind.ma5 != null && ind.ma20 != null) ? ind.ma5 > ind.ma20 : null
+    };
+}
+
 function openPosition(direction, reason) {
     const pos = {
         id: Date.now(), product: 'TX', direction, lots: account.settings.lots || 1,
         entryPrice: currentPrice, entryTime: timeStr(), entryReason: reason,
-        highWatermark: currentPrice, lowWatermark: currentPrice
+        highWatermark: currentPrice, lowWatermark: currentPrice,
+        entrySnapshot: captureIndicatorSnapshot()
     };
     account.positions.push(pos);
     addChartMarker(direction === 'long' ? 'buy' : 'sell', currentPrice, false);
@@ -1516,7 +1531,9 @@ function closePosition(index, reason) {
         id: Date.now(), product: pos.product, direction: pos.direction, lots: pos.lots,
         entryPrice: pos.entryPrice, exitPrice: currentPrice, pnl,
         entryTime: pos.entryTime, exitTime: timeStr(),
-        entryReason: pos.entryReason, exitReason: reason
+        entryReason: pos.entryReason, exitReason: reason,
+        entrySnapshot: pos.entrySnapshot || null,
+        exitSnapshot: captureIndicatorSnapshot()
     });
     account.balance += pnl;
     account.realizedPnl += pnl;
