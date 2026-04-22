@@ -76,9 +76,12 @@
         .field-label { font-size: 11px; color: var(--ink4); display: block; margin-top: 10px; }
 
         /* Account Bar */
-        .account-bar { background: #2c2b27; border-top: 1px solid var(--border); padding: 8px 16px; display: flex; gap: 20px; flex-wrap: wrap; }
+        .account-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .ab-cell { background: #2c2b27; border-radius: 6px; padding: 6px 8px; }
+        .ab-cell.editable { cursor: pointer; transition: background .15s; }
+        .ab-cell.editable:hover { background: #3d3c38; }
         .ab-label { font-size: 9px; color: var(--ink3); text-transform: uppercase; letter-spacing: .03em; }
-        .ab-value { font-size: 14px; font-weight: 700; font-family: var(--mono); color: var(--paper); }
+        .ab-value { font-size: 13px; font-weight: 700; font-family: var(--mono); color: var(--paper); margin-top: 2px; }
 
         /* Positions */
         .positions-section { background: #2c2b27; border-top: 1px solid var(--border); overflow-x: auto; }
@@ -314,15 +317,6 @@
                 <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸</button>
             </div>
 
-            <div class="account-bar">
-                <div class="editable" onclick="editBalance()" title="點擊編輯餘額"><div class="ab-label">帳戶餘額 ✎</div><div class="ab-value" id="abBalance">$0</div></div>
-                <div><div class="ab-label">帳戶權益</div><div class="ab-value" id="abEquity">$0</div></div>
-                <div><div class="ab-label">可用保證金</div><div class="ab-value" id="abAvailable">$0</div></div>
-                <div><div class="ab-label">已用保證金</div><div class="ab-value" id="abUsed">$0</div></div>
-                <div><div class="ab-label">未實現損益</div><div class="ab-value" id="abUnrealized">$0</div></div>
-                <div><div class="ab-label">已實現損益</div><div class="ab-value" id="abRealized">$0</div></div>
-            </div>
-
             <!-- AI 對戰 -->
             <div class="ai-battle" id="aiBattle">
                 <div class="ai-head">
@@ -388,6 +382,19 @@
 
         <!-- RIGHT: Auto Trading Panel -->
         <div class="right-panel">
+            <!-- 帳戶資訊 -->
+            <div class="rp-section">
+                <div class="rp-title">💰 帳戶資訊</div>
+                <div class="account-grid">
+                    <div class="ab-cell editable" onclick="editBalance()" title="點擊編輯餘額"><div class="ab-label">帳戶餘額 ✎</div><div class="ab-value" id="abBalance">$0</div></div>
+                    <div class="ab-cell"><div class="ab-label">帳戶權益</div><div class="ab-value" id="abEquity">$0</div></div>
+                    <div class="ab-cell"><div class="ab-label">可用保證金</div><div class="ab-value" id="abAvailable">$0</div></div>
+                    <div class="ab-cell"><div class="ab-label">已用保證金</div><div class="ab-value" id="abUsed">$0</div></div>
+                    <div class="ab-cell"><div class="ab-label">未實現損益</div><div class="ab-value" id="abUnrealized">$0</div></div>
+                    <div class="ab-cell"><div class="ab-label">已實現損益</div><div class="ab-value" id="abRealized">$0</div></div>
+                </div>
+            </div>
+
             <!-- Toggle -->
             <div class="rp-section">
                 <div class="auto-toggle">
