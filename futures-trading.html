@@ -947,13 +947,13 @@ function evaluateStrategy() {
             }
         }
 
-        // 固定停損
-        if (diff <= -SL) {
+        // 固定停損（SL = 0 代表關閉）
+        if (SL > 0 && diff <= -SL) {
             closePosition(0, `停損觸發：虧損 ${Math.abs(diff)} 點 ≥ ${SL} 點上限`);
             return;
         }
-        // 固定停利
-        if (diff >= TP) {
+        // 固定停利（TP = 0 代表關閉）
+        if (TP > 0 && diff >= TP) {
             closePosition(0, `停利觸發：獲利 ${diff} 點 ≥ ${TP} 點目標`);
             return;
         }
@@ -1785,8 +1785,8 @@ function updateParamsUI() {
     const tpEl = document.getElementById('paramTP');
     const lotsEl = document.getElementById('paramLots');
     const trailEl = document.getElementById('paramTrail');
-    if (slEl) slEl.textContent = `-${s.stopLoss} 點`;
-    if (tpEl) tpEl.textContent = `+${s.takeProfit} 點`;
+    if (slEl) slEl.textContent = s.stopLoss > 0 ? `-${s.stopLoss} 點` : '關閉';
+    if (tpEl) tpEl.textContent = s.takeProfit > 0 ? `+${s.takeProfit} 點` : '關閉';
     if (lotsEl) lotsEl.textContent = `${s.lots || 1} 口`;
     if (trailEl) trailEl.textContent = s.trailingStop > 0 ? `${s.trailingStop} 點` : '關閉';
 }
@@ -1806,8 +1806,8 @@ function editBalance() {
 function editSetting(key) {
     const cur = account.settings[key] ?? 0;
     const meta = {
-        stopLoss:    { label: '停損點數', min: 1, hint: '虧損多少點時強制平倉' },
-        takeProfit:  { label: '停利點數', min: 1, hint: '獲利多少點時鎖利' },
+        stopLoss:    { label: '停損點數（0 = 不設停損）', min: 0, hint: '虧損多少點時強制平倉，0 代表不自動停損' },
+        takeProfit:  { label: '停利點數（0 = 不設停利）', min: 0, hint: '獲利多少點時鎖利，0 代表不自動停利' },
         trailingStop:{ label: '移動停損距離（0 = 關閉）', min: 0, hint: '價格從最有利點回撤此點數即平倉' },
         lots:        { label: '每次交易口數', min: 1, hint: '1 口大台保證金 184,000' }
     }[key];
