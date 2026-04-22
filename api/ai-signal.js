@@ -72,7 +72,7 @@ ${Object.entries(payload).map(([k,v]) => `${k}: ${v}`).join('\n')}
 async function callClaude(prompt) {
   const key = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('CLAUDE_API_KEY missing');
-  const model = 'claude-sonnet-4-6';
+  const model = 'claude-opus-4-7';
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
