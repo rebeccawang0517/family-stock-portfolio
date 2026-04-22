@@ -412,6 +412,7 @@
                     <div class="param-item editable" onclick="editSetting('takeProfit')" title="點擊編輯"><span class="param-label">停利 ✎</span><span class="param-val" id="paramTP">+150 點</span></div>
                     <div class="param-item editable" onclick="editSetting('trailingStop')" title="點擊編輯" style="grid-column:1/-1"><span class="param-label">移動停損 ✎</span><span class="param-val" id="paramTrail">關閉</span></div>
                 </div>
+                <div style="margin-top:8px;font-size:10px;color:var(--ink3);line-height:1.5">💡 停損停利設 0 僅關閉點數觸發；技術指標反轉（MA 死叉 / RSI 極端 / MACD 翻轉 / 布林突破出現 ≥ 2 項）仍會自動平倉，平倉原因會標 [停損] / [停利] / [移動停損] / [技術反轉]</div>
             </div>
 
             <!-- Indicators -->
@@ -942,13 +943,13 @@ function evaluateStrategy() {
             if (pos.direction === 'long' && pos.highWatermark > pos.entryPrice) {
                 const trailStop = pos.highWatermark - TRAIL;
                 if (currentPrice <= trailStop) {
-                    closePosition(0, `移動停損：從高點 ${pos.highWatermark} 回落 ${pos.highWatermark - currentPrice} 點（距離 ${TRAIL}）`);
+                    closePosition(0, `[移動停損] 從高點 ${pos.highWatermark} 回落 ${pos.highWatermark - currentPrice} 點（距離 ${TRAIL}）`);
                     return;
                 }
             } else if (pos.direction === 'short' && pos.lowWatermark < pos.entryPrice) {
                 const trailStop = pos.lowWatermark + TRAIL;
                 if (currentPrice >= trailStop) {
-                    closePosition(0, `移動停損：從低點 ${pos.lowWatermark} 反彈 ${currentPrice - pos.lowWatermark} 點（距離 ${TRAIL}）`);
+                    closePosition(0, `[移動停損] 從低點 ${pos.lowWatermark} 反彈 ${currentPrice - pos.lowWatermark} 點（距離 ${TRAIL}）`);
                     return;
                 }
             }
@@ -956,12 +957,12 @@ function evaluateStrategy() {
 
         // 固定停損（SL = 0 代表關閉）
         if (SL > 0 && diff <= -SL) {
-            closePosition(0, `停損觸發：虧損 ${Math.abs(diff)} 點 ≥ ${SL} 點上限`);
+            closePosition(0, `[停損] 虧損 ${Math.abs(diff)} 點 ≥ ${SL} 點上限`);
             return;
         }
         // 固定停利（TP = 0 代表關閉）
         if (TP > 0 && diff >= TP) {
-            closePosition(0, `停利觸發：獲利 ${diff} 點 ≥ ${TP} 點目標`);
+            closePosition(0, `[停利] 獲利 ${diff} 點 ≥ ${TP} 點目標`);
             return;
         }
 
@@ -981,7 +982,7 @@ function evaluateStrategy() {
                 reasons.push('價格突破布林上軌');
             }
             if (reasons.length >= 2) {
-                closePosition(0, reasons.join(' + ') + ' → 平多倉');
+                closePosition(0, `[技術反轉] ${reasons.join(' + ')} → 平多倉`);
                 return;
             }
         } else {
@@ -1000,7 +1001,7 @@ function evaluateStrategy() {
                 reasons.push('價格跌破布林下軌');
             }
             if (reasons.length >= 2) {
-                closePosition(0, reasons.join(' + ') + ' → 平空倉');
+                closePosition(0, `[技術反轉] ${reasons.join(' + ')} → 平空倉`);
                 return;
             }
         }
