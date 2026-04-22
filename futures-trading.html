@@ -1107,7 +1107,7 @@ function toggleAIBattle() {
     updateAIToggleStatus();
     saveAIBattle();
     if (aiBattleEnabled) {
-        toast('AI 對戰已啟動，事件驅動：MA 交叉/突破前波高低時觸發', 'success');
+        toast('AI 對戰已啟動，每 5 分鐘評估一次', 'success');
         // 開啟時立刻跑一次基準評估
         runAIBattle('開啟 AI 對戰首次評估');
     } else {
@@ -1115,64 +1115,16 @@ function toggleAIBattle() {
     }
 }
 
-// 事件驅動觸發：偵測到關鍵事件才呼叫 AI，最小間隔 60 秒
+// 每 5 分鐘輪詢評估一次
 let lastAIRunAt = 0;
-let prevMa5Gt = null;
-let lastBrokenHigh = null;
-let lastBrokenLow = null;
-const AI_MIN_INTERVAL_MS = 60 * 1000;
-const AI_HOLD_CHECK_MS = 10 * 60 * 1000;
-
-function detectAIEvent() {
-    if (currentPrice == null) return null;
-    const events = [];
-
-    // MA5 / MA20 交叉
-    if (ind.ma5 != null && ind.ma20 != null) {
-        const cur = ind.ma5 > ind.ma20;
-        if (prevMa5Gt !== null && prevMa5Gt !== cur) {
-            events.push(cur ? 'MA5 上穿 MA20（金叉）' : 'MA5 下穿 MA20（死叉）');
-        }
-        prevMa5Gt = cur;
-    }
-
-    // 突破近 30 根 5 分 K 高/低（已封板部分）
-    const agg = aggregateBars(rawBars, 5);
-    const recent = agg.slice(-30, -1);
-    if (recent.length >= 5) {
-        const hi = Math.max(...recent.map(b => b.high));
-        const lo = Math.min(...recent.map(b => b.low));
-        if (currentPrice > hi && lastBrokenHigh !== hi) {
-            events.push(`突破近 30 根 5 分 K 高 ${Math.round(hi)}`);
-            lastBrokenHigh = hi;
-        } else if (lastBrokenHigh != null && currentPrice < lastBrokenHigh - 30) {
-            lastBrokenHigh = null;
-        }
-        if (currentPrice < lo && lastBrokenLow !== lo) {
-            events.push(`跌破近 30 根 5 分 K 低 ${Math.round(lo)}`);
-            lastBrokenLow = lo;
-        } else if (lastBrokenLow != null && currentPrice > lastBrokenLow + 30) {
-            lastBrokenLow = null;
-        }
-    }
-
-    // 持倉超過 10 分鐘未評估 → 給 AI 機會 close
-    if (account.positions && account.positions.length) {
-        if (lastAIRunAt > 0 && Date.now() - lastAIRunAt > AI_HOLD_CHECK_MS) {
-            events.push('持倉超過 10 分鐘未評估');
-        }
-    }
-
-    return events.length ? events.join(' + ') : null;
-}
+const AI_INTERVAL_MS = 5 * 60 * 1000;
 
 function maybeRunAIBattle() {
     if (!aiBattleEnabled) return;
-    if (Date.now() - lastAIRunAt < AI_MIN_INTERVAL_MS) return;
-    const ev = detectAIEvent();
-    if (!ev) return;
+    if (currentPrice == null) return;
+    if (Date.now() - lastAIRunAt < AI_INTERVAL_MS) return;
     lastAIRunAt = Date.now();
-    runAIBattle(ev);
+    runAIBattle('5 分鐘定時評估');
 }
 
 // 手動立即觸發（休盤測試用）
@@ -1649,10 +1601,9 @@ async function pollLiveQuote() {
             evaluateStrategy();
             account.equityCurve.push({ time: currentBar.time, equity: calcEquity() });
 
-            // 把封板的 K 加入 rawBars，並每 5 分鐘觸發一次 AI 對戰
+            // 把封板的 K 加入 rawBars
             rawBars.push({ time: currentBar.time, open: currentBar.open, high: currentBar.high, low: currentBar.low, close: currentBar.close, volume: currentBar.volume });
             if (rawBars.length > 2000) rawBars = rawBars.slice(-2000);
-            maybeRunAIBattle();
 
             currentBar = { time: barTime, open: price, high: price, low: price, close: price, volume: volDelta };
         } else {
@@ -1675,7 +1626,7 @@ async function pollLiveQuote() {
         // 當前 K 線形成中也評估一次策略（用即時價判斷停損停利）
         evaluateStrategy();
         checkAISLTP();
-        // 每次 tick 都檢查一次 AI 節流（不必等 5 分 K 關閉）
+        // 每次 tick 都檢查一次：距上次評估滿 5 分鐘就再跑
         maybeRunAIBattle();
     } catch (e) {
         console.log('Poll failed:', e.message);
