@@ -550,7 +550,7 @@
 
 <script>
 // ==================== CONFIG ====================
-const PRODUCT = { name: '台指期', pointValue: 200, initialMargin: 184000, maintMargin: 141000 };
+const PRODUCT = { name: '台指期', pointValue: 200, initialMargin: 526000, maintMargin: 403000 };
 const DEFAULT_SETTINGS = { stopLoss: 100, takeProfit: 150, trailingStop: 0, lots: 1 };
 
 // ==================== STATE ====================
@@ -723,7 +723,7 @@ async function fillGapWithLiveQuote() {
 // 聚合 1 分 K 為 N 分 K
 function aggregateBars(bars, tf) {
     if (tf <= 1) return bars.slice();
-    const size = tf * 60;
+    const size = tf * 60; 淤               
     const out = [];
     let cur = null;
     for (const b of bars) {
@@ -1768,7 +1768,7 @@ function editSetting(key) {
         stopLoss:    { label: '停損點數（0 = 不設停損）', min: 0, hint: '虧損多少點時強制平倉，0 代表不自動停損' },
         takeProfit:  { label: '停利點數（0 = 不設停利）', min: 0, hint: '獲利多少點時鎖利，0 代表不自動停利' },
         trailingStop:{ label: '移動停損距離（0 = 關閉）', min: 0, hint: '價格從最有利點回撤此點數即平倉' },
-        lots:        { label: '每次交易口數', min: 1, hint: '1 口大台保證金 184,000' }
+        lots:        { label: '每次交易口數', min: 1, hint: '1 口大台原始保證金 526,000' }
     }[key];
     if (!meta) return;
     const v = prompt(`${meta.label}\n${meta.hint}\n當前：${cur}`, String(cur));
