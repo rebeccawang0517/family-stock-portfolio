@@ -564,6 +564,7 @@ let ps = {
 let currentBar = null;        // 當前週期正在形成中的 K 線
 let lastQuote = null;         // 最新即時報價快照
 let lastQuoteAt = 0;          // 最後一次成功 poll 時間
+let lastCumVolume = null;     // 上次 poll 的累積量（用來算每 tick 差量）
 let dataSource = '';          // 'taifex' 或 'yahoo-twii'
 let pollIntervalMs = 3000;    // 即時輪詢間隔
 let livePollTimer = null;
@@ -1435,11 +1436,13 @@ function renderAIBattle() {
                     const pnlTxt = (h.pnl >= 0 ? '+' : '') + fmtInt(h.pnl);
                     const openR = (h.openReason || '—').replace(/</g, '&lt;');
                     const closeR = (h.closeReason || '—').replace(/</g, '&lt;');
+                    const openT = h.openTime ? `[${h.openTime}] ` : '';
+                    const closeT = h.closeTime ? `[${h.closeTime}] ` : '';
                     return `<div class="hrow">
                         <span class="${sideCls}">${sideTxt}${h.lots}</span>
                         <span class="reasons">
-                            <span class="r-open">${openR} @ ${fmtInt(h.entry)}</span>
-                            <span class="r-close">${closeR} @ ${fmtInt(h.exit)}</span>
+                            <span class="r-open">${openT}${openR} @ ${fmtInt(h.entry)}</span>
+                            <span class="r-close">${closeT}${closeR} @ ${fmtInt(h.exit)}</span>
                         </span>
                         <span class="${pnlCls}">${pnlTxt}</span>
                     </div>`;
@@ -1516,11 +1519,13 @@ function renderAutoCard() {
                 const pnlTxt = (h.pnl >= 0 ? '+' : '') + fmtInt(h.pnl);
                 const openR = (h.entryReason || '—').replace(/</g, '&lt;');
                 const closeR = (h.exitReason || '—').replace(/</g, '&lt;');
+                const openT = h.entryTime ? `[${h.entryTime}] ` : '';
+                const closeT = h.exitTime ? `[${h.exitTime}] ` : '';
                 return `<div class="hrow">
                     <span class="${sideCls}">${sideTxt}${h.lots}</span>
                     <span class="reasons">
-                        <span class="r-open">${openR} @ ${fmtInt(h.entryPrice)}</span>
-                        <span class="r-close">${closeR} @ ${fmtInt(h.exitPrice)}</span>
+                        <span class="r-open">${openT}${openR} @ ${fmtInt(h.entryPrice)}</span>
+                        <span class="r-close">${closeT}${closeR} @ ${fmtInt(h.exitPrice)}</span>
                     </span>
                     <span class="${pnlCls}">${pnlTxt}</span>
                 </div>`;
@@ -1613,8 +1618,16 @@ async function pollLiveQuote() {
         const bucketSize = currentTf * 60;
         const barTime = Math.floor(nowSec / bucketSize) * bucketSize;
 
+        // 成交量差量：Yahoo 回傳的是當日累積量，每次 tick 相減得到本次成交量
+        const cumVol = parseInt(q.volume) || 0;
+        let volDelta = 0;
+        if (lastCumVolume != null && cumVol >= lastCumVolume) {
+            volDelta = cumVol - lastCumVolume;
+        }
+        lastCumVolume = cumVol;
+
         if (!currentBar) {
-            currentBar = { time: barTime, open: price, high: price, low: price, close: price, volume: 0 };
+            currentBar = { time: barTime, open: price, high: price, low: price, close: price, volume: volDelta };
         } else if (barTime > currentBar.time) {
             // 週期切換：將上一根 K 線封板，觸發指標計算與策略
             candleSeries.update({
@@ -1641,17 +1654,22 @@ async function pollLiveQuote() {
             if (rawBars.length > 2000) rawBars = rawBars.slice(-2000);
             maybeRunAIBattle();
 
-            currentBar = { time: barTime, open: price, high: price, low: price, close: price, volume: 0 };
+            currentBar = { time: barTime, open: price, high: price, low: price, close: price, volume: volDelta };
         } else {
             currentBar.high = Math.max(currentBar.high, price);
             currentBar.low = Math.min(currentBar.low, price);
             currentBar.close = price;
+            currentBar.volume += volDelta;
         }
 
         // 即時更新當前 K 線到圖表
         candleSeries.update({
             time: currentBar.time,
             open: currentBar.open, high: currentBar.high, low: currentBar.low, close: currentBar.close
+        });
+        volumeSeries.update({
+            time: currentBar.time, value: currentBar.volume,
+            color: currentBar.close >= currentBar.open ? 'rgba(74,173,110,.3)' : 'rgba(217,83,79,.3)'
         });
 
         // 當前 K 線形成中也評估一次策略（用即時價判斷停損停利）
