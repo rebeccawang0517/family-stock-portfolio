@@ -210,11 +210,12 @@
         .ai-battle { border-top: 1px solid var(--border); padding: 12px 16px; background: #23221f; }
         .ai-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .ai-head .title { font-size: 13px; font-weight: 700; color: var(--gold); }
-        .ai-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .ai-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .ai-card { background: #2c2b27; border: 1px solid var(--border); border-radius: 10px; padding: 12px; min-width: 0; }
         .ai-card.claude { border-left: 3px solid #d97757; }
         .ai-card.grok { border-left: 3px solid #6366f1; }
         .ai-card.auto { border-left: 3px solid #4aad6e; }
+        .ai-card.custom { border-left: 3px solid #e8b84c; }
         .ai-card .name { font-size: 13px; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         .ai-card .name .badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,.05); color: var(--ink4); font-family: var(--mono); }
         .ai-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 11px; font-family: var(--mono); }
@@ -248,6 +249,9 @@
             .ind-grid { grid-template-columns: repeat(2, 1fr); }
             .stat-grid { grid-template-columns: 1fr; }
             .ai-grid { grid-template-columns: 1fr; }
+        }
+        @media (min-width: 641px) and (max-width: 1100px) {
+            .ai-grid { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
@@ -329,8 +333,7 @@
                     </label>
                     <span class="toggle-status off" id="aiStatus">OFF</span>
                     <button class="header-btn" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="manualRunAIBattle()">立即測試</button>
-                    <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="showLearnedRules()" title="從歷史交易快照分析勝率規則">🧠 勝場學習</button>
-                    <button class="header-btn" id="learnFilterBtn" style="font-size:11px;padding:4px 10px" onclick="toggleLearnFilter()" title="關閉後自動交易不再被歷史低勝率模式擋下">🧩 記憶過濾:ON</button>
+                    <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="showLearnedRules()" title="從歷史交易快照分析勝率規則（只顯示不過濾）">🧠 勝場學習</button>
                     <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="editAIInitialBalance()" title="設定 AI 起始資金">💰 起始金額</button>
                     <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="resetAIBattle()">重置 AI</button>
                 </div>
@@ -380,6 +383,26 @@
                         <div class="ai-last" id="aiAutoLast">開關在右側 · 技術指標策略</div>
                         <div class="ai-history" id="aiAutoHistory"></div>
                     </div>
+                    <div class="ai-card custom">
+                        <div class="name">
+                            <span>🎯 自訂策略</span>
+                            <label class="toggle-switch" style="width:32px;height:18px;margin-left:auto">
+                                <input type="checkbox" id="customToggle" onchange="toggleCustomStrategy()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <button class="header-btn" style="font-size:10px;padding:2px 8px" onclick="openCustomStrategyModal()">⚙️ 設定</button>
+                            <span class="badge" id="customBadge">OFF</span>
+                        </div>
+                        <div class="ai-kv">
+                            <span class="k">權益</span><span class="v" id="customEquity">$0</span>
+                            <span class="k">已實現</span><span class="v" id="customRealized">$0</span>
+                            <span class="k">交易</span><span class="v" id="customTrades">0</span>
+                            <span class="k">勝率</span><span class="v" id="customWin">—</span>
+                        </div>
+                        <div class="ai-pos" id="customPos">無持倉</div>
+                        <div class="ai-last" id="customLast">請先 ⚙️ 設定策略後開啟</div>
+                        <div class="ai-history" id="customHistory"></div>
+                    </div>
                 </div>
             </div>
 
@@ -415,9 +438,10 @@
                     <div class="param-item editable" onclick="editSetting('lots')" title="點擊編輯"><span class="param-label">每次口數 ✎</span><span class="param-val" id="paramLots">1 口</span></div>
                     <div class="param-item editable" onclick="editSetting('stopLoss')" title="點擊編輯"><span class="param-label">停損 ✎</span><span class="param-val" id="paramSL">-100 點</span></div>
                     <div class="param-item editable" onclick="editSetting('takeProfit')" title="點擊編輯"><span class="param-label">停利 ✎</span><span class="param-val" id="paramTP">+150 點</span></div>
-                    <div class="param-item editable" onclick="editSetting('trailingStop')" title="點擊編輯" style="grid-column:1/-1"><span class="param-label">移動停損 ✎</span><span class="param-val" id="paramTrail">關閉</span></div>
+                    <div class="param-item editable" onclick="editSetting('trailingStop')" title="點擊編輯"><span class="param-label">移動停損 ✎</span><span class="param-val" id="paramTrail">關閉</span></div>
+                    <div class="param-item editable" onclick="editSetting('minSignals')" title="點擊編輯"><span class="param-label">進場訊號數 ✎</span><span class="param-val" id="paramMinSig">≥ 2</span></div>
                 </div>
-                <div style="margin-top:8px;font-size:10px;color:var(--ink3);line-height:1.5">💡 停損停利設 0 僅關閉點數觸發；技術指標反轉（MA 死叉 / RSI 極端 / MACD 翻轉 / 布林突破出現 ≥ 2 項）仍會自動平倉，平倉原因會標 [停損] / [停利] / [移動停損] / [技術反轉]</div>
+                <div style="margin-top:8px;font-size:10px;color:var(--ink3);line-height:1.5">💡 進場訊號數越低越容易進場（1=任一訊號即進場、2=需兩種訊號同時出現）；歷史勝率過濾已關閉，所有符合訊號都會進場累積樣本</div>
             </div>
 
             <!-- Indicators -->
@@ -566,7 +590,7 @@
 <script>
 // ==================== CONFIG ====================
 const PRODUCT = { name: '台指期', pointValue: 200, initialMargin: 526000, maintMargin: 403000 };
-const DEFAULT_SETTINGS = { stopLoss: 100, takeProfit: 150, trailingStop: 0, lots: 0 };
+const DEFAULT_SETTINGS = { stopLoss: 100, takeProfit: 150, trailingStop: 0, lots: 0, minSignals: 2 };
 
 // ==================== STATE ====================
 let account = { balance: 0, realizedPnl: 0, positions: [], history: [], equityCurve: [], settings: { ...DEFAULT_SETTINGS } };
@@ -608,14 +632,14 @@ let markers = [];
 async function initApp() {
     await loadAccount();
     await loadAIBattle();
+    await loadCustomStrategy();
     initChart();
     await loadHistoryFromProxy();
     startSim();
     updateAllUI();
     renderAIBattle();
     learnedRules = analyzeTradeHistory();
-    const lfb = document.getElementById('learnFilterBtn');
-    if (lfb) lfb.textContent = `🧩 記憶過濾:${learnFilterEnabled ? 'ON' : 'OFF'}`;
+    renderCustomCard();
 }
 
 // ==================== FIREBASE ====================
@@ -1086,17 +1110,310 @@ function evaluateStrategy() {
         shortReasons.push('價格在 MA60 之下(空頭趨勢)');
     }
 
-    // Need at least 2 signals to enter — but先檢查歷史學習的「低勝率模式」
-    if (longReasons.length >= 2 && longReasons.length > shortReasons.length) {
-        if (matchesAvoidPattern('long')) { logSkipThrottled('long', longReasons.length); return; }
+    // 進場條件數由使用者自訂（0 = 關閉自動進場，僅手動；預設 2）
+    const minN = Math.max(1, parseInt(account.settings.minSignals) || 2);
+    if (longReasons.length >= minN && longReasons.length > shortReasons.length) {
         const reason = longReasons.join(' + ') + ' → 做多';
         openPosition('long', reason);
-    } else if (shortReasons.length >= 2 && shortReasons.length > longReasons.length) {
-        if (matchesAvoidPattern('short')) { logSkipThrottled('short', shortReasons.length); return; }
+    } else if (shortReasons.length >= minN && shortReasons.length > longReasons.length) {
         const reason = shortReasons.join(' + ') + ' → 做空';
         openPosition('short', reason);
     }
 }
+
+// ==================== CUSTOM STRATEGY ====================
+// 10 個可勾選的條件定義
+const CUSTOM_CONDITIONS = [
+    { id: 'ma5UpMa20',    label: 'MA5 上穿 MA20（黃金交叉）',   test: () => ind.prevMa5 != null && ind.prevMa20 != null && ind.prevMa5 <= ind.prevMa20 && ind.ma5 > ind.ma20 },
+    { id: 'ma5DownMa20',  label: 'MA5 下穿 MA20（死亡交叉）',   test: () => ind.prevMa5 != null && ind.prevMa20 != null && ind.prevMa5 >= ind.prevMa20 && ind.ma5 < ind.ma20 },
+    { id: 'standMa20',    label: '站穩 MA20（價格 > MA20）',    test: () => ind.ma20 != null && currentPrice > ind.ma20 },
+    { id: 'breakMa20',    label: '跌破 MA20（價格 < MA20）',    test: () => ind.ma20 != null && currentPrice < ind.ma20 },
+    { id: 'rsiOversold',  label: 'RSI < 35（超賣）',              test: () => ind.rsi != null && ind.rsi < 35 },
+    { id: 'rsiOverbought',label: 'RSI > 65（超買）',              test: () => ind.rsi != null && ind.rsi > 65 },
+    { id: 'macdUp',       label: 'MACD 柱由負轉正',              test: () => ind.macdHist != null && ind.prevMacdHist != null && ind.prevMacdHist < 0 && ind.macdHist > 0 },
+    { id: 'macdDown',     label: 'MACD 柱由正轉負',              test: () => ind.macdHist != null && ind.prevMacdHist != null && ind.prevMacdHist > 0 && ind.macdHist < 0 },
+    { id: 'hitBbLower',   label: '觸及布林下軌',                  test: () => ind.bbLower != null && currentPrice <= ind.bbLower * 1.002 },
+    { id: 'hitBbUpper',   label: '觸及布林上軌',                  test: () => ind.bbUpper != null && currentPrice >= ind.bbUpper * 0.998 }
+];
+
+function defaultCustomConfig() {
+    return {
+        longEntry:  { conditions: ['ma5UpMa20', 'standMa20'],   mode: 'all' },
+        shortEntry: { conditions: ['ma5DownMa20', 'breakMa20'], mode: 'all' },
+        longExit:   { conditions: ['hitBbUpper', 'macdDown'],   mode: 'any' },
+        shortExit:  { conditions: ['hitBbLower', 'macdUp'],     mode: 'any' },
+        stopLoss: 100, takeProfit: 150,
+        freeText: '',
+        lots: 0 // 0 = 依保證金自動
+    };
+}
+
+let customStrategy = {
+    balance: 1000000, realized: 0, position: null, history: [],
+    enabled: false, lastSignal: null, badge: 'OFF',
+    config: defaultCustomConfig()
+};
+
+function evalConditionSet(setCfg) {
+    if (!setCfg || !setCfg.conditions || !setCfg.conditions.length) return false;
+    const results = setCfg.conditions.map(id => {
+        const c = CUSTOM_CONDITIONS.find(x => x.id === id);
+        return c ? !!c.test() : false;
+    });
+    return setCfg.mode === 'all' ? results.every(Boolean) : results.some(Boolean);
+}
+
+function customUnrealized() {
+    if (!customStrategy.position || currentPrice == null) return 0;
+    const p = customStrategy.position;
+    const diff = p.side === 'long' ? currentPrice - p.entryPrice : p.entryPrice - currentPrice;
+    return Math.round(diff * PRODUCT.pointValue * p.lots);
+}
+
+function evaluateCustomStrategy() {
+    if (!customStrategy.enabled || currentPrice == null) return;
+    if (ind.ma5 === null || ind.ma20 === null || ind.rsi === null) return;
+    if (!isValidTxfSource()) return;
+    const cfg = customStrategy.config;
+    const pos = customStrategy.position;
+
+    // --- 出場邏輯 ---
+    if (pos) {
+        const diff = pos.side === 'long' ? currentPrice - pos.entryPrice : pos.entryPrice - currentPrice;
+        if (cfg.stopLoss > 0 && diff <= -cfg.stopLoss) return closeCustomPosition(`[停損] ${Math.abs(diff)} 點 ≥ ${cfg.stopLoss}`);
+        if (cfg.takeProfit > 0 && diff >= cfg.takeProfit) return closeCustomPosition(`[停利] ${diff} 點 ≥ ${cfg.takeProfit}`);
+        const exitCfg = pos.side === 'long' ? cfg.longExit : cfg.shortExit;
+        if (evalConditionSet(exitCfg)) {
+            const hit = exitCfg.conditions.filter(id => { const c = CUSTOM_CONDITIONS.find(x => x.id === id); return c && c.test(); });
+            const labels = hit.map(id => CUSTOM_CONDITIONS.find(x => x.id === id).label).join(' + ');
+            return closeCustomPosition(`[自訂出場] ${labels}`);
+        }
+        return;
+    }
+
+    // --- 進場邏輯 ---
+    const maxLots = Math.floor(customStrategy.balance / PRODUCT.initialMargin);
+    if (maxLots < 1) return;
+    const lotCfg = parseInt(cfg.lots) || 0;
+    const lots = lotCfg > 0 ? Math.min(lotCfg, maxLots) : Math.min(20, maxLots);
+
+    if (evalConditionSet(cfg.longEntry)) {
+        const hit = cfg.longEntry.conditions.filter(id => CUSTOM_CONDITIONS.find(x => x.id === id)?.test());
+        const reason = hit.map(id => CUSTOM_CONDITIONS.find(x => x.id === id).label).join(' + ');
+        openCustomPosition('long', lots, reason);
+    } else if (evalConditionSet(cfg.shortEntry)) {
+        const hit = cfg.shortEntry.conditions.filter(id => CUSTOM_CONDITIONS.find(x => x.id === id)?.test());
+        const reason = hit.map(id => CUSTOM_CONDITIONS.find(x => x.id === id).label).join(' + ');
+        openCustomPosition('short', lots, reason);
+    }
+}
+
+function openCustomPosition(side, lots, reason) {
+    customStrategy.position = {
+        side, lots, entryPrice: currentPrice,
+        openTime: timeStr(), openReason: reason,
+        entrySnapshot: captureIndicatorSnapshot()
+    };
+    customStrategy.lastSignal = { action: side, reason, at: Date.now() };
+    customStrategy.badge = `${side === 'long' ? '多' : '空'} ${lots}`;
+    renderCustomCard();
+    saveCustomStrategy();
+}
+
+function closeCustomPosition(reason) {
+    const p = customStrategy.position;
+    if (!p) return;
+    const pnl = customUnrealized();
+    customStrategy.history.push({
+        id: Date.now(), side: p.side, lots: p.lots,
+        entry: p.entryPrice, exit: currentPrice, pnl,
+        openTime: p.openTime, closeTime: timeStr(),
+        openReason: p.openReason, closeReason: reason,
+        entrySnapshot: p.entrySnapshot || null,
+        exitSnapshot: captureIndicatorSnapshot()
+    });
+    customStrategy.balance += pnl;
+    customStrategy.realized += pnl;
+    customStrategy.position = null;
+    customStrategy.lastSignal = { action: 'close', reason, at: Date.now() };
+    customStrategy.badge = pnl >= 0 ? `勝 +${fmtInt(pnl)}` : `負 ${fmtInt(pnl)}`;
+    renderCustomCard();
+    saveCustomStrategy();
+}
+
+function toggleCustomStrategy() {
+    const t = document.getElementById('customToggle');
+    customStrategy.enabled = t ? t.checked : false;
+    customStrategy.badge = customStrategy.enabled ? 'ON' : 'OFF';
+    toast(`自訂策略已${customStrategy.enabled ? '啟動' : '關閉'}`, customStrategy.enabled ? 'success' : 'info');
+    renderCustomCard();
+    saveCustomStrategy();
+}
+
+function renderCustomCard() {
+    const eq = customStrategy.balance + customUnrealized();
+    const set = (id, txt, cls) => { const el = document.getElementById(id); if (!el) return; el.textContent = txt; if (cls) el.className = cls; };
+    set('customEquity', '$' + fmtInt(eq));
+    set('customRealized', (customStrategy.realized >= 0 ? '+$' : '-$') + fmtInt(Math.abs(customStrategy.realized)), 'v ' + (customStrategy.realized >= 0 ? 'c-up' : 'c-down'));
+    set('customTrades', String(customStrategy.history.length));
+    const wins = customStrategy.history.filter(h => h.pnl > 0).length;
+    set('customWin', customStrategy.history.length ? Math.round(wins / customStrategy.history.length * 100) + '%' : '—');
+    set('customBadge', customStrategy.badge || '—');
+
+    const posEl = document.getElementById('customPos');
+    if (customStrategy.position) {
+        const u = customUnrealized();
+        posEl.textContent = `${customStrategy.position.side === 'long' ? '🟢 多' : '🔴 空'} ${customStrategy.position.lots}口 @ ${fmtInt(customStrategy.position.entryPrice)} | 浮動 ${u >= 0 ? '+' : ''}${fmtInt(u)}`;
+        posEl.className = 'ai-pos ' + customStrategy.position.side;
+    } else {
+        posEl.textContent = customStrategy.enabled ? '無持倉，等待訊號…' : '請先 ⚙️ 設定策略後開啟';
+        posEl.className = 'ai-pos';
+    }
+
+    const lastEl = document.getElementById('customLast');
+    if (customStrategy.lastSignal) {
+        const t = new Date(customStrategy.lastSignal.at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+        lastEl.textContent = `[${t}] ${customStrategy.lastSignal.action} · ${customStrategy.lastSignal.reason || ''}`;
+    }
+
+    const histEl = document.getElementById('customHistory');
+    if (histEl) {
+        if (!customStrategy.history.length) {
+            histEl.innerHTML = '<div class="empty">暫無交易紀錄</div>';
+        } else {
+            histEl.innerHTML = customStrategy.history.slice().reverse().slice(0, 50).map(h => {
+                const sideCls = h.side === 'long' ? 'side-long' : 'side-short';
+                const sideTxt = h.side === 'long' ? '多' : '空';
+                const pnlCls = h.pnl >= 0 ? 'pnl-up' : 'pnl-down';
+                const pnlTxt = (h.pnl >= 0 ? '+' : '') + fmtInt(h.pnl);
+                const openR = (h.openReason || '—').replace(/</g, '&lt;');
+                const closeR = (h.closeReason || '—').replace(/</g, '&lt;');
+                return `<div class="hrow">
+                    <span class="${sideCls}">${sideTxt}${h.lots}</span>
+                    <span class="reasons">
+                        <span class="r-open">[${h.openTime||''}] ${openR} @ ${fmtInt(h.entry)}</span>
+                        <span class="r-close">[${h.closeTime||''}] ${closeR} @ ${fmtInt(h.exit)}</span>
+                    </span>
+                    <span class="${pnlCls}">${pnlTxt}</span>
+                </div>`;
+            }).join('');
+        }
+    }
+
+    const t = document.getElementById('customToggle');
+    if (t) t.checked = customStrategy.enabled;
+}
+
+function openCustomStrategyModal() {
+    const cfg = customStrategy.config;
+    const condCheckboxes = (groupName, selected) => CUSTOM_CONDITIONS.map(c => {
+        const checked = (selected || []).includes(c.id) ? 'checked' : '';
+        return `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;font-size:12px;cursor:pointer">
+            <input type="checkbox" name="${groupName}" value="${c.id}" ${checked}> ${c.label}
+        </label>`;
+    }).join('');
+    const modeRadios = (groupName, mode) => `
+        <label style="font-size:11px;margin-right:10px"><input type="radio" name="${groupName}-mode" value="all" ${mode === 'all' ? 'checked' : ''}> 全部滿足</label>
+        <label style="font-size:11px"><input type="radio" name="${groupName}-mode" value="any" ${mode === 'any' ? 'checked' : ''}> 任一滿足</label>
+    `;
+    const section = (title, groupName, setCfg) => `
+        <div style="margin-bottom:14px">
+            <div style="font-weight:600;margin-bottom:4px;font-size:13px">${title}</div>
+            <div>${modeRadios(groupName, setCfg.mode)}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:4px;background:#1f1e1b;border-radius:6px;padding:4px">
+                ${condCheckboxes(groupName, setCfg.conditions)}
+            </div>
+        </div>`;
+    const html = `
+        <div style="max-height:65vh;overflow:auto;padding-right:4px">
+            ${section('📈 做多進場條件', 'longEntry', cfg.longEntry)}
+            ${section('📉 做空進場條件', 'shortEntry', cfg.shortEntry)}
+            ${section('🔼 多單出場條件', 'longExit', cfg.longExit)}
+            ${section('🔽 空單出場條件', 'shortExit', cfg.shortExit)}
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+                <label style="font-size:12px">停損點數<input type="number" id="csSL" value="${cfg.stopLoss}" min="0" style="width:100%;padding:4px"></label>
+                <label style="font-size:12px">停利點數<input type="number" id="csTP" value="${cfg.takeProfit}" min="0" style="width:100%;padding:4px"></label>
+                <label style="font-size:12px">口數（0=自動）<input type="number" id="csLots" value="${cfg.lots}" min="0" style="width:100%;padding:4px"></label>
+            </div>
+            <div style="margin-bottom:12px">
+                <div style="font-weight:600;margin-bottom:4px;font-size:13px">📝 自由策略描述（中文，僅供記錄、暫不參與執行）</div>
+                <textarea id="csFreeText" rows="3" style="width:100%;padding:6px;font-size:12px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:6px">${(cfg.freeText || '').replace(/</g, '&lt;')}</textarea>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+                <button class="header-btn" onclick="resetCustomStrategy()" style="background:#c77">🔄 清空交易紀錄</button>
+                <button class="header-btn" onclick="saveCustomStrategyModal()" style="background:var(--accent)">💾 儲存設定</button>
+            </div>
+        </div>
+    `;
+    showModal('🎯 自訂策略設定', html);
+}
+
+function saveCustomStrategyModal() {
+    const readSet = groupName => {
+        const conds = Array.from(document.querySelectorAll(`input[name="${groupName}"]:checked`)).map(i => i.value);
+        const mode = document.querySelector(`input[name="${groupName}-mode"]:checked`)?.value || 'any';
+        return { conditions: conds, mode };
+    };
+    customStrategy.config = {
+        longEntry: readSet('longEntry'),
+        shortEntry: readSet('shortEntry'),
+        longExit: readSet('longExit'),
+        shortExit: readSet('shortExit'),
+        stopLoss: Math.max(0, parseInt(document.getElementById('csSL').value) || 0),
+        takeProfit: Math.max(0, parseInt(document.getElementById('csTP').value) || 0),
+        lots: Math.max(0, parseInt(document.getElementById('csLots').value) || 0),
+        freeText: document.getElementById('csFreeText').value.slice(0, 500)
+    };
+    saveCustomStrategy();
+    hideInfoModal();
+    toast('自訂策略已儲存', 'success');
+}
+
+function resetCustomStrategy() {
+    if (!confirm('清空自訂策略的餘額、交易紀錄與持倉？（設定保留）')) return;
+    customStrategy.balance = 1000000;
+    customStrategy.realized = 0;
+    customStrategy.position = null;
+    customStrategy.history = [];
+    customStrategy.lastSignal = null;
+    customStrategy.badge = customStrategy.enabled ? 'ON' : 'OFF';
+    saveCustomStrategy();
+    renderCustomCard();
+    toast('自訂策略已重置', 'success');
+}
+
+async function loadCustomStrategy() {
+    if (!window.currentUser || !window._fb) return;
+    const { db, doc, getDoc } = window._fb;
+    try {
+        const snap = await getDoc(doc(db, 'futuresCustomStrategy', window.currentUser.uid));
+        if (snap.exists()) {
+            const d = snap.data();
+            customStrategy = { ...customStrategy, ...d, config: { ...defaultCustomConfig(), ...(d.config || {}) } };
+            const t = document.getElementById('customToggle');
+            if (t) t.checked = !!customStrategy.enabled;
+        }
+    } catch (e) { console.log('loadCustomStrategy:', e.message); }
+}
+
+async function saveCustomStrategy() {
+    if (!window.currentUser || !window._fb) return;
+    const { db, doc, setDoc } = window._fb;
+    try {
+        await setDoc(doc(db, 'futuresCustomStrategy', window.currentUser.uid), {
+            balance: customStrategy.balance, realized: customStrategy.realized,
+            position: customStrategy.position, history: customStrategy.history.slice(-1000),
+            enabled: customStrategy.enabled, badge: customStrategy.badge,
+            lastSignal: customStrategy.lastSignal, config: customStrategy.config,
+            updatedAt: Date.now()
+        });
+    } catch (e) { console.log('saveCustomStrategy:', e.message); }
+}
+
+window.toggleCustomStrategy = toggleCustomStrategy;
+window.openCustomStrategyModal = openCustomStrategyModal;
+window.saveCustomStrategyModal = saveCustomStrategyModal;
+window.resetCustomStrategy = resetCustomStrategy;
 
 // ==================== AI BATTLE ====================
 let aiInitialBalance = 1000000; // 預設 100 萬，可由使用者調整、存 Firebase
@@ -1739,33 +2056,6 @@ function formatRecentTrades(historyArr, n = 10) {
     }).join('\n');
 }
 
-// 是否啟用「記憶過濾」：關閉後自動策略與 AI 不再回避歷史低勝率模式
-let learnFilterEnabled = (typeof localStorage !== 'undefined' && localStorage.getItem('learnFilterEnabled') === '0') ? false : true;
-
-function toggleLearnFilter() {
-    learnFilterEnabled = !learnFilterEnabled;
-    try { localStorage.setItem('learnFilterEnabled', learnFilterEnabled ? '1' : '0'); } catch {}
-    const btn = document.getElementById('learnFilterBtn');
-    if (btn) btn.textContent = `🧩 記憶過濾:${learnFilterEnabled ? 'ON' : 'OFF'}`;
-    toast(`記憶過濾已${learnFilterEnabled ? '啟用（自動交易會回避低勝率模式）' : '關閉（自動交易不受歷史限制）'}`, 'info');
-}
-
-function matchesAvoidPattern(direction) {
-    if (!learnFilterEnabled) return false;
-    if (!learnedRules || !learnedRules.avoidPatterns || !learnedRules.avoidPatterns.length) return false;
-    const snap = captureIndicatorSnapshot();
-    const k = patternKey(direction, snap);
-    return learnedRules.avoidPatterns.some(p => p.key === k);
-}
-
-const _lastSkipLog = { long: 0, short: 0 };
-function logSkipThrottled(direction, signalCount) {
-    const now = Date.now();
-    if (now - _lastSkipLog[direction] < 60000) return; // 同方向 60 秒內只記一次
-    _lastSkipLog[direction] = now;
-    addLogEntry('skip', `跳過${direction === 'long' ? '做多' : '做空'}：歷史低勝率模式 (${signalCount}個訊號)`, currentPrice);
-}
-
 function showLearnedRules() {
     learnedRules = analyzeTradeHistory();
     const html = `
@@ -1789,6 +2079,7 @@ function simulateTick() {
     updateIndicatorsUI();
     updateSimTime();
     renderAIBattle();
+    renderCustomCard();
     renderManualPanel();
 }
 
@@ -1883,6 +2174,7 @@ async function pollLiveQuote() {
 
         // 當前 K 線形成中也評估一次策略（用即時價判斷停損停利）
         evaluateStrategy();
+        evaluateCustomStrategy();
         checkAISLTP();
         // 每次 tick 都檢查一次：距上次評估滿 5 分鐘就再跑
         maybeRunAIBattle();
@@ -2002,6 +2294,8 @@ function updateParamsUI() {
         lotsEl.textContent = (!cfg || cfg <= 0) ? `自動 (${computeAutoLots()} 口)` : `${cfg} 口`;
     }
     if (trailEl) trailEl.textContent = s.trailingStop > 0 ? `${s.trailingStop} 點` : '關閉';
+    const msEl = document.getElementById('paramMinSig');
+    if (msEl) msEl.textContent = `≥ ${s.minSignals || 2}`;
 }
 
 function editBalance() {
@@ -2022,7 +2316,8 @@ function editSetting(key) {
         stopLoss:    { label: '停損點數（0 = 不設停損）', min: 0, hint: '虧損多少點時強制平倉，0 代表不自動停損' },
         takeProfit:  { label: '停利點數（0 = 不設停利）', min: 0, hint: '獲利多少點時鎖利，0 代表不自動停利' },
         trailingStop:{ label: '移動停損距離（0 = 關閉）', min: 0, hint: '價格從最有利點回撤此點數即平倉' },
-        lots:        { label: '每次交易口數（0 = 依保證金自動決定）', min: 0, hint: '0 = 系統自動算最大可開口數（上限 20 口）；1 口大台原始保證金 526,000' }
+        lots:        { label: '每次交易口數（0 = 依保證金自動決定）', min: 0, hint: '0 = 系統自動算最大可開口數（上限 20 口）；1 口大台原始保證金 526,000' },
+        minSignals:  { label: '進場所需訊號數（1~5）', min: 1, hint: '多空訊號中至少幾種同時出現才進場。設 1 進場最積極（快速累積回測樣本），設 2~3 較穩健' }
     }[key];
     if (!meta) return;
     const v = prompt(`${meta.label}\n${meta.hint}\n當前：${cur}`, String(cur));
