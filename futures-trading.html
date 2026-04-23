@@ -330,6 +330,7 @@
                     <span class="toggle-status off" id="aiStatus">OFF</span>
                     <button class="header-btn" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="manualRunAIBattle()">立即測試</button>
                     <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="showLearnedRules()" title="從歷史交易快照分析勝率規則">🧠 勝場學習</button>
+                    <button class="header-btn" id="learnFilterBtn" style="font-size:11px;padding:4px 10px" onclick="toggleLearnFilter()" title="關閉後自動交易不再被歷史低勝率模式擋下">🧩 記憶過濾:ON</button>
                     <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="editAIInitialBalance()" title="設定 AI 起始資金">💰 起始金額</button>
                     <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="resetAIBattle()">重置 AI</button>
                 </div>
@@ -613,6 +614,8 @@ async function initApp() {
     updateAllUI();
     renderAIBattle();
     learnedRules = analyzeTradeHistory();
+    const lfb = document.getElementById('learnFilterBtn');
+    if (lfb) lfb.textContent = `🧩 記憶過濾:${learnFilterEnabled ? 'ON' : 'OFF'}`;
 }
 
 // ==================== FIREBASE ====================
@@ -1736,7 +1739,19 @@ function formatRecentTrades(historyArr, n = 10) {
     }).join('\n');
 }
 
+// 是否啟用「記憶過濾」：關閉後自動策略與 AI 不再回避歷史低勝率模式
+let learnFilterEnabled = (typeof localStorage !== 'undefined' && localStorage.getItem('learnFilterEnabled') === '0') ? false : true;
+
+function toggleLearnFilter() {
+    learnFilterEnabled = !learnFilterEnabled;
+    try { localStorage.setItem('learnFilterEnabled', learnFilterEnabled ? '1' : '0'); } catch {}
+    const btn = document.getElementById('learnFilterBtn');
+    if (btn) btn.textContent = `🧩 記憶過濾:${learnFilterEnabled ? 'ON' : 'OFF'}`;
+    toast(`記憶過濾已${learnFilterEnabled ? '啟用（自動交易會回避低勝率模式）' : '關閉（自動交易不受歷史限制）'}`, 'info');
+}
+
 function matchesAvoidPattern(direction) {
+    if (!learnFilterEnabled) return false;
     if (!learnedRules || !learnedRules.avoidPatterns || !learnedRules.avoidPatterns.length) return false;
     const snap = captureIndicatorSnapshot();
     const k = patternKey(direction, snap);
