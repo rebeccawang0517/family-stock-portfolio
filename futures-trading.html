@@ -328,6 +328,7 @@
                     </label>
                     <span class="toggle-status off" id="aiStatus">OFF</span>
                     <button class="header-btn" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="manualRunAIBattle()">立即測試</button>
+                    <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="showLearnedRules()" title="從歷史交易快照分析勝率規則">🧠 勝場學習</button>
                     <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="resetAIBattle()">重置 AI</button>
                 </div>
                 <div class="ai-grid">
@@ -518,6 +519,16 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="infoModal" style="display:none">
+    <div class="modal-box" style="max-width:560px">
+        <div class="modal-title" id="infoModalTitle">—</div>
+        <div id="infoModalBody"></div>
+        <div class="modal-actions" style="margin-top:16px">
+            <button class="modal-btn cancel" onclick="hideInfoModal()">關閉</button>
+        </div>
+    </div>
+</div>
+
 <!-- Firebase -->
 <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -599,6 +610,7 @@ async function initApp() {
     startSim();
     updateAllUI();
     renderAIBattle();
+    learnedRules = analyzeTradeHistory();
 }
 
 // ==================== FIREBASE ====================
@@ -1069,11 +1081,13 @@ function evaluateStrategy() {
         shortReasons.push('價格在 MA60 之下(空頭趨勢)');
     }
 
-    // Need at least 2 signals to enter
+    // Need at least 2 signals to enter — but先檢查歷史學習的「低勝率模式」
     if (longReasons.length >= 2 && longReasons.length > shortReasons.length) {
+        if (matchesAvoidPattern('long')) { logSkipThrottled('long', longReasons.length); return; }
         const reason = longReasons.join(' + ') + ' → 做多';
         openPosition('long', reason);
     } else if (shortReasons.length >= 2 && shortReasons.length > longReasons.length) {
+        if (matchesAvoidPattern('short')) { logSkipThrottled('short', shortReasons.length); return; }
         const reason = shortReasons.join(' + ') + ' → 做空';
         openPosition('short', reason);
     }
@@ -1251,7 +1265,8 @@ function aiContext() {
         session, swing, atr, distMa,
         dailyPnl: todayPnl,
         balance: 0,    // filled per-AI below
-        position: null
+        position: null,
+        learnedRules: (learnedRules && learnedRules.totalAnalyzed >= 5) ? learnedRules.summary : null
     };
 }
 
@@ -1568,6 +1583,98 @@ function closePosition(index, reason) {
     toast(`平倉 ${pnl >= 0 ? '+' : ''}${fmtInt(pnl)} | ${reason}`, pnl >= 0 ? 'success' : 'error');
     updateAllUI();
     saveAccount();
+    learnedRules = analyzeTradeHistory(); // 每筆平倉後重新學習
+}
+
+// ==================== LEARN FROM HISTORY ====================
+// 從帶 entrySnapshot 的歷史交易中提煉出「進場特徵 → 勝率」規則
+let learnedRules = { totalAnalyzed: 0, winPatterns: [], avoidPatterns: [], summary: '尚無分析資料' };
+
+function bucketRsi(rsi) {
+    if (rsi == null) return 'rsi_na';
+    if (rsi < 30) return 'rsi<30';
+    if (rsi < 50) return 'rsi30-50';
+    if (rsi < 70) return 'rsi50-70';
+    return 'rsi>=70';
+}
+function bucketBb(bbPct) {
+    if (bbPct == null) return 'bb_na';
+    if (bbPct < 0.2) return 'bb_low';
+    if (bbPct < 0.5) return 'bb_midL';
+    if (bbPct < 0.8) return 'bb_midH';
+    return 'bb_high';
+}
+function bucketMa20(d) {
+    if (d == null) return 'ma20_na';
+    if (d < -50) return 'belowMa20';
+    if (d > 50) return 'aboveMa20';
+    return 'nearMa20';
+}
+function patternKey(dir, snap) {
+    return [
+        dir,
+        bucketRsi(snap.rsi),
+        snap.ma5GtMa20 === true ? 'trendUp' : (snap.ma5GtMa20 === false ? 'trendDown' : 'trend_na'),
+        bucketBb(snap.bbPct),
+        bucketMa20(snap.distMa20)
+    ].join('+');
+}
+
+function analyzeTradeHistory() {
+    const trades = (account.history || []).filter(h => h.entrySnapshot && h.direction);
+    if (!trades.length) return { totalAnalyzed: 0, winPatterns: [], avoidPatterns: [], summary: '尚無含快照的歷史交易' };
+
+    const buckets = {};
+    for (const t of trades) {
+        const k = patternKey(t.direction, t.entrySnapshot);
+        if (!buckets[k]) buckets[k] = { key: k, n: 0, wins: 0, pnlSum: 0 };
+        buckets[k].n++;
+        if (t.pnl > 0) buckets[k].wins++;
+        buckets[k].pnlSum += (t.pnl || 0);
+    }
+    const list = Object.values(buckets).map(b => ({
+        ...b, winRate: b.wins / b.n, avgPnl: Math.round(b.pnlSum / b.n)
+    }));
+    const minN = 3;
+    const winPatterns = list.filter(b => b.n >= minN && b.winRate >= 0.6).sort((a, b) => b.winRate - a.winRate);
+    const avoidPatterns = list.filter(b => b.n >= minN && b.winRate <= 0.3).sort((a, b) => a.winRate - b.winRate);
+
+    const fmt = arr => arr.slice(0, 5).map(b => `${b.key} → ${b.n}筆 勝${Math.round(b.winRate * 100)}% 平均${b.avgPnl >= 0 ? '+' : ''}${b.avgPnl}`).join('\n');
+    const summary = [
+        `已分析 ${trades.length} 筆含快照的交易：`,
+        winPatterns.length ? `【高勝率（避免反向）】\n${fmt(winPatterns)}` : '【高勝率】尚無樣本',
+        avoidPatterns.length ? `【低勝率（避免進場）】\n${fmt(avoidPatterns)}` : '【低勝率】尚無樣本'
+    ].join('\n\n');
+
+    return { totalAnalyzed: trades.length, winPatterns, avoidPatterns, summary };
+}
+
+function matchesAvoidPattern(direction) {
+    if (!learnedRules || !learnedRules.avoidPatterns || !learnedRules.avoidPatterns.length) return false;
+    const snap = captureIndicatorSnapshot();
+    const k = patternKey(direction, snap);
+    return learnedRules.avoidPatterns.some(p => p.key === k);
+}
+
+const _lastSkipLog = { long: 0, short: 0 };
+function logSkipThrottled(direction, signalCount) {
+    const now = Date.now();
+    if (now - _lastSkipLog[direction] < 60000) return; // 同方向 60 秒內只記一次
+    _lastSkipLog[direction] = now;
+    addLogEntry('skip', `跳過${direction === 'long' ? '做多' : '做空'}：歷史低勝率模式 (${signalCount}個訊號)`, currentPrice);
+}
+
+function showLearnedRules() {
+    learnedRules = analyzeTradeHistory();
+    const html = `
+        <div style="white-space:pre-wrap;font-family:'Cascadia Code',monospace;font-size:12px;line-height:1.6;color:var(--ink2);max-height:60vh;overflow:auto">${learnedRules.summary.replace(/</g, '&lt;')}</div>
+        <div style="margin-top:14px;font-size:11px;color:var(--ink3);line-height:1.5">
+            • 規則樣本門檻：同模式 ≥ 3 筆<br>
+            • 高勝率 ≥ 60%、低勝率 ≤ 30%<br>
+            • 自動套用：AI 對戰 prompt 會帶入此摘要；自動策略會跳過「低勝率」進場
+        </div>
+    `;
+    showModal('🧠 歷史勝場學習結果', html);
 }
 
 // ==================== LIVE POLLING ====================
@@ -2115,6 +2222,12 @@ function switchSecTab(tab, el) {
 
 function showResetModal() { document.getElementById('resetModal').style.display = 'flex'; }
 function hideResetModal() { document.getElementById('resetModal').style.display = 'none'; }
+function showModal(title, html) {
+    document.getElementById('infoModalTitle').textContent = title;
+    document.getElementById('infoModalBody').innerHTML = html;
+    document.getElementById('infoModal').style.display = 'flex';
+}
+function hideInfoModal() { document.getElementById('infoModal').style.display = 'none'; }
 function resetAccount() {
     const inputEl = document.getElementById('resetBalance');
     const startBal = inputEl ? parseFloat(inputEl.value) || 0 : 0;

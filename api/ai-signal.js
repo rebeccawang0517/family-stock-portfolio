@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 }
 
 function buildPrompt(ctx) {
-  const { symbol, price, bars = [], indicators = {}, position = null, balance = 0, session = {}, swing = {}, atr = null, distMa = {}, dailyPnl = null, triggerEvent = null } = ctx;
+  const { symbol, price, bars = [], indicators = {}, position = null, balance = 0, session = {}, swing = {}, atr = null, distMa = {}, dailyPnl = null, triggerEvent = null, learnedRules = null } = ctx;
   const recent = bars.slice(-20).map(b => `${formatTime(b.time)}: O=${r(b.open)} H=${r(b.high)} L=${r(b.low)} C=${r(b.close)} V=${b.volume || 0}`).join('\n');
   const ind = Object.entries(indicators).map(([k, v]) => `${k}=${r(v)}`).join(', ');
   const pos = position
@@ -67,8 +67,12 @@ function buildPrompt(ctx) {
     bars5m_last20: recent
   };
 
-  return `台指期近一（1 點 = 200 元）。以下是即時市場資料，自由判斷要不要交易。
+  const rulesBlock = learnedRules
+    ? `\n本帳戶歷史交易勝率分析（可作為參考，不強制遵守）：\n${learnedRules}\n`
+    : '';
 
+  return `台指期近一（1 點 = 200 元）。以下是即時市場資料，自由判斷要不要交易。
+${rulesBlock}
 ${Object.entries(payload).map(([k,v]) => `${k}: ${v}`).join('\n')}
 
 回覆 JSON（只回 JSON，不要 markdown）：
