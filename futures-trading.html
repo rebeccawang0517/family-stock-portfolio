@@ -330,6 +330,7 @@
                     <span class="toggle-status off" id="aiStatus">OFF</span>
                     <button class="header-btn" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="manualRunAIBattle()">立即測試</button>
                     <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="showLearnedRules()" title="從歷史交易快照分析勝率規則">🧠 勝場學習</button>
+                    <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="editAIInitialBalance()" title="設定 AI 起始資金">💰 起始金額</button>
                     <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="resetAIBattle()">重置 AI</button>
                 </div>
                 <div class="ai-grid">
@@ -1095,10 +1096,10 @@ function evaluateStrategy() {
 }
 
 // ==================== AI BATTLE ====================
-const AI_INITIAL_BALANCE = 1000000; // 100 萬起始
+let aiInitialBalance = 1000000; // 預設 100 萬，可由使用者調整、存 Firebase
 let aiAccounts = {
-    claude: { name: 'Claude', balance: AI_INITIAL_BALANCE, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' },
-    grok:   { name: 'Grok',   balance: AI_INITIAL_BALANCE, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' }
+    claude: { name: 'Claude', balance: aiInitialBalance, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' },
+    grok:   { name: 'Grok',   balance: aiInitialBalance, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' }
 };
 let aiBattleEnabled = false;
 
@@ -1113,6 +1114,7 @@ async function loadAIBattle() {
                 aiAccounts = { ...aiAccounts, ...d.aiAccounts };
                 ['claude','grok'].forEach(k => { aiAccounts[k].busy = false; });
             }
+            if (Number.isFinite(d.aiInitialBalance)) aiInitialBalance = d.aiInitialBalance;
             aiBattleEnabled = !!d.aiBattleEnabled;
             const t = document.getElementById('aiToggle');
             if (t) t.checked = aiBattleEnabled;
@@ -1128,6 +1130,7 @@ async function saveAIBattle() {
         await setDoc(doc(db, 'futuresAIBattle', window.currentUser.uid), {
             aiAccounts: serializeAIAccounts(),
             aiBattleEnabled,
+            aiInitialBalance,
             updatedAt: Date.now()
         });
     } catch (e) { console.log('saveAIBattle:', e.message); }
@@ -1195,13 +1198,26 @@ function updateAIToggleStatus() {
 }
 
 function resetAIBattle() {
-    if (!confirm('重置兩個 AI 帳戶為起始 100 萬？')) return;
+    if (!confirm(`重置兩個 AI 帳戶為起始 ${fmtMoney(aiInitialBalance)}？`)) return;
     ['claude','grok'].forEach(k => {
-        aiAccounts[k] = { name: aiAccounts[k].name, balance: AI_INITIAL_BALANCE, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' };
+        aiAccounts[k] = { name: aiAccounts[k].name, balance: aiInitialBalance, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' };
     });
     saveAIBattle();
     renderAIBattle();
     toast('AI 帳戶已重置', 'success');
+}
+
+function editAIInitialBalance() {
+    const v = prompt(`設定 AI 對戰起始金額（NT$）\n下次按「重置 AI」會用這個金額重新開始\n當前：${fmtMoney(aiInitialBalance)}`, String(aiInitialBalance));
+    if (v === null) return;
+    const n = parseFloat(String(v).replace(/[,\s]/g, ''));
+    if (!Number.isFinite(n) || n < PRODUCT.initialMargin) {
+        toast(`金額無效（至少要 ${fmtMoney(PRODUCT.initialMargin)}，1 口保證金）`, 'error');
+        return;
+    }
+    aiInitialBalance = n;
+    saveAIBattle();
+    toast(`AI 起始金額已設為 ${fmtMoney(n)}，按「重置 AI」生效`, 'success');
 }
 
 function aiContext() {
@@ -1340,8 +1356,11 @@ function applyAISignal(aiKey, sig) {
     }
 
     if (action === 'long' || action === 'short') {
-        const lots = Math.max(1, Math.min(5, sig.lots || 1));
-        if (a.balance < PRODUCT.initialMargin * lots) return;
+        // AI 自行決定口數，僅由保證金限制（最少 1 口）
+        let lots = Math.max(1, parseInt(sig.lots) || 1);
+        const maxAffordable = Math.floor(a.balance / PRODUCT.initialMargin);
+        if (maxAffordable < 1) return;
+        if (lots > maxAffordable) lots = maxAffordable;
         a.position = {
             side: action, lots, entryPrice: currentPrice,
             openTime: timeStr(), openReason: sig.reason || '',

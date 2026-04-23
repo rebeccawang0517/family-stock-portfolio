@@ -167,7 +167,7 @@ function parseSignal(raw) {
   }
   let action = String(j.action || 'hold').toLowerCase();
   if (!['long', 'short', 'close', 'hold'].includes(action)) action = 'hold';
-  const lots = Math.max(1, Math.min(5, parseInt(j.lots) || 1));
+  const lots = Math.max(1, Math.min(50, parseInt(j.lots) || 1)); // 50 口安全上限，前端再依實際保證金截
   const sl = parseFloat(j.stopLoss);
   const tp = parseFloat(j.takeProfit);
   const stopLoss = Number.isFinite(sl) && sl > 0 ? sl : null;
