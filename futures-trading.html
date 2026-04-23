@@ -1142,7 +1142,7 @@ function serializeAIAccounts() {
         const a = aiAccounts[k];
         out[k] = {
             name: a.name, balance: a.balance, realized: a.realized,
-            position: a.position, history: a.history.slice(-100),
+            position: a.position, history: a.history.slice(-1000),
             curve: a.curve.slice(-200), lastSignal: a.lastSignal, badge: a.badge
         };
     }
@@ -1302,6 +1302,11 @@ async function evaluateOneAI(aiKey, triggerEvent) {
             entryPrice: a.position.entryPrice, unrealizedPnl: aiUnrealized(a)
         } : null;
         if (triggerEvent) ctx.triggerEvent = triggerEvent;
+        // 注入「自己的」勝場學習與近期交易（永久記憶 → 每次決策都看得到）
+        const selfAnalysis = analyzeHistoryArr(a.history);
+        if (selfAnalysis.totalAnalyzed >= 3) ctx.learnedRules = selfAnalysis.summary;
+        const recent = formatRecentTrades(a.history, 10);
+        if (recent) ctx.recentOwnTrades = recent;
         const resp = await fetch('/api/ai-signal', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1346,7 +1351,9 @@ function applyAISignal(aiKey, sig) {
                 id: Date.now(), side: a.position.side, lots: a.position.lots,
                 entry: a.position.entryPrice, exit: currentPrice,
                 pnl, openTime: a.position.openTime, closeTime: timeStr(),
-                openReason: a.position.openReason, closeReason: exitReason
+                openReason: a.position.openReason, closeReason: exitReason,
+                entrySnapshot: a.position.entrySnapshot || null,
+                exitSnapshot: captureIndicatorSnapshot()
             });
             a.balance += pnl;
             a.realized += pnl;
@@ -1364,7 +1371,8 @@ function applyAISignal(aiKey, sig) {
         a.position = {
             side: action, lots, entryPrice: currentPrice,
             openTime: timeStr(), openReason: sig.reason || '',
-            stopLoss: sig.stopLoss, takeProfit: sig.takeProfit
+            stopLoss: sig.stopLoss, takeProfit: sig.takeProfit,
+            entrySnapshot: captureIndicatorSnapshot()
         };
     }
 }
@@ -1387,7 +1395,9 @@ function checkAISLTP() {
                 id: Date.now(), side: a.position.side, lots: a.position.lots,
                 entry: a.position.entryPrice, exit: currentPrice,
                 pnl, openTime: a.position.openTime, closeTime: timeStr(),
-                openReason: a.position.openReason, closeReason: reason
+                openReason: a.position.openReason, closeReason: reason,
+                entrySnapshot: a.position.entrySnapshot || null,
+                exitSnapshot: captureIndicatorSnapshot()
             });
             a.balance += pnl;
             a.realized += pnl;
@@ -1684,6 +1694,46 @@ function analyzeTradeHistory() {
     ].join('\n\n');
 
     return { totalAnalyzed: trades.length, winPatterns, avoidPatterns, summary };
+}
+
+// 通用：對任意一組歷史交易做勝率分桶（給 AI 對戰每帳戶各自分析用）
+function analyzeHistoryArr(historyArr) {
+    const trades = (historyArr || []).filter(h => h.entrySnapshot && h.side);
+    if (!trades.length) return { totalAnalyzed: 0, summary: '尚無含快照的歷史交易' };
+    const buckets = {};
+    for (const t of trades) {
+        const k = patternKey(t.side, t.entrySnapshot);
+        if (!buckets[k]) buckets[k] = { key: k, n: 0, wins: 0, pnlSum: 0 };
+        buckets[k].n++;
+        if (t.pnl > 0) buckets[k].wins++;
+        buckets[k].pnlSum += (t.pnl || 0);
+    }
+    const list = Object.values(buckets).map(b => ({
+        ...b, winRate: b.wins / b.n, avgPnl: Math.round(b.pnlSum / b.n)
+    }));
+    const minN = 2;
+    const winPatterns = list.filter(b => b.n >= minN && b.winRate >= 0.6).sort((a, b) => b.winRate - a.winRate);
+    const avoidPatterns = list.filter(b => b.n >= minN && b.winRate <= 0.3).sort((a, b) => a.winRate - b.winRate);
+    const fmt = arr => arr.slice(0, 5).map(b => `${b.key} → ${b.n}筆 勝${Math.round(b.winRate * 100)}% 平均${b.avgPnl >= 0 ? '+' : ''}${b.avgPnl}`).join('\n');
+    const summary = [
+        `本帳戶歷史 ${trades.length} 筆（含快照）：`,
+        winPatterns.length ? `【高勝率模式（可加碼採用）】\n${fmt(winPatterns)}` : '【高勝率】尚無樣本',
+        avoidPatterns.length ? `【低勝率模式（避免進場）】\n${fmt(avoidPatterns)}` : '【低勝率】尚無樣本'
+    ].join('\n\n');
+    return { totalAnalyzed: trades.length, summary };
+}
+
+// 把最近 N 筆 AI 自己的交易格式化成精簡字串給 prompt 用
+function formatRecentTrades(historyArr, n = 10) {
+    const list = (historyArr || []).slice(-n);
+    if (!list.length) return null;
+    return list.map(h => {
+        const sideTxt = h.side === 'long' ? '多' : '空';
+        const pnlTxt = (h.pnl >= 0 ? '+' : '') + (h.pnl || 0);
+        const open = (h.openReason || '').slice(0, 30);
+        const close = (h.closeReason || '').slice(0, 30);
+        return `${sideTxt}${h.lots}口 ${h.entry}→${h.exit} ${pnlTxt} | 進:${open} | 出:${close}`;
+    }).join('\n');
 }
 
 function matchesAvoidPattern(direction) {
