@@ -128,7 +128,7 @@ async function callGrok(prompt) {
   } catch {}
 
   // 依偏好排序，沒撈到就用預設清單
-  const preferred = ['grok-4-fast-reasoning', 'grok-4-fast-non-reasoning', 'grok-4', 'grok-3-mini-fast', 'grok-3-mini', 'grok-3-fast', 'grok-3', 'grok-2-1212', 'grok-beta'];
+  const preferred = ['grok-4', 'grok-4-fast-reasoning', 'grok-4-fast-non-reasoning', 'grok-3-mini-fast', 'grok-3-mini', 'grok-3-fast', 'grok-3', 'grok-2-1212', 'grok-beta'];
   const ordered = models.length
     ? [...preferred.filter(m => models.includes(m)), ...models.filter(m => !preferred.includes(m))]
     : preferred;
