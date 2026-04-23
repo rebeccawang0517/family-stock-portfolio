@@ -563,7 +563,7 @@
 <script>
 // ==================== CONFIG ====================
 const PRODUCT = { name: '台指期', pointValue: 200, initialMargin: 526000, maintMargin: 403000 };
-const DEFAULT_SETTINGS = { stopLoss: 100, takeProfit: 150, trailingStop: 0, lots: 1 };
+const DEFAULT_SETTINGS = { stopLoss: 100, takeProfit: 150, trailingStop: 0, lots: 0 };
 
 // ==================== STATE ====================
 let account = { balance: 0, realizedPnl: 0, positions: [], history: [], equityCurve: [], settings: { ...DEFAULT_SETTINGS } };
@@ -1547,17 +1547,34 @@ function captureIndicatorSnapshot() {
     };
 }
 
+// 計算可開最大口數：以可用保證金 / 1 口原始保證金，自動上限 20 口避免失控
+function computeAutoLots() {
+    const usedMargin = (account.positions || []).reduce((s, p) => s + (p.lots || 1), 0) * PRODUCT.initialMargin;
+    const available = (account.balance || 0) - usedMargin;
+    const max = Math.floor(available / PRODUCT.initialMargin);
+    return Math.max(0, Math.min(20, max));
+}
+
+// 設定為 0 = 自動依保證金算口數；否則用使用者指定的數字
+function effectiveLots() {
+    const cfg = parseInt(account.settings.lots);
+    if (!cfg || cfg <= 0) return computeAutoLots();
+    return cfg;
+}
+
 function openPosition(direction, reason) {
+    const lots = effectiveLots();
+    if (lots <= 0) { toast('保證金不足，跳過進場', 'warn'); return; }
     const pos = {
-        id: Date.now(), product: 'TX', direction, lots: account.settings.lots || 1,
+        id: Date.now(), product: 'TX', direction, lots,
         entryPrice: currentPrice, entryTime: timeStr(), entryReason: reason,
         highWatermark: currentPrice, lowWatermark: currentPrice,
         entrySnapshot: captureIndicatorSnapshot()
     };
     account.positions.push(pos);
     addChartMarker(direction === 'long' ? 'buy' : 'sell', currentPrice, false);
-    addLogEntry(direction === 'long' ? 'buy' : 'sell', reason, currentPrice);
-    toast(`自動${direction === 'long' ? '做多' : '做空'} @ ${fmtInt(currentPrice)}`, 'success');
+    addLogEntry(direction === 'long' ? 'buy' : 'sell', `[${lots} 口] ${reason}`, currentPrice);
+    toast(`自動${direction === 'long' ? '做多' : '做空'} ${lots} 口 @ ${fmtInt(currentPrice)}`, 'success');
     updateAllUI();
     saveAccount();
 }
@@ -1894,7 +1911,10 @@ function updateParamsUI() {
     const trailEl = document.getElementById('paramTrail');
     if (slEl) slEl.textContent = s.stopLoss > 0 ? `-${s.stopLoss} 點` : '關閉';
     if (tpEl) tpEl.textContent = s.takeProfit > 0 ? `+${s.takeProfit} 點` : '關閉';
-    if (lotsEl) lotsEl.textContent = `${s.lots || 1} 口`;
+    if (lotsEl) {
+        const cfg = parseInt(s.lots);
+        lotsEl.textContent = (!cfg || cfg <= 0) ? `自動 (${computeAutoLots()} 口)` : `${cfg} 口`;
+    }
     if (trailEl) trailEl.textContent = s.trailingStop > 0 ? `${s.trailingStop} 點` : '關閉';
 }
 
@@ -1916,7 +1936,7 @@ function editSetting(key) {
         stopLoss:    { label: '停損點數（0 = 不設停損）', min: 0, hint: '虧損多少點時強制平倉，0 代表不自動停損' },
         takeProfit:  { label: '停利點數（0 = 不設停利）', min: 0, hint: '獲利多少點時鎖利，0 代表不自動停利' },
         trailingStop:{ label: '移動停損距離（0 = 關閉）', min: 0, hint: '價格從最有利點回撤此點數即平倉' },
-        lots:        { label: '每次交易口數', min: 1, hint: '1 口大台原始保證金 526,000' }
+        lots:        { label: '每次交易口數（0 = 依保證金自動決定）', min: 0, hint: '0 = 系統自動算最大可開口數（上限 20 口）；1 口大台原始保證金 526,000' }
     }[key];
     if (!meta) return;
     const v = prompt(`${meta.label}\n${meta.hint}\n當前：${cur}`, String(cur));
@@ -2145,7 +2165,8 @@ function manualClose(index) {
 function manualOpen(direction) {
     if (currentPrice == null) { toast('尚無報價，無法下單', 'warn'); return; }
     if (!isValidTxfSource()) { toast('資料來源不是台指期，已停用下單功能', 'error'); return; }
-    const lots = account.settings.lots || 1;
+    const lots = effectiveLots();
+    if (lots <= 0) { toast('保證金不足，無法下單', 'error'); return; }
     const need = PRODUCT.initialMargin * lots;
     // 已有持倉
     if (account.positions && account.positions.length) {
