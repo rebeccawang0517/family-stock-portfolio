@@ -1262,6 +1262,46 @@
             if (type === '賣出') { document.getElementById('editTxTaxField').classList.remove('hidden'); document.getElementById('editTxProfitField').classList.remove('hidden'); }
             else { document.getElementById('editTxTaxField').classList.add('hidden'); document.getElementById('editTxProfitField').classList.add('hidden'); }
         };
+        // 從該檔股票的所有交易重新計算持股股數與成本
+        // key: { symbol, holder, platform, region }
+        async function rebuildHoldingFromTransactions(key) {
+            const txs = transactions
+                .filter(t => t.symbol === key.symbol && t.holder === key.holder && t.platform === key.platform && t.region === key.region)
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+            let shares = 0, cost = 0;
+            for (const tx of txs) {
+                if (tx.type === '買入') {
+                    shares += parseFloat(tx.shares) || 0;
+                    cost += parseFloat(tx.amount) || 0;
+                } else if (tx.type === '賣出') {
+                    const sellShares = parseFloat(tx.shares) || 0;
+                    const avgCost = shares > 0 ? cost / shares : 0;
+                    cost -= sellShares * avgCost;
+                    shares -= sellShares;
+                }
+            }
+            const existing = stocks.find(s => s.symbol === key.symbol && s.holder === key.holder && s.platform === key.platform && s.region === key.region);
+            const meta = { lastModified: new Date().toISOString(), modifiedBy: currentUser.email };
+            if (shares > 0.0001) {
+                if (existing) {
+                    await updateDoc(doc(db, 'stocks', existing.id), { shares, investmentCost: Math.max(0, cost), ...meta });
+                } else {
+                    // 罕見：歷史交易留有正股數但持股表沒有 → 補建一筆
+                    const sample = txs[txs.length - 1];
+                    await addDoc(collection(db, 'stocks'), {
+                        region: key.region, symbol: key.symbol,
+                        companyName: sample?.companyName || key.symbol,
+                        shares, investmentCost: Math.max(0, cost),
+                        currentPrice: parseFloat(sample?.price) || 0, changePercent: 0,
+                        holder: key.holder, platform: key.platform,
+                        createdAt: new Date().toISOString(), createdBy: currentUser.email
+                    });
+                }
+            } else if (existing) {
+                await deleteDoc(doc(db, 'stocks', existing.id));
+            }
+        }
+
         window.saveEditTransaction = async function() {
             const txId = document.getElementById('editTxId').value;
             const date = document.getElementById('editTxDate').value;
@@ -1274,22 +1314,38 @@
             const platform = document.getElementById('editTxPlatform').value;
             if (!date || !shares || !price || !holder || !platform) { alert('請填寫所有必填欄位'); return; }
             try {
+                const oldTx = transactions.find(t => t.id === txId);
+                const oldKey = oldTx ? { symbol: oldTx.symbol, holder: oldTx.holder, platform: oldTx.platform, region: oldTx.region } : null;
+
                 const amount = type === '買入' ? shares * price + fee : shares * price - fee - tax;
                 const updateData = { date: new Date(date + 'T12:00:00').toISOString(), type, shares, price, fee, tax, amount, holder, platform, modifiedAt: new Date().toISOString(), modifiedBy: currentUser.email };
                 if (type === '賣出') { const profitInput = document.getElementById('editTxProfit').value; if (profitInput) updateData.realizedProfit = parseFloat(profitInput); }
                 else updateData.realizedProfit = null;
                 await updateDoc(doc(db, 'transactions', txId), updateData);
-                alert('✅ 交易記錄已更新！');
+                await loadTransactions(); // 重新載入後 transactions 才有最新資料供 rebuild 用
+                // 重算持股：先 OLD（如果與 NEW 不同則涵蓋換 holder/platform 的情況）、再 NEW
+                const newKey = { symbol: oldTx?.symbol, holder, platform, region: oldTx?.region };
+                if (oldKey) await rebuildHoldingFromTransactions(oldKey);
+                const isDifferent = !oldKey || oldKey.holder !== newKey.holder || oldKey.platform !== newKey.platform;
+                if (isDifferent) await rebuildHoldingFromTransactions(newKey);
+                await loadStocks();
+                alert('✅ 交易記錄已更新，持股明細已重新計算！');
                 closeEditTransactionModal();
-                await loadTransactions();
             } catch (error) { alert('❌ 更新失敗：' + error.message); }
         };
 
         window.deleteTransaction = async function(txId) {
             const tx = transactions.find(t => t.id === txId);
             if (!tx) return;
-            const confirmMsg = `確定要刪除這筆交易記錄嗎？\n\n日期：${new Date(tx.date).toLocaleDateString('zh-TW')}\n類型：${tx.type}\n股票：${tx.symbol} - ${tx.companyName || tx.symbol}\n股數：${tx.shares}\n價格：${tx.price}`;
+            const confirmMsg = `確定要刪除這筆交易記錄嗎？\n\n日期：${new Date(tx.date).toLocaleDateString('zh-TW')}\n類型：${tx.type}\n股票：${tx.symbol} - ${tx.companyName || tx.symbol}\n股數：${tx.shares}\n價格：${tx.price}\n\n刪除後會重算對應的持股明細。`;
             if (!confirm(confirmMsg)) return;
-            try { await deleteDoc(doc(db, 'transactions', txId)); alert('✅ 交易記錄已刪除！'); await loadTransactions(); }
+            try {
+                const key = { symbol: tx.symbol, holder: tx.holder, platform: tx.platform, region: tx.region };
+                await deleteDoc(doc(db, 'transactions', txId));
+                await loadTransactions();
+                await rebuildHoldingFromTransactions(key);
+                await loadStocks();
+                alert('✅ 交易記錄已刪除，持股明細已重新計算！');
+            }
             catch (error) { alert('❌ 刪除失敗：' + error.message); }
         };
