@@ -1282,8 +1282,9 @@ async function evaluateOneAI(aiKey, triggerEvent) {
         applyAISignal(aiKey, sig);
     } catch (e) {
         a.badge = '失敗';
-        a.lastSignal = { action: 'error', reason: e.message, at: Date.now() };
-        console.log(`AI ${aiKey} failed:`, e.message);
+        const stackLine = (e.stack || '').split('\n')[1] || '';
+        a.lastSignal = { action: 'error', reason: `${e.name}: ${e.message} @${stackLine.trim().slice(0, 80)}`, at: Date.now() };
+        console.error(`AI ${aiKey} failed:`, e);
     } finally {
         a.busy = false;
         renderAIBattle();
