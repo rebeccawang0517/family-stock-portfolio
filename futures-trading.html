@@ -311,10 +311,11 @@
 
             <div class="speed-bar">
                 <span class="speed-label">輪詢：</span>
-                <button class="speed-btn" onclick="setSpeed(3000,this)">慢</button>
-                <button class="speed-btn active" onclick="setSpeed(1500,this)">中</button>
-                <button class="speed-btn" onclick="setSpeed(750,this)">快</button>
-                <button class="speed-btn" onclick="setSpeed(350,this)">極快</button>
+                <button class="speed-btn" onclick="setSpeed(2000,this)">慢</button>
+                <button class="speed-btn" onclick="setSpeed(1000,this)">中</button>
+                <button class="speed-btn active" onclick="setSpeed(500,this)">快</button>
+                <button class="speed-btn" onclick="setSpeed(250,this)">極快</button>
+                <button class="speed-btn" onclick="setSpeed(100,this)">閃電</button>
                 <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸</button>
             </div>
 
@@ -569,7 +570,7 @@ const DEFAULT_SETTINGS = { stopLoss: 100, takeProfit: 150, trailingStop: 0, lots
 let account = { balance: 0, realizedPnl: 0, positions: [], history: [], equityCurve: [], settings: { ...DEFAULT_SETTINGS } };
 let autoTrading = false;
 let currentPrice = null;
-let simPaused = false, simSpeed = 1500, simInterval = null;
+let simPaused = false, simSpeed = 500, simInterval = null;
 let tradeLogEntries = []; // { time, action, reason, price, pnl }
 
 // Price state
@@ -586,7 +587,7 @@ let lastQuote = null;         // 最新即時報價快照
 let lastQuoteAt = 0;          // 最後一次成功 poll 時間
 let lastCumVolume = null;     // 上次 poll 的累積量（用來算每 tick 差量）
 let dataSource = '';          // 'taifex' 或 'yahoo-twii'
-let pollIntervalMs = 3000;    // 即時輪詢間隔
+let pollIntervalMs = 1500;    // 即時輪詢間隔
 let livePollTimer = null;
 let synthetic = false;        // 真實資料都抓不到時才啟用
 
@@ -1857,12 +1858,13 @@ function startSim() {
     simInterval = setInterval(simulateTick, simSpeed);
     startLivePoll();
 }
-// 即時模式：speed 控制輪詢頻率（1x=6s, 2x=3s, 4x=2s, 8x=1s）
+// 即時模式：speed 控制 UI tick 與行情輪詢頻率
 function setSpeed(ms, el) {
     simSpeed = ms;
     document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
     el.classList.add('active');
-    pollIntervalMs = ms <= 350 ? 1000 : ms <= 750 ? 2000 : ms <= 1500 ? 3000 : 6000;
+    // 行情輪詢間隔：UI tick 越快、輪詢也越密（最快 500ms）
+    pollIntervalMs = ms <= 100 ? 500 : ms <= 250 ? 800 : ms <= 500 ? 1200 : ms <= 1000 ? 2000 : 3000;
     startSim();
 }
 function togglePause() {

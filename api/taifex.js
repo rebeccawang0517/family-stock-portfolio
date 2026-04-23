@@ -14,7 +14,7 @@ export default async function handler(req, res) {
       return;
     }
     const result = await fetchQuote();
-    res.setHeader('Cache-Control', 's-maxage=3, stale-while-revalidate=15');
+    res.setHeader('Cache-Control', 's-maxage=1, stale-while-revalidate=5');
     res.status(200).json(result);
   } catch (e) {
     res.status(502).json({ error: e.message });
