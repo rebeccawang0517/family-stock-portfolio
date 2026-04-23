@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
 function buildPrompt(ctx) {
   const { symbol, price, bars = [], indicators = {}, position = null, balance = 0, session = {}, swing = {}, atr = null, distMa = {}, dailyPnl = null, triggerEvent = null, learnedRules = null } = ctx;
-  const recent = bars.slice(-20).map(b => `${formatTime(b.time)}: O=${r(b.open)} H=${r(b.high)} L=${r(b.low)} C=${r(b.close)} V=${b.volume || 0}`).join('\n');
+  const recent = bars.slice(-20).map(b => `${formatTime(b.time)}: O=${r(b.open)} H=${r(b.high)} L=${r(b.low)} C=${r(b.close)}`).join('\n');
   const ind = Object.entries(indicators).map(([k, v]) => `${k}=${r(v)}`).join(', ');
   const pos = position
     ? `持倉：${position.side === 'long' ? '多' : '空'} ${position.lots} 口 @ ${r(position.entryPrice)}，未實現 ${r(position.unrealizedPnl)} 元`
