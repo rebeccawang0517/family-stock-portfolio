@@ -296,6 +296,7 @@
                     <div><div class="pb-stat-label">量</div><div class="pb-stat-val" id="pbVol">—</div></div>
                 </div>
             </div>
+            <div id="sourceWarning" style="display:none;background:#5a2a26;border-left:4px solid #d9534f;color:#ffd9d4;padding:10px 16px;font-size:12px;line-height:1.5"></div>
 
             <div class="tf-bar">
                 <span class="speed-label">週期：</span>
@@ -759,19 +760,38 @@ window.switchTf = function(tf, el) {
 };
 
 function sourceName() {
-    if (dataSource === 'twse-realtime') return '加權指數（即時）';
+    if (dataSource === 'yahoo-tw-txf') return '台指期近月（即時）';
+    if (dataSource === 'twse-realtime') return '加權指數（備援，非期貨）';
     if (dataSource === 'taifex') return '台指期近月';
-    if (dataSource === 'yahoo-twii') return '台股加權指數(延遲)';
+    if (dataSource === 'yahoo-twii') return '台股加權指數（延遲，非期貨）';
     return '';
+}
+
+// 只有 yahoo-tw-txf 是真實台指期；其他是備援的加權指數，價值差約 18,000 點
+function isValidTxfSource() {
+    return dataSource === 'yahoo-tw-txf' || dataSource === 'taifex';
 }
 
 function updateSourceLabel() {
     const el = document.querySelector('.pb-name');
-    if (!el) return;
-    el.textContent = dataSource === 'twse-realtime' ? '加權指數 · 即時'
-        : dataSource === 'taifex' ? '台指期近月 · 即時'
-        : dataSource === 'yahoo-twii' ? '加權指數 · 延遲 15 分'
-        : '模擬';
+    if (el) {
+        el.textContent = dataSource === 'yahoo-tw-txf' ? '台指期近月 · 即時'
+            : dataSource === 'taifex' ? '台指期近月 · 即時'
+            : dataSource === 'twse-realtime' ? '加權指數 · 備援（非期貨）'
+            : dataSource === 'yahoo-twii' ? '加權指數 · 延遲（非期貨）'
+            : '模擬';
+        el.style.color = isValidTxfSource() ? '' : '#ff8a7a';
+    }
+    const warn = document.getElementById('sourceWarning');
+    if (warn) {
+        if (!dataSource || isValidTxfSource()) {
+            warn.style.display = 'none';
+            warn.textContent = '';
+        } else {
+            warn.style.display = 'block';
+            warn.innerHTML = `⚠️ <b>主來源失敗</b>，目前顯示「${sourceName()}」，<b>不是真正的台指期</b>（數值約差 18,000 點）。<br>為避免錯誤下單，<b>自動交易、AI 對戰、手動下單已全部停用</b>，等主來源恢復後自動解除。`;
+        }
+    }
 }
 
 function buildChartFromBars(bars, symbol) {
@@ -920,6 +940,7 @@ function stddev(arr) { const m = avg(arr); return Math.sqrt(arr.reduce((s, v) =>
 // ==================== STRATEGY ====================
 function evaluateStrategy() {
     if (!autoTrading || !currentPrice || ind.ma5 === null || ind.ma20 === null || ind.rsi === null) return;
+    if (!isValidTxfSource()) return; // 來源錯誤時不執行策略
 
     const hasPosition = account.positions.length > 0;
 
@@ -1130,6 +1151,7 @@ const AI_INTERVAL_MS = 5 * 60 * 1000;
 function maybeRunAIBattle() {
     if (!aiBattleEnabled) return;
     if (currentPrice == null) return;
+    if (!isValidTxfSource()) return; // 來源錯誤時不評估
     if (Date.now() - lastAIRunAt < AI_INTERVAL_MS) return;
     lastAIRunAt = Date.now();
     runAIBattle('5 分鐘定時評估');
@@ -1138,6 +1160,7 @@ function maybeRunAIBattle() {
 // 手動立即觸發（休盤測試用）
 async function manualRunAIBattle() {
     if (currentPrice == null) { toast('尚無報價，稍候再試', 'warn'); return; }
+    if (!isValidTxfSource()) { toast('資料來源不是台指期，已停用 AI 對戰', 'error'); return; }
     if (!aiBattleEnabled) {
         aiBattleEnabled = true;
         const t = document.getElementById('aiToggle');
@@ -2013,6 +2036,7 @@ function manualClose(index) {
 
 function manualOpen(direction) {
     if (currentPrice == null) { toast('尚無報價，無法下單', 'warn'); return; }
+    if (!isValidTxfSource()) { toast('資料來源不是台指期，已停用下單功能', 'error'); return; }
     const lots = account.settings.lots || 1;
     const need = PRODUCT.initialMargin * lots;
     // 已有持倉
