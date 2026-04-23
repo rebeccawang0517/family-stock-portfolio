@@ -19,8 +19,8 @@ export default async function handler(req, res) {
 
   const prompt = buildPrompt(context);
   const started = Date.now();
+  let raw, model;
   try {
-    let raw, model;
     if (ai === 'claude') {
       ({ raw, model } = await callClaude(prompt));
     } else if (ai === 'grok') {
@@ -28,10 +28,22 @@ export default async function handler(req, res) {
     } else {
       return res.status(400).json({ error: 'unknown ai' });
     }
+  } catch (e) {
+    console.error(`[${ai}] api call failed:`, e);
+    return res.status(500).json({ error: `API: ${e.message}`, ai, stage: 'api', latencyMs: Date.now() - started });
+  }
+
+  try {
     const parsed = parseSignal(raw);
     res.status(200).json({ ...parsed, model, latencyMs: Date.now() - started, raw });
   } catch (e) {
-    res.status(500).json({ error: e.message, ai, latencyMs: Date.now() - started });
+    console.error(`[${ai}] parse failed. raw=`, raw, 'err=', e);
+    res.status(500).json({
+      error: `PARSE: ${e.message}`,
+      ai, stage: 'parse', model,
+      rawPreview: String(raw || '').slice(0, 300),
+      latencyMs: Date.now() - started
+    });
   }
 }
 
