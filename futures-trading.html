@@ -736,7 +736,7 @@ async function fillGapWithLiveQuote() {
 // 聚合 1 分 K 為 N 分 K
 function aggregateBars(bars, tf) {
     if (tf <= 1) return bars.slice();
-    const size = tf * 60; 淤               
+    const size = tf * 60;
     const out = [];
     let cur = null;
     for (const b of bars) {
