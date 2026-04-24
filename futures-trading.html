@@ -421,12 +421,15 @@
                             <option value="1h|1y">1 小時（1 年）</option>
                             <option value="1h|13mo">1 小時（13 個月）</option>
                             <option value="1d|2y">日 K（2 年）</option>
+                            <option value="1d|5y">日 K（5 年）</option>
+                            <option value="1h|2y">1 小時（2 年·Yahoo 上限）</option>
                         </select></label>
                         <label style="font-size:11px;color:var(--ink3)">資金 $<input type="number" id="btStartBalance" value="100000000" style="width:100px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"></label>
                         <label style="font-size:11px;color:var(--ink3)">停損<input type="number" id="btSL" value="100" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
                         <label style="font-size:11px;color:var(--ink3)">停利<input type="number" id="btTP" value="150" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
                         <label style="font-size:11px;color:var(--ink3)">TOP<select id="btTopN" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option></select> 策略</label>
-                        <button class="header-btn" onclick="downloadBarsToLocal()" id="btDlBtn" style="font-size:11px;padding:4px 10px" title="把目前選的時間框架 K 棒下載到 localStorage，下次回測直接用快取不重抓">📥 下載到本地</button>
+                        <button class="header-btn" onclick="downloadBarsToLocal()" id="btDlBtn" style="font-size:11px;padding:4px 10px" title="把目前選的時間框架 K 棒下載到 localStorage">📥 下載</button>
+                        <button class="header-btn" onclick="downloadAllHistoricalBars()" id="btDlAllBtn" style="font-size:11px;padding:4px 10px" title="一次下載所有可用時間框架：日 K 5 年、1 小時 2 年、15 分/5 分各 60 天">📦 全載歷史</button>
                         <button class="header-btn" onclick="runBacktest()" id="btRunBtn" style="background:var(--accent);font-size:11px;padding:4px 10px">▶ 執行回測</button>
                     </div>
                 </div>
@@ -2548,7 +2551,52 @@ async function downloadBarsToLocal() {
     }
 }
 
+// 一鍵全載：日 K 5y + 1h 2y + 15m 60d + 5m 60d
+async function downloadAllHistoricalBars() {
+    const btn = document.getElementById('btDlAllBtn');
+    const status = document.getElementById('btCacheStatus');
+    const targets = [
+        { interval: '1d', rangeTag: '5y', label: '日 K 5 年' },
+        { interval: '1h', rangeTag: '2y', label: '1 小時 2 年' },
+        { interval: '15m', rangeTag: '60d', label: '15 分 60 天' },
+        { interval: '5m', rangeTag: '60d', label: '5 分 60 天' }
+    ];
+    btn.disabled = true;
+    const results = [];
+    for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        btn.textContent = `⏳ ${i + 1}/${targets.length}…`;
+        status.innerHTML = `<span style="color:var(--ink3)">下載 ${t.label} 中…（${i + 1}/${targets.length}）</span>`;
+        try {
+            const bars = await fetchBacktestBars(t.interval, t.rangeTag, true);
+            if (bars.length) {
+                writeBarsCache(t.interval, t.rangeTag, bars);
+                results.push({ ...t, count: bars.length, ok: true });
+            } else {
+                results.push({ ...t, count: 0, ok: false, err: '0 bars' });
+            }
+        } catch (e) {
+            results.push({ ...t, count: 0, ok: false, err: e.message });
+        }
+        await new Promise(r => setTimeout(r, 300));
+    }
+    btn.disabled = false;
+    btn.textContent = '📦 全載歷史';
+    const ok = results.filter(r => r.ok);
+    const fail = results.filter(r => !r.ok);
+    const summary = `
+        <div style="color:var(--ink2);font-size:11px;line-height:1.8">
+            ${ok.map(r => `<span style="color:#8bc34a">✓ ${r.label}: ${r.count} 根</span>`).join(' · ')}
+            ${fail.length ? ' · ' + fail.map(r => `<span style="color:#d95353">✗ ${r.label}: ${r.err}</span>`).join(' · ') : ''}
+        </div>
+    `;
+    status.innerHTML = summary;
+    toast(`全載完成：成功 ${ok.length}/${results.length}，共 ${ok.reduce((s,r) => s+r.count, 0)} 根 K`, ok.length === results.length ? 'success' : 'warn');
+    setTimeout(renderCacheStatus, 3000); // 3 秒後把狀態切回目前時間框架
+}
+
 window.downloadBarsToLocal = downloadBarsToLocal;
+window.downloadAllHistoricalBars = downloadAllHistoricalBars;
 window.clearBarsCache = clearBarsCache;
 
 // 抓回測資料；對於 15m/180d 這種超出 Yahoo 60d 上限的組合，分段抓再合併
@@ -2565,7 +2613,7 @@ async function fetchBacktestBars(interval, rangeTag, forceFetch = false) {
     const nowSec = Math.floor(Date.now() / 1000);
     const subIntraday = ['1m','2m','5m','15m','30m','90m'].includes(interval);
 
-    const days = { '60d':60, '6mo':180, '180d':180, '1y':365, '13mo':395, '2y':730 }[rangeTag] || null;
+    const days = { '60d':60, '6mo':180, '180d':180, '1y':365, '13mo':395, '2y':730, '5y':1825 }[rangeTag] || null;
     if (!days) throw new Error(`未知 range: ${rangeTag}`);
 
     // 可以單次抓的情況：日內細 K 上限 60 天、其餘不限
