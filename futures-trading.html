@@ -394,7 +394,7 @@
                             <span class="badge" id="customBadge">OFF</span>
                         </div>
                         <div class="ai-kv">
-                            <span class="k">權益</span><span class="v" id="customEquity">$0</span>
+                            <span class="k editable" onclick="editCustomBalance()" title="點擊編輯餘額">權益 ✎</span><span class="v" id="customEquity">$0</span>
                             <span class="k">已實現</span><span class="v" id="customRealized">$0</span>
                             <span class="k">交易</span><span class="v" id="customTrades">0</span>
                             <span class="k">勝率</span><span class="v" id="customWin">—</span>
@@ -1370,8 +1370,11 @@ function saveCustomStrategyModal() {
 }
 
 function resetCustomStrategy() {
-    if (!confirm('清空自訂策略的餘額、交易紀錄與持倉？（設定保留）')) return;
-    customStrategy.balance = 1000000;
+    const v = prompt('重置自訂策略的起始金額（交易紀錄、持倉一併清空，策略設定保留）', String(customStrategy.balance || 1000000));
+    if (v === null) return;
+    const n = parseFloat(String(v).replace(/[,\s]/g, ''));
+    if (!Number.isFinite(n) || n < 0) { toast('金額無效', 'error'); return; }
+    customStrategy.balance = n;
     customStrategy.realized = 0;
     customStrategy.position = null;
     customStrategy.history = [];
@@ -1379,7 +1382,7 @@ function resetCustomStrategy() {
     customStrategy.badge = customStrategy.enabled ? 'ON' : 'OFF';
     saveCustomStrategy();
     renderCustomCard();
-    toast('自訂策略已重置', 'success');
+    toast(`自訂策略已重置，起始 ${fmtMoney(n)}`, 'success');
 }
 
 async function loadCustomStrategy() {
@@ -1410,10 +1413,23 @@ async function saveCustomStrategy() {
     } catch (e) { console.log('saveCustomStrategy:', e.message); }
 }
 
+function editCustomBalance() {
+    const cur = customStrategy.balance;
+    const v = prompt(`輸入自訂策略的帳戶餘額（當前：${fmtMoney(cur)}）\n這會直接覆蓋目前餘額`, String(cur));
+    if (v === null) return;
+    const n = parseFloat(String(v).replace(/[,\s]/g, ''));
+    if (!Number.isFinite(n) || n < 0) { toast('金額無效', 'error'); return; }
+    customStrategy.balance = n;
+    saveCustomStrategy();
+    renderCustomCard();
+    toast(`自訂策略餘額已更新為 ${fmtMoney(n)}`, 'success');
+}
+
 window.toggleCustomStrategy = toggleCustomStrategy;
 window.openCustomStrategyModal = openCustomStrategyModal;
 window.saveCustomStrategyModal = saveCustomStrategyModal;
 window.resetCustomStrategy = resetCustomStrategy;
+window.editCustomBalance = editCustomBalance;
 
 // ==================== AI BATTLE ====================
 let aiInitialBalance = 1000000; // 預設 100 萬，可由使用者調整、存 Firebase
