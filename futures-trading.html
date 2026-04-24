@@ -640,6 +640,11 @@ async function initApp() {
     renderAIBattle();
     learnedRules = analyzeTradeHistory();
     renderCustomCard();
+
+    // 關閉或刷新前強制把最新狀態推到 Firebase（避免最後一筆交易遺失）
+    window.addEventListener('beforeunload', () => {
+        try { saveAccount(); saveAIBattle(); saveCustomStrategy(); } catch {}
+    });
 }
 
 // ==================== FIREBASE ====================
@@ -1410,7 +1415,10 @@ async function saveCustomStrategy() {
             lastSignal: customStrategy.lastSignal, config: customStrategy.config,
             updatedAt: Date.now()
         });
-    } catch (e) { console.log('saveCustomStrategy:', e.message); }
+    } catch (e) {
+        console.error('saveCustomStrategy FAILED:', e);
+        try { toast(`自訂策略存檔失敗：${e.message}`, 'error'); } catch {}
+    }
 }
 
 function editCustomBalance() {
@@ -1469,7 +1477,10 @@ async function saveAIBattle() {
             aiInitialBalance,
             updatedAt: Date.now()
         });
-    } catch (e) { console.log('saveAIBattle:', e.message); }
+    } catch (e) {
+        console.error('saveAIBattle FAILED:', e);
+        try { toast(`AI 對戰存檔失敗：${e.message}`, 'error'); } catch {}
+    }
 }
 
 function serializeAIAccounts() {
