@@ -2463,13 +2463,23 @@ async function runBacktest() {
     const firstDate = bars.length ? new Date(bars[0].time * 1000).toISOString().slice(0,10) : '—';
     const lastDate = bars.length ? new Date(bars[bars.length-1].time * 1000).toISOString().slice(0,10) : '—';
     const spanDays = bars.length ? Math.round((bars[bars.length-1].time - bars[0].time) / 86400) : 0;
-    body.innerHTML = `<div style="color:var(--ink3)">已取得 ${bars.length} 根 ${interval} K 線（${firstDate} ~ ${lastDate}，跨 ${spanDays} 天），模擬 ${ranked.length} 組策略中…</div>`;
+
+    // 檢查資料是否遠小於預期（Yahoo 對日內細 K 只給近 60 天）
+    const expectedDays = { '60d':60, '6mo':180, '180d':180, '1y':365, '13mo':395, '2y':730, '5y':1825 }[rangeTag] || 60;
+    const coverageWarning = spanDays < expectedDays * 0.5 ? `
+        <div style="background:#3a1e1e;border-left:3px solid #d95353;padding:8px 10px;border-radius:6px;margin-bottom:8px;font-size:12px;color:#ff9980;line-height:1.6">
+            ⚠️ 實際只拿到 ${spanDays} 天資料（原本要 ${expectedDays} 天）<br>
+            Yahoo 對 ${interval} K 的歷史深度有限制：小於 1 小時的 K 只給近 60 天，更早的拿不到。<br>
+            想跑長期回測請改用 <b>1 小時（13 個月/2 年）</b> 或 <b>日 K（2 年/5 年）</b>。
+        </div>
+    ` : '';
+    body.innerHTML = coverageWarning + `<div style="color:var(--ink3)">已取得 ${bars.length} 根 ${interval} K 線（${firstDate} ~ ${lastDate}，跨 ${spanDays} 天），模擬 ${ranked.length} 組策略中…</div>`;
 
     // 讓 UI 能重繪，下一個 tick 再跑計算
     await new Promise(r => setTimeout(r, 30));
 
     const results = ranked.map(r => backtestOnePattern(bars, r, startBal, sl, tp));
-    renderBacktestResults(results, bars, ranked);
+    renderBacktestResults(results, bars, ranked, interval);
     btn.disabled = false;
     btn.textContent = '▶ 再次回測';
 }
@@ -2640,19 +2650,28 @@ async function fetchBacktestBars(interval, rangeTag, forceFetch = false) {
 
     const all = [];
     const seen = new Set();
+    let okSeg = 0, failSeg = 0;
     for (let i = 0; i < segments.length; i++) {
         const [p1, p2] = segments[i];
-        const resp = await fetch(`/api/taifex?type=bars&interval=${interval}&period1=${p1}&period2=${p2}`);
-        if (!resp.ok) continue; // 單段失敗容忍
-        const j = await resp.json();
-        for (const b of (j.bars || [])) {
-            if (seen.has(b.time)) continue;
-            seen.add(b.time);
-            all.push(b);
-        }
+        try {
+            const resp = await fetch(`/api/taifex?type=bars&interval=${interval}&period1=${p1}&period2=${p2}`);
+            if (!resp.ok) { failSeg++; continue; }
+            const j = await resp.json();
+            const got = j.bars || [];
+            if (!got.length) { failSeg++; continue; }
+            okSeg++;
+            for (const b of got) {
+                if (seen.has(b.time)) continue;
+                seen.add(b.time);
+                all.push(b);
+            }
+        } catch { failSeg++; }
     }
     all.sort((a, b) => a.time - b.time);
     if (all.length && !forceFetch) writeBarsCache(interval, rangeTag, all);
+    if (failSeg > 0) {
+        console.warn(`多段抓取：${okSeg}/${segments.length} 段成功，${failSeg} 段失敗（Yahoo 對 ${interval} 僅給近 60 天，舊段為預期失敗）`);
+    }
     return all;
 }
 
@@ -2823,7 +2842,7 @@ function computeBollinger(closes, period = 20, mult = 2) {
 }
 
 // ---------- 渲染結果 ----------
-function renderBacktestResults(results, bars, ranked) {
+function renderBacktestResults(results, bars, ranked, interval = '1h') {
     const body = document.getElementById('backtestBody');
     const total = {
         pnl: results.reduce((s, r) => s + r.totalPnl, 0),
@@ -2832,6 +2851,7 @@ function renderBacktestResults(results, bars, ranked) {
     };
     const periodStart = bars.length ? new Date(bars[0].time * 1000).toISOString().slice(0, 10) : '—';
     const periodEnd = bars.length ? new Date(bars[bars.length - 1].time * 1000).toISOString().slice(0, 10) : '—';
+    const spanDays = bars.length ? Math.round((bars[bars.length-1].time - bars[0].time) / 86400) : 0;
     const wrColor = wr => wr >= 0.6 ? '#4aad6e' : wr >= 0.45 ? '#e8b84c' : '#d95353';
     const pctColor = n => n >= 0 ? '#4aad6e' : '#d95353';
 
@@ -2851,7 +2871,7 @@ function renderBacktestResults(results, bars, ranked) {
             </div>
             <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
                 <div style="font-size:13px;font-weight:700;color:var(--ink2);line-height:1.2">${periodStart}<br>~ ${periodEnd}</div>
-                <div style="font-size:10px;color:var(--ink3);margin-top:2px">${bars.length} 根 1h K</div>
+                <div style="font-size:10px;color:var(--ink3);margin-top:2px">${bars.length} 根 ${interval} K · 跨 ${spanDays} 天</div>
             </div>
         </div>
     `;
