@@ -2917,32 +2917,31 @@ async function autoFetchTaifexHistory() {
     btn.disabled = true;
     btn.textContent = '⏳ 爬資料中…';
 
-    // 切成「年」chunk，避免 Vercel 10 秒超時
+    // 切成 3 個月 chunk（每段約 60 個交易日 ZIP，平行 10 個並發約 5-8 秒，避開 Vercel 10 秒超時）
     const today = new Date();
     const allBars = [];
-    let totalFetched = 0, totalErrors = 0;
-    for (let i = years - 1; i >= 0; i--) {
-        const yearEnd = new Date(today.getFullYear() - i, today.getMonth(), today.getDate());
-        const yearStart = new Date(yearEnd.getFullYear() - 1, yearEnd.getMonth(), yearEnd.getDate() + 1);
-        const fromStr = yearStart.toISOString().slice(0, 10).replace(/-/g, '');
-        const toStr = yearEnd.toISOString().slice(0, 10).replace(/-/g, '');
-        const segNum = years - i;
-        status.innerHTML = `<span style="color:var(--ink3)">爬第 ${segNum}/${years} 年（${fromStr} ~ ${toStr}）…</span>`;
+    let totalErrors = 0;
+    const totalChunks = years * 4; // 每年 4 個季度
+    let chunkIdx = 0;
+    for (let i = years * 12 - 1; i >= 0; i -= 3) {
+        chunkIdx++;
+        const chunkEnd = new Date(today.getFullYear(), today.getMonth() - i + 3, 0); // 該季最後一天
+        const chunkStart = new Date(today.getFullYear(), today.getMonth() - i, 1);     // 該季第一天
+        const fromStr = chunkStart.toISOString().slice(0, 10).replace(/-/g, '');
+        const toStr = chunkEnd.toISOString().slice(0, 10).replace(/-/g, '');
+        status.innerHTML = `<span style="color:var(--ink3)">爬第 ${chunkIdx}/${totalChunks} 季（${fromStr.slice(0,4)}-${fromStr.slice(4,6)} ~ ${toStr.slice(0,4)}-${toStr.slice(4,6)}）…</span>`;
         try {
             const resp = await fetch(`/api/taifex-history?from=${fromStr}&to=${toStr}`);
             if (!resp.ok) {
                 const j = await resp.json().catch(() => ({}));
-                console.warn(`期交所第 ${segNum} 年抓取失敗 ${resp.status}:`, j.error || '');
+                console.warn(`期交所第 ${chunkIdx} 季抓取失敗 ${resp.status}:`, j.error || '');
                 totalErrors++;
                 continue;
             }
             const j = await resp.json();
-            if (j.bars && j.bars.length) {
-                allBars.push(...j.bars);
-                totalFetched += j.bars.length;
-            }
+            if (j.bars && j.bars.length) allBars.push(...j.bars);
         } catch (e) {
-            console.error(`第 ${segNum} 年抓取例外:`, e);
+            console.error(`第 ${chunkIdx} 季抓取例外:`, e);
             totalErrors++;
         }
     }
