@@ -2271,6 +2271,15 @@ function showLearnedRules() {
         </div>
     ` : '';
 
+    // 勝率排行榜 TOP 10（無論是否達標，都列）
+    const top10 = eligible.slice().sort((a,b) => b.winRate - a.winRate || b.n - a.n).slice(0, 10);
+    const top10Section = top10.length ? `
+        <div style="margin-top:14px">
+            <div style="font-size:13px;font-weight:600;color:var(--ink1);margin-bottom:8px">📊 勝率排行榜 TOP 10（不分達標門檻）</div>
+            ${top10.map((b,i) => card(b, i+1, wrColor(b.winRate))).join('')}
+        </div>
+    ` : '';
+
     const loseSection = loseP.length ? `
         <div style="margin-top:14px">
             <div style="font-size:13px;font-weight:600;color:#d95353;margin-bottom:8px">⚠️ 低勝率模式（勝率 ≤ 30%）</div>
@@ -2305,6 +2314,7 @@ function showLearnedRules() {
             ${srcBar}
             ${championCard}
             ${winSection}
+            ${top10Section}
             ${loseSection}
             ${recentSection}
             <div style="margin-top:14px;font-size:10px;color:var(--ink3);line-height:1.5;border-top:1px solid var(--border);padding-top:10px">
