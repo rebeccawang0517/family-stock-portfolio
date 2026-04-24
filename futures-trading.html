@@ -1177,7 +1177,8 @@ function defaultCustomConfig() {
         shortExit:  { conditions: ['hitBbLower', 'macdUp'],     mode: 'any' },
         stopLoss: 100, takeProfit: 150,
         freeText: '',
-        lots: 0 // 0 = 依保證金自動
+        lots: 0, // 0 = 依保證金自動
+        minHoldSec: 30 // 最短持倉秒數（避免進場即出場），停損停利仍可提前觸發
     };
 }
 
@@ -1215,8 +1216,13 @@ function evaluateCustomStrategy() {
     // --- 出場邏輯 ---
     if (pos) {
         const diff = pos.side === 'long' ? currentPrice - pos.entryPrice : pos.entryPrice - currentPrice;
+        // 停損停利不受持倉時間保護（隨時可觸發）
         if (cfg.stopLoss > 0 && diff <= -cfg.stopLoss) return closeCustomPosition(`[停損] ${Math.abs(diff)} 點 ≥ ${cfg.stopLoss}`);
         if (cfg.takeProfit > 0 && diff >= cfg.takeProfit) return closeCustomPosition(`[停利] ${diff} 點 ≥ ${cfg.takeProfit}`);
+        // 條件出場：最短持倉時間內不觸發（避免進場即出場、0 元交易）
+        const holdMs = Date.now() - (pos.openedAt || 0);
+        const minHoldMs = Math.max(0, parseInt(cfg.minHoldSec) || 0) * 1000;
+        if (holdMs < minHoldMs) return;
         const exitCfg = pos.side === 'long' ? cfg.longExit : cfg.shortExit;
         if (evalConditionSet(exitCfg)) {
             const hit = exitCfg.conditions.filter(id => { const c = CUSTOM_CONDITIONS.find(x => x.id === id); return c && c.test(); });
@@ -1246,7 +1252,7 @@ function evaluateCustomStrategy() {
 function openCustomPosition(side, lots, reason) {
     customStrategy.position = {
         side, lots, entryPrice: currentPrice,
-        openTime: timeStr(), openReason: reason,
+        openTime: timeStr(), openedAt: Date.now(), openReason: reason,
         entrySnapshot: captureIndicatorSnapshot()
     };
     customStrategy.lastSignal = { action: side, reason, at: Date.now() };
@@ -1365,10 +1371,11 @@ function openCustomStrategyModal() {
             ${section('📉 做空進場條件', 'shortEntry', cfg.shortEntry)}
             ${section('🔼 多單出場條件', 'longExit', cfg.longExit)}
             ${section('🔽 空單出場條件', 'shortExit', cfg.shortExit)}
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">
                 <label style="font-size:12px">停損點數<input type="number" id="csSL" value="${cfg.stopLoss}" min="0" style="width:100%;padding:4px"></label>
                 <label style="font-size:12px">停利點數<input type="number" id="csTP" value="${cfg.takeProfit}" min="0" style="width:100%;padding:4px"></label>
                 <label style="font-size:12px">口數（0=自動）<input type="number" id="csLots" value="${cfg.lots}" min="0" style="width:100%;padding:4px"></label>
+                <label style="font-size:12px" title="進場後多少秒內不觸發條件式出場（停損停利仍可提前），避免剛進場就因條件重疊馬上平倉">最短持倉秒數<input type="number" id="csMinHold" value="${cfg.minHoldSec ?? 30}" min="0" style="width:100%;padding:4px"></label>
             </div>
             <div style="margin-bottom:12px">
                 <div style="font-weight:600;margin-bottom:4px;font-size:13px">📝 自由策略描述（中文，僅供記錄、暫不參與執行）</div>
@@ -1397,6 +1404,7 @@ function saveCustomStrategyModal() {
         stopLoss: Math.max(0, parseInt(document.getElementById('csSL').value) || 0),
         takeProfit: Math.max(0, parseInt(document.getElementById('csTP').value) || 0),
         lots: Math.max(0, parseInt(document.getElementById('csLots').value) || 0),
+        minHoldSec: Math.max(0, parseInt(document.getElementById('csMinHold').value) || 0),
         freeText: document.getElementById('csFreeText').value.slice(0, 500)
     };
     saveCustomStrategy();
