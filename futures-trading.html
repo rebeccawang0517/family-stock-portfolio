@@ -406,6 +406,23 @@
                 </div>
             </div>
 
+            <!-- 📈 歷史回測（勝場榜首策略） -->
+            <div class="ai-battle" id="backtestSection" style="margin-top:14px">
+                <div class="ai-head">
+                    <span class="title">📈 歷史回測 · 勝場榜首策略</span>
+                    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <label style="font-size:11px;color:var(--ink3)">資金 $<input type="number" id="btStartBalance" value="100000000" style="width:110px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"></label>
+                        <label style="font-size:11px;color:var(--ink3)">停損<input type="number" id="btSL" value="100" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
+                        <label style="font-size:11px;color:var(--ink3)">停利<input type="number" id="btTP" value="150" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
+                        <label style="font-size:11px;color:var(--ink3)">TOP<select id="btTopN" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option></select> 策略</label>
+                        <button class="header-btn" onclick="runBacktest()" id="btRunBtn" style="background:var(--accent);font-size:11px;padding:4px 10px">▶ 執行回測</button>
+                    </div>
+                </div>
+                <div id="backtestBody" style="padding:12px;font-size:12px;color:var(--ink3)">
+                    點「執行回測」會抓近一年 1 小時 K 線，模擬勝場學習榜首的 N 個策略，顯示完整績效。
+                </div>
+            </div>
+
         </div>
 
         <!-- RIGHT: Auto Trading Panel -->
@@ -2372,6 +2389,331 @@ function showLearnedRules() {
     `;
     showModal('🧠 歷史勝場學習', html);
 }
+
+// ==================== BACKTEST ====================
+// 用歷史 K 線重跑勝場榜首的 N 組策略，計算真實績效
+async function runBacktest() {
+    const btn = document.getElementById('btRunBtn');
+    const body = document.getElementById('backtestBody');
+    const startBal = Math.max(100000, parseFloat(document.getElementById('btStartBalance').value) || 100000000);
+    const sl = Math.max(0, parseInt(document.getElementById('btSL').value) || 100);
+    const tp = Math.max(0, parseInt(document.getElementById('btTP').value) || 150);
+    const topN = parseInt(document.getElementById('btTopN').value) || 5;
+
+    // 先取 TOP N pattern（從合併歷史分析）
+    const allTrades = gatherAllTrades();
+    if (allTrades.length < 3) {
+        body.innerHTML = '<div style="color:#d95353">歷史樣本太少（需 ≥ 3 筆含快照的交易），請先累積更多實戰紀錄再回測。</div>';
+        return;
+    }
+    const buckets = {};
+    for (const t of allTrades) {
+        const k = patternKey(t.side, t.snapshot);
+        if (!buckets[k]) buckets[k] = { key: k, side: t.side, n: 0, wins: 0, pnlSum: 0 };
+        buckets[k].n++;
+        if (t.pnl > 0) buckets[k].wins++;
+        buckets[k].pnlSum += (t.pnl || 0);
+    }
+    const ranked = Object.values(buckets)
+        .filter(b => b.n >= 2)
+        .map(b => ({ ...b, winRate: b.wins / b.n }))
+        .sort((a, b) => b.winRate - a.winRate || b.n - a.n)
+        .slice(0, topN);
+
+    if (!ranked.length) {
+        body.innerHTML = '<div style="color:#d95353">沒有足夠樣本的 pattern（需每組 ≥ 2 筆）可回測。</div>';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ 抓資料中…';
+    body.innerHTML = '<div style="color:var(--ink3)">下載近 1 年 1 小時 K 線…</div>';
+
+    let bars;
+    try {
+        const resp = await fetch('/api/taifex?type=bars&interval=1h&range=1y');
+        if (!resp.ok) throw new Error('API ' + resp.status);
+        const j = await resp.json();
+        bars = j.bars || [];
+        if (bars.length < 100) throw new Error(`只拿到 ${bars.length} 根 K，資料不足`);
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '▶ 執行回測';
+        body.innerHTML = `<div style="color:#d95353">抓資料失敗：${e.message}</div>`;
+        return;
+    }
+
+    btn.textContent = '⏳ 模擬中…';
+    body.innerHTML = `<div style="color:var(--ink3)">已取得 ${bars.length} 根 1h K 線，模擬 ${ranked.length} 組策略中…</div>`;
+
+    // 讓 UI 能重繪，下一個 tick 再跑計算
+    await new Promise(r => setTimeout(r, 30));
+
+    const results = ranked.map(r => backtestOnePattern(bars, r, startBal, sl, tp));
+    renderBacktestResults(results, bars, ranked);
+    btn.disabled = false;
+    btn.textContent = '▶ 再次回測';
+}
+
+// 回測單一 pattern：每根 K 收盤若 snapshot 匹配 → 進場；停損停利平倉
+function backtestOnePattern(bars, ruleEntry, startBalance, slPts, tpPts) {
+    // 先預計算所有指標序列
+    const closes = bars.map(b => b.close);
+    const ma5Arr = rollingAvg(closes, 5);
+    const ma20Arr = rollingAvg(closes, 20);
+    const ma60Arr = rollingAvg(closes, 60);
+    const rsiArr = computeRsi(closes, 14);
+    const macd = computeMacd(closes, 12, 26, 9);
+    const bb = computeBollinger(closes, 20, 2);
+
+    const trades = [];
+    let balance = startBalance;
+    let position = null;
+    let equityCurve = [];
+
+    for (let i = 60; i < bars.length; i++) {
+        const price = bars[i].close;
+        const snap = {
+            price,
+            ma5: ma5Arr[i], ma20: ma20Arr[i], ma60: ma60Arr[i],
+            rsi: rsiArr[i], macd: macd.macd[i], macdHist: macd.hist[i],
+            bbUpper: bb.upper[i], bbLower: bb.lower[i],
+            distMa20: ma20Arr[i] != null ? Math.round(price - ma20Arr[i]) : null,
+            distMa60: ma60Arr[i] != null ? Math.round(price - ma60Arr[i]) : null,
+            bbPct: (bb.upper[i] != null && bb.lower[i] != null && bb.upper[i] > bb.lower[i])
+                ? +((price - bb.lower[i]) / (bb.upper[i] - bb.lower[i])).toFixed(3) : null,
+            ma5GtMa20: (ma5Arr[i] != null && ma20Arr[i] != null) ? ma5Arr[i] > ma20Arr[i] : null
+        };
+
+        // 出場檢查（用這根的高低對停損停利最友善：先判停損、再判停利、都沒碰就看收盤條件）
+        if (position) {
+            const diffH = position.side === 'long' ? bars[i].high - position.entryPrice : position.entryPrice - bars[i].low;
+            const diffL = position.side === 'long' ? bars[i].low - position.entryPrice : position.entryPrice - bars[i].high;
+            let exitPx = null, reason = '';
+            if (slPts > 0 && diffL <= -slPts) { exitPx = position.side === 'long' ? position.entryPrice - slPts : position.entryPrice + slPts; reason = `停損${slPts}`; }
+            else if (tpPts > 0 && diffH >= tpPts) { exitPx = position.side === 'long' ? position.entryPrice + tpPts : position.entryPrice - tpPts; reason = `停利${tpPts}`; }
+            if (exitPx != null) {
+                const pts = position.side === 'long' ? exitPx - position.entryPrice : position.entryPrice - exitPx;
+                const pnl = Math.round(pts * PRODUCT.pointValue * position.lots);
+                balance += pnl;
+                trades.push({ ...position, exitTime: bars[i].time, exitPrice: exitPx, pnl, reason, barIndex: i });
+                position = null;
+            }
+        }
+
+        // 進場：snapshot 匹配 ruleEntry.key
+        if (!position) {
+            const k = patternKey(ruleEntry.side, snap);
+            if (k === ruleEntry.key) {
+                const lots = Math.max(1, Math.min(20, Math.floor(balance / PRODUCT.initialMargin)));
+                if (lots >= 1) {
+                    position = {
+                        side: ruleEntry.side,
+                        lots, entryPrice: price, entryTime: bars[i].time,
+                        barIndex: i
+                    };
+                }
+            }
+        }
+
+        // 權益曲線每 10 根 K 記一次
+        if (i % 10 === 0) {
+            const unrl = position
+                ? (position.side === 'long' ? price - position.entryPrice : position.entryPrice - price) * PRODUCT.pointValue * position.lots
+                : 0;
+            equityCurve.push({ time: bars[i].time, eq: balance + Math.round(unrl) });
+        }
+    }
+
+    // 收尾：若仍持倉、以最後價平倉
+    if (position && bars.length) {
+        const last = bars[bars.length - 1];
+        const pts = position.side === 'long' ? last.close - position.entryPrice : position.entryPrice - last.close;
+        const pnl = Math.round(pts * PRODUCT.pointValue * position.lots);
+        balance += pnl;
+        trades.push({ ...position, exitTime: last.time, exitPrice: last.close, pnl, reason: '回測結束強制平倉', barIndex: bars.length - 1 });
+    }
+
+    // 統計
+    const wins = trades.filter(t => t.pnl > 0).length;
+    const totalPnl = balance - startBalance;
+    // 最大回撤
+    let peak = startBalance, maxDd = 0;
+    for (const p of equityCurve) {
+        if (p.eq > peak) peak = p.eq;
+        const dd = peak > 0 ? (peak - p.eq) / peak : 0;
+        if (dd > maxDd) maxDd = dd;
+    }
+    const avgWin = trades.filter(t => t.pnl > 0).reduce((s, t) => s + t.pnl, 0) / (wins || 1);
+    const avgLose = trades.filter(t => t.pnl < 0).reduce((s, t) => s + t.pnl, 0) / ((trades.length - wins) || 1);
+
+    return {
+        rule: ruleEntry,
+        trades, startBalance, endBalance: balance, totalPnl,
+        winRate: trades.length ? wins / trades.length : 0,
+        wins, losses: trades.length - wins,
+        maxDrawdown: maxDd,
+        avgWin: Math.round(avgWin), avgLose: Math.round(avgLose),
+        equityCurve
+    };
+}
+
+// ---------- 指標計算輔助 ----------
+function rollingAvg(arr, n) {
+    const out = new Array(arr.length).fill(null);
+    let sum = 0;
+    for (let i = 0; i < arr.length; i++) {
+        sum += arr[i];
+        if (i >= n) sum -= arr[i - n];
+        if (i >= n - 1) out[i] = sum / n;
+    }
+    return out;
+}
+function computeRsi(closes, period = 14) {
+    const out = new Array(closes.length).fill(null);
+    let gainSum = 0, lossSum = 0;
+    for (let i = 1; i < closes.length; i++) {
+        const ch = closes[i] - closes[i - 1];
+        const g = Math.max(ch, 0), l = Math.max(-ch, 0);
+        if (i <= period) {
+            gainSum += g; lossSum += l;
+            if (i === period) {
+                const avgG = gainSum / period, avgL = lossSum / period;
+                out[i] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+                gainSum = avgG; lossSum = avgL; // 改成平均值，後面用 Wilder smoothing
+            }
+        } else {
+            gainSum = (gainSum * (period - 1) + g) / period;
+            lossSum = (lossSum * (period - 1) + l) / period;
+            out[i] = lossSum === 0 ? 100 : 100 - 100 / (1 + gainSum / lossSum);
+        }
+    }
+    return out.map(v => v != null ? Math.round(v * 100) / 100 : null);
+}
+function emaArr(closes, period) {
+    const k = 2 / (period + 1);
+    const out = new Array(closes.length).fill(null);
+    let ema = null;
+    for (let i = 0; i < closes.length; i++) {
+        ema = ema == null ? closes[i] : closes[i] * k + ema * (1 - k);
+        if (i >= period - 1) out[i] = ema;
+    }
+    return out;
+}
+function computeMacd(closes, fast = 12, slow = 26, sig = 9) {
+    const fastEma = emaArr(closes, fast);
+    const slowEma = emaArr(closes, slow);
+    const macd = closes.map((_, i) => (fastEma[i] != null && slowEma[i] != null) ? fastEma[i] - slowEma[i] : null);
+    const sigLine = emaArr(macd.map(v => v || 0), sig);
+    const hist = macd.map((v, i) => (v != null && sigLine[i] != null) ? v - sigLine[i] : null);
+    return { macd, sig: sigLine, hist };
+}
+function computeBollinger(closes, period = 20, mult = 2) {
+    const upper = new Array(closes.length).fill(null);
+    const lower = new Array(closes.length).fill(null);
+    for (let i = period - 1; i < closes.length; i++) {
+        const slice = closes.slice(i - period + 1, i + 1);
+        const m = slice.reduce((s, v) => s + v, 0) / period;
+        const sd = Math.sqrt(slice.reduce((s, v) => s + (v - m) ** 2, 0) / period);
+        upper[i] = m + mult * sd;
+        lower[i] = m - mult * sd;
+    }
+    return { upper, lower };
+}
+
+// ---------- 渲染結果 ----------
+function renderBacktestResults(results, bars, ranked) {
+    const body = document.getElementById('backtestBody');
+    const total = {
+        pnl: results.reduce((s, r) => s + r.totalPnl, 0),
+        trades: results.reduce((s, r) => s + r.trades.length, 0),
+        wins: results.reduce((s, r) => s + r.wins, 0)
+    };
+    const periodStart = bars.length ? new Date(bars[0].time * 1000).toISOString().slice(0, 10) : '—';
+    const periodEnd = bars.length ? new Date(bars[bars.length - 1].time * 1000).toISOString().slice(0, 10) : '—';
+    const wrColor = wr => wr >= 0.6 ? '#4aad6e' : wr >= 0.45 ? '#e8b84c' : '#d95353';
+    const pctColor = n => n >= 0 ? '#4aad6e' : '#d95353';
+
+    const summary = `
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
+                <div style="font-size:20px;font-weight:700;color:${pctColor(total.pnl)}">${total.pnl>=0?'+':'-'}$${fmtInt(Math.abs(total.pnl))}</div>
+                <div style="font-size:10px;color:var(--ink3)">${results.length} 組策略合計損益</div>
+            </div>
+            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
+                <div style="font-size:20px;font-weight:700;color:var(--ink1)">${total.trades}</div>
+                <div style="font-size:10px;color:var(--ink3)">總交易次數</div>
+            </div>
+            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
+                <div style="font-size:20px;font-weight:700;color:${wrColor(total.trades ? total.wins/total.trades : 0)}">${total.trades ? Math.round(total.wins/total.trades*100) : 0}%</div>
+                <div style="font-size:10px;color:var(--ink3)">整體勝率</div>
+            </div>
+            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
+                <div style="font-size:13px;font-weight:700;color:var(--ink2);line-height:1.2">${periodStart}<br>~ ${periodEnd}</div>
+                <div style="font-size:10px;color:var(--ink3);margin-top:2px">${bars.length} 根 1h K</div>
+            </div>
+        </div>
+    `;
+
+    const ruleCards = results.map((r, i) => {
+        const pnlColor = pctColor(r.totalPnl);
+        return `
+        <div style="background:#1f1e1b;border-left:4px solid ${pnlColor};border-radius:8px;padding:12px;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+                <span style="font-size:18px;min-width:30px">${i+1===1?'🥇':i+1===2?'🥈':i+1===3?'🥉':'#'+(i+1)}</span>
+                <div style="flex:1;font-size:12px;color:var(--ink2)">歷史樣本：${r.rule.n} 筆 · ${Math.round(r.rule.winRate*100)}% 勝率</div>
+                <div style="text-align:right">
+                    <div style="font-size:18px;font-weight:700;color:${pnlColor}">${r.totalPnl>=0?'+':'-'}$${fmtInt(Math.abs(r.totalPnl))}</div>
+                    <div style="font-size:11px;color:var(--ink3)">${r.trades.length} 筆·勝 ${r.wins}·敗 ${r.losses}·勝率 ${r.trades.length?Math.round(r.winRate*100):0}%</div>
+                </div>
+            </div>
+            <div style="line-height:2;margin-top:6px">${r.rule.key.split('+').map(p => {
+                const preset = { long: {bg:'#1e3a2a',fg:'#4aad6e',icon:'📈'}, short: {bg:'#3a1e1e',fg:'#d95353',icon:'📉'} }[p];
+                const label = PRETTY_MAP[p] || p;
+                const bg = preset ? preset.bg : '#3a3a33';
+                const fg = preset ? preset.fg : '#d5d3c8';
+                const icon = preset ? preset.icon + ' ' : '';
+                return `<span style="display:inline-block;background:${bg};color:${fg};padding:3px 10px;border-radius:14px;font-size:11px;margin:2px 4px 2px 0">${icon}${label}</span>`;
+            }).join('')}</div>
+            <div style="margin-top:6px;font-size:11px;color:var(--ink3)">最大回撤 ${(r.maxDrawdown*100).toFixed(1)}% · 平均單勝 +${fmtInt(r.avgWin)} · 平均單敗 ${fmtInt(r.avgLose)}</div>
+        </div>`;
+    }).join('');
+
+    const bestTrades = results.flatMap(r => r.trades.map(t => ({ ...t, ruleKey: r.rule.key }))).sort((a,b) => b.pnl - a.pnl).slice(0, 10);
+    const worstTrades = results.flatMap(r => r.trades.map(t => ({ ...t, ruleKey: r.rule.key }))).sort((a,b) => a.pnl - b.pnl).slice(0, 5);
+    const fmtDate = ts => new Date(ts * 1000).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+    const tradeRow = (t, isWin) => `
+        <div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid #2c2b27;font-size:11px">
+            <span style="color:${isWin?'#4aad6e':'#d95353'};font-weight:600;min-width:28px">${t.pnl>=0?'+':''}${fmtInt(t.pnl)}</span>
+            <span style="color:var(--ink3);min-width:70px">${fmtDate(t.entryTime)}-${fmtDate(t.exitTime)}</span>
+            <span style="color:var(--ink2);min-width:88px">${t.side==='long'?'📈 多':'📉 空'} ${t.lots}口</span>
+            <span style="color:var(--ink3)">${fmtInt(t.entryPrice)}→${fmtInt(t.exitPrice)}</span>
+            <span style="color:var(--ink3);font-size:10px">(${t.reason})</span>
+        </div>`;
+
+    const detailBlocks = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+            <div>
+                <div style="font-size:12px;font-weight:600;color:#4aad6e;margin-bottom:4px">🏆 最賺 10 筆</div>
+                <div style="background:#1f1e1b;border-radius:8px;padding:6px 10px;max-height:180px;overflow:auto">${bestTrades.map(t => tradeRow(t, true)).join('') || '<div style="color:var(--ink3);font-size:11px">無</div>'}</div>
+            </div>
+            <div>
+                <div style="font-size:12px;font-weight:600;color:#d95353;margin-bottom:4px">💧 最虧 5 筆</div>
+                <div style="background:#1f1e1b;border-radius:8px;padding:6px 10px;max-height:180px;overflow:auto">${worstTrades.map(t => tradeRow(t, false)).join('') || '<div style="color:var(--ink3);font-size:11px">無</div>'}</div>
+            </div>
+        </div>
+    `;
+
+    const notice = `
+        <div style="margin-top:10px;padding:8px 10px;background:#2c2514;border-left:3px solid #e8b84c;border-radius:6px;font-size:11px;color:#e8b84c;line-height:1.6">
+            ⚠️ 回測基於 Yahoo ^TWII 1h K 線 + 當前 TXF/TAIEX 價差偏移，非實際 TXF 1h K 線；停損停利用當根 K 的高低判定是否觸發。實戰會有更多滑價與延遲。
+        </div>
+    `;
+
+    body.innerHTML = summary + ruleCards + detailBlocks + notice;
+}
+
+window.runBacktest = runBacktest;
 
 // ==================== LIVE POLLING ====================
 // UI tick：重新繪製儀表板（不改變價格，價格由 pollLiveQuote 更新）

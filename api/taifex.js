@@ -5,11 +5,13 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const type = (req.query.type || 'quote').toString();
+  const interval = (req.query.interval || '1m').toString();
+  const range = (req.query.range || '5d').toString();
 
   try {
     if (type === 'bars') {
-      const result = await fetchBars();
-      res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=120');
+      const result = await fetchBars(interval, range);
+      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
       res.status(200).json(result);
       return;
     }
@@ -144,9 +146,10 @@ async function fetchQuote() {
   return await fetchYahooTwiiQuote();
 }
 
-// Yahoo ^TWII 5 日 1 分 K，再套用當前 TXF-TAIEX 價差 offset
-async function fetchYahooBars() {
-  const resp = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/^TWII?interval=1m&range=5d', {
+// Yahoo ^TWII K 線，再套用當前 TXF-TAIEX 價差 offset
+async function fetchYahooBars(interval = '1m', range = '5d') {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/^TWII?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+  const resp = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0' }
   });
   if (!resp.ok) throw new Error(`Yahoo ^TWII bars ${resp.status}`);
@@ -170,8 +173,8 @@ async function fetchYahooBars() {
   return bars;
 }
 
-async function fetchBars() {
-  const bars = await fetchYahooBars();
+async function fetchBars(interval, range) {
+  const bars = await fetchYahooBars(interval, range);
 
   // 計算當前 TXF 與 TAIEX 價差，套用到歷史 bars 讓圖表對齊台指期尺度
   let offset = 0;
