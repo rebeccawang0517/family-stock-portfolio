@@ -437,7 +437,8 @@
                         <label style="font-size:11px;color:var(--ink3)">TOP<select id="btTopN" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option></select> 策略</label>
                         <button class="header-btn" onclick="downloadBarsToLocal()" id="btDlBtn" style="font-size:11px;padding:4px 10px" title="把目前選的時間框架 K 棒下載到 localStorage">📥 下載</button>
                         <button class="header-btn" onclick="downloadAllHistoricalBars()" id="btDlAllBtn" style="font-size:11px;padding:4px 10px" title="一次下載所有可用時間框架：日 K 5 年、1 小時 2 年、15 分/5 分各 60 天">📦 全載歷史</button>
-                        <button class="header-btn" onclick="document.getElementById('taifexFileInput').click()" id="btImportBtn" style="font-size:11px;padding:4px 10px" title="匯入期交所「期貨成交簡檔」CSV，自動聚合為 1m/5m/15m/1h/1d K 線">📁 匯入 TAIFEX</button>
+                        <button class="header-btn" onclick="document.getElementById('taifexFileInput').click()" id="btImportBtn" style="font-size:11px;padding:4px 10px" title="匯入期交所 CSV（手動下載）">📁 匯入</button>
+                        <button class="header-btn" onclick="autoFetchTaifexHistory()" id="btAutoFetchBtn" style="font-size:11px;padding:4px 10px;background:#4aad6e" title="自動從期交所抓 5 年日 K（免費），存到本地">🚀 自動爬 5 年日 K</button>
                         <input type="file" id="taifexFileInput" accept=".csv,.txt" multiple style="display:none" onchange="importTaifexFiles(this.files)">
                         <button class="header-btn" onclick="runBacktest()" id="btRunBtn" style="background:var(--accent);font-size:11px;padding:4px 10px">▶ 執行回測</button>
                     </div>
@@ -2904,6 +2905,77 @@ function mergeTaifexCache(interval, newBars) {
 }
 
 window.importTaifexFiles = importTaifexFiles;
+
+// 自動從期交所抓歷史日 K（5 年），免費、無需手動下載
+async function autoFetchTaifexHistory() {
+    const btn = document.getElementById('btAutoFetchBtn');
+    const status = document.getElementById('btCacheStatus');
+    const yearsStr = prompt('要抓近幾年的日 K？（建議 1-10 年；越多越慢）', '5');
+    if (yearsStr === null) return;
+    const years = Math.max(1, Math.min(15, parseInt(yearsStr) || 5));
+
+    btn.disabled = true;
+    btn.textContent = '⏳ 爬資料中…';
+
+    // 切成「年」chunk，避免 Vercel 10 秒超時
+    const today = new Date();
+    const allBars = [];
+    let totalFetched = 0, totalErrors = 0;
+    for (let i = years - 1; i >= 0; i--) {
+        const yearEnd = new Date(today.getFullYear() - i, today.getMonth(), today.getDate());
+        const yearStart = new Date(yearEnd.getFullYear() - 1, yearEnd.getMonth(), yearEnd.getDate() + 1);
+        const fromStr = yearStart.toISOString().slice(0, 10).replace(/-/g, '');
+        const toStr = yearEnd.toISOString().slice(0, 10).replace(/-/g, '');
+        const segNum = years - i;
+        status.innerHTML = `<span style="color:var(--ink3)">爬第 ${segNum}/${years} 年（${fromStr} ~ ${toStr}）…</span>`;
+        try {
+            const resp = await fetch(`/api/taifex-history?from=${fromStr}&to=${toStr}`);
+            if (!resp.ok) {
+                const j = await resp.json().catch(() => ({}));
+                console.warn(`期交所第 ${segNum} 年抓取失敗 ${resp.status}:`, j.error || '');
+                totalErrors++;
+                continue;
+            }
+            const j = await resp.json();
+            if (j.bars && j.bars.length) {
+                allBars.push(...j.bars);
+                totalFetched += j.bars.length;
+            }
+        } catch (e) {
+            console.error(`第 ${segNum} 年抓取例外:`, e);
+            totalErrors++;
+        }
+    }
+
+    if (!allBars.length) {
+        status.innerHTML = `<span style="color:#d95353">爬不到資料，期交所端點可能變更。建議改用「📁 匯入」手動下載 CSV。${totalErrors ? `（${totalErrors} 段錯誤）` : ''}</span>`;
+        btn.disabled = false;
+        btn.textContent = '🚀 自動爬 5 年日 K';
+        return;
+    }
+
+    // 去重 + 排序 + 寫入快取
+    const byTime = {};
+    for (const b of allBars) byTime[b.time] = b;
+    const merged = Object.values(byTime).sort((a, b) => a.time - b.time);
+    mergeTaifexCache('1d', merged);
+
+    const firstD = new Date(merged[0].time * 1000).toISOString().slice(0, 10);
+    const lastD = new Date(merged[merged.length-1].time * 1000).toISOString().slice(0, 10);
+    status.innerHTML = `
+        <div style="color:#8bc34a;line-height:1.8">
+            ✅ 自動爬取完成 · ${merged.length} 根日 K（${firstD} ~ ${lastD}）
+            ${totalErrors ? `<br><span style="color:#e8b84c">${totalErrors} 段失敗（資料仍可用）</span>` : ''}
+        </div>
+    `;
+    toast(`已爬 ${merged.length} 根日 K`, 'success');
+    btn.disabled = false;
+    btn.textContent = '🚀 自動爬 5 年日 K';
+    document.getElementById('btTimeframe').value = '1d|taifex';
+    renderCacheStatus();
+}
+
+window.autoFetchTaifexHistory = autoFetchTaifexHistory;
 
 // 抓回測資料；對於 15m/180d 這種超出 Yahoo 60d 上限的組合，分段抓再合併
 // 有本地快取就先用本地（除非 forceFetch=true）
