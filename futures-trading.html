@@ -2175,42 +2175,136 @@ function showLearnedRules() {
     const srcCount = all.reduce((m, t) => { m[t.src] = (m[t.src] || 0) + 1; return m; }, {});
     const srcLine = Object.entries(srcCount).map(([s,n]) => `${s} ${n} 筆`).join('、') || '無';
 
-    const bestLine = bestAll
-        ? `🏆 目前最高勝率：${prettyPattern(bestAll.key)}\n　　樣本 ${bestAll.n} 筆、勝率 ${Math.round(bestAll.winRate*100)}%、平均 ${bestAll.avgPnl>=0?'+':''}${bestAll.avgPnl}`
-        : '🏆 目前最高勝率：樣本不足，還無法判斷';
+    // 顏色依勝率
+    const wrColor = wr => wr >= 0.7 ? '#4aad6e' : wr >= 0.55 ? '#8bc34a' : wr >= 0.45 ? '#e8b84c' : wr >= 0.3 ? '#f58f49' : '#d95353';
+    // 單一 pattern 的條件標籤（分離成 pill）
+    const pillColors = {
+        'long':  { bg: '#1e3a2a', fg: '#4aad6e', icon: '📈' },
+        'short': { bg: '#3a1e1e', fg: '#d95353', icon: '📉' },
+    };
+    const pillFor = (token) => {
+        const preset = pillColors[token];
+        const label = PRETTY_MAP[token] || token;
+        const bg = preset ? preset.bg : '#3a3a33';
+        const fg = preset ? preset.fg : '#d5d3c8';
+        const icon = preset ? preset.icon + ' ' : '';
+        return `<span style="display:inline-block;background:${bg};color:${fg};padding:3px 10px;border-radius:14px;font-size:12px;margin:2px 4px 2px 0;font-weight:500">${icon}${label}</span>`;
+    };
+    const renderPills = (key) => key.split('+').map(pillFor).join('');
+    // 單卡
+    const card = (b, rank, accent) => {
+        const wr = Math.round(b.winRate * 100);
+        const avg = (b.avgPnl>=0?'+':'') + fmtInt(b.avgPnl);
+        const color = accent || wrColor(b.winRate);
+        const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+        return `
+        <div style="background:#1f1e1b;border-left:4px solid ${color};border-radius:8px;padding:12px 14px;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <span style="font-size:20px;min-width:32px">${rankBadge}</span>
+                <div style="flex:1">
+                    <div style="font-size:26px;font-weight:700;color:${color};line-height:1">${wr}<span style="font-size:14px;font-weight:500;color:var(--ink3)">%</span></div>
+                    <div style="font-size:11px;color:var(--ink3);margin-top:2px">勝率</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:13px;color:var(--ink2)"><b>${b.n}</b> 筆樣本</div>
+                    <div style="font-size:13px;color:${b.avgPnl>=0?'#4aad6e':'#d95353'};font-weight:600">平均 ${avg}</div>
+                </div>
+            </div>
+            <div style="line-height:2;margin-top:6px">${renderPills(b.key)}</div>
+        </div>`;
+    };
 
-    const fmtBlock = arr => arr.slice(0, 8).map((b, i) =>
-        `${i + 1}. ${prettyPattern(b.key)}\n　　樣本 ${b.n} 筆、勝率 ${Math.round(b.winRate*100)}%、平均 ${b.avgPnl>=0?'+':''}${b.avgPnl}`
-    ).join('\n');
-
-    const summary = [
-        `📊 合併樣本：${all.length} 筆（來源：${srcLine}）`,
-        `📌 樣本門檻 ≥ ${minN} 筆、高勝率 ≥ 60%、低勝率 ≤ 30%`,
-        '',
-        bestLine,
-        '',
-        winP.length ? `✅ 高勝率模式（${winP.length} 種）\n${fmtBlock(winP)}` : '✅ 高勝率：還沒有達標的 pattern',
-        '',
-        loseP.length ? `⚠️ 低勝率模式（${loseP.length} 種）\n${fmtBlock(loseP)}` : '⚠️ 低勝率：暫無'
-    ].join('\n');
-
-    // 最近 20 筆明細（白話格式）
-    const recent = all.slice(-20).reverse().map(t => {
-        const tag = t.pnl > 0 ? '✓ 贏' : (t.pnl < 0 ? '✗ 輸' : '· 平');
-        const pnlTxt = (t.pnl>=0?'+':'') + t.pnl;
-        return `${tag} [${t.src}] ${prettyPattern(patternKey(t.side, t.snapshot))}\n　　${t.entry}→${t.exit} = ${pnlTxt}`;
-    }).join('\n');
-
-    const html = `
-        <div style="white-space:pre-wrap;font-size:13px;line-height:1.7;color:var(--ink2);max-height:45vh;overflow:auto">${summary.replace(/</g, '&lt;')}</div>
-        <div style="margin-top:10px;font-weight:600;font-size:13px;color:var(--ink1)">🕐 最近 20 筆交易（含 pattern）</div>
-        <div style="white-space:pre-wrap;font-size:12px;line-height:1.6;color:var(--ink3);max-height:25vh;overflow:auto;background:#1f1e1b;padding:8px;border-radius:6px">${(recent || '（無）').replace(/</g, '&lt;')}</div>
-        <div style="margin-top:10px;font-size:11px;color:var(--ink3);line-height:1.5">
-            • 來源：主自動 + Gemini + Grok + 自訂策略，全部合併統計<br>
-            • 結果純供參考，不影響自動進場
+    // 三個統計 stat 卡
+    const statCards = `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
+                <div style="font-size:22px;font-weight:700;color:var(--ink1)">${all.length}</div>
+                <div style="font-size:11px;color:var(--ink3)">合併樣本數</div>
+            </div>
+            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
+                <div style="font-size:22px;font-weight:700;color:#8bc34a">${winP.length}</div>
+                <div style="font-size:11px;color:var(--ink3)">高勝率 pattern</div>
+            </div>
+            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
+                <div style="font-size:22px;font-weight:700;color:#e8b84c">≥${minN}</div>
+                <div style="font-size:11px;color:var(--ink3)">樣本門檻</div>
+            </div>
         </div>
     `;
-    showModal('🧠 歷史勝場學習結果', html);
+
+    // 來源分布（長條）
+    const srcBar = `
+        <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;margin-bottom:12px">
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:6px">交易來源</div>
+            <div style="font-size:12px;color:var(--ink2)">${Object.entries(srcCount).map(([s,n]) => `<b style="color:var(--ink1)">${s}</b> ${n} 筆`).join('　·　') || '無'}</div>
+        </div>
+    `;
+
+    // 冠軍大卡（最高勝率）
+    const championCard = bestAll ? `
+        <div style="background:linear-gradient(135deg,#2d2515,#3d3220);border:1px solid #e8b84c;border-radius:10px;padding:14px 16px;margin-bottom:14px">
+            <div style="font-size:11px;color:#e8b84c;font-weight:600;letter-spacing:1px;margin-bottom:4px">🏆 目前最高勝率</div>
+            <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+                <div style="font-size:38px;font-weight:800;color:${wrColor(bestAll.winRate)};line-height:1">${Math.round(bestAll.winRate*100)}%</div>
+                <div style="font-size:12px;color:var(--ink3)">${bestAll.n} 筆樣本 · 平均 ${bestAll.avgPnl>=0?'+':''}${fmtInt(bestAll.avgPnl)}</div>
+            </div>
+            <div style="line-height:2">${renderPills(bestAll.key)}</div>
+        </div>
+    ` : `
+        <div style="background:#2c2b27;border:1px dashed var(--border);border-radius:10px;padding:18px;text-align:center;color:var(--ink3);font-size:13px;margin-bottom:14px">
+            🏆 樣本不足，還無法判斷最高勝率（需要同一 pattern 至少 ${minN} 筆）
+        </div>
+    `;
+
+    const winSection = winP.length ? `
+        <div style="margin-top:14px">
+            <div style="font-size:13px;font-weight:600;color:#8bc34a;margin-bottom:8px">✅ 高勝率模式（勝率 ≥ 60%）</div>
+            ${winP.slice(0,8).map((b,i) => card(b, i+1, '#8bc34a')).join('')}
+        </div>
+    ` : '';
+
+    const loseSection = loseP.length ? `
+        <div style="margin-top:14px">
+            <div style="font-size:13px;font-weight:600;color:#d95353;margin-bottom:8px">⚠️ 低勝率模式（勝率 ≤ 30%）</div>
+            ${loseP.slice(0,5).map((b,i) => card(b, i+1, '#d95353')).join('')}
+        </div>
+    ` : '';
+
+    // 最近 20 筆
+    const recentRows = all.slice(-20).reverse().map(t => {
+        const winCls = t.pnl > 0 ? '#4aad6e' : (t.pnl < 0 ? '#d95353' : 'var(--ink3)');
+        const winTxt = t.pnl > 0 ? '贏' : (t.pnl < 0 ? '輸' : '平');
+        const pnlTxt = (t.pnl>=0?'+':'') + fmtInt(t.pnl);
+        return `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #2c2b27;font-size:12px">
+            <span style="color:${winCls};font-weight:700;min-width:28px">${winTxt}</span>
+            <span style="color:var(--ink3);min-width:44px;font-size:11px">${t.src}</span>
+            <span style="flex:1;color:var(--ink2)">${renderPills(patternKey(t.side, t.snapshot))}</span>
+            <span style="color:${winCls};font-weight:600;min-width:70px;text-align:right">${pnlTxt}</span>
+        </div>`;
+    }).join('');
+
+    const recentSection = all.length ? `
+        <div style="margin-top:16px">
+            <div style="font-size:13px;font-weight:600;color:var(--ink1);margin-bottom:6px">🕐 最近 20 筆交易</div>
+            <div style="background:#1f1e1b;border-radius:8px;padding:6px 12px;max-height:26vh;overflow:auto">${recentRows}</div>
+        </div>
+    ` : '';
+
+    const html = `
+        <div style="max-height:72vh;overflow:auto;padding-right:4px">
+            ${statCards}
+            ${srcBar}
+            ${championCard}
+            ${winSection}
+            ${loseSection}
+            ${recentSection}
+            <div style="margin-top:14px;font-size:10px;color:var(--ink3);line-height:1.5;border-top:1px solid var(--border);padding-top:10px">
+                樣本來源：主自動 + Gemini + Grok + 自訂策略；結果純供參考，不影響自動進場。
+            </div>
+        </div>
+    `;
+    showModal('🧠 歷史勝場學習', html);
 }
 
 // ==================== LIVE POLLING ====================
