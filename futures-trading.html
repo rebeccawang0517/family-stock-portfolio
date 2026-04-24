@@ -414,10 +414,12 @@
                         <label style="font-size:11px;color:var(--ink3)">K線<select id="btTimeframe" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">
                             <option value="5m|60d">5 分（60 天）</option>
                             <option value="15m|60d">15 分（60 天）</option>
-                            <option value="15m|180d" selected>15 分（近半年·3 段抓）</option>
+                            <option value="15m|180d">15 分（近半年·分段抓）</option>
+                            <option value="15m|13mo" selected>15 分（13 個月·分段 Yahoo 限制 60 天可能抓不滿）</option>
                             <option value="30m|60d">30 分（60 天）</option>
                             <option value="1h|6mo">1 小時（近半年）</option>
                             <option value="1h|1y">1 小時（1 年）</option>
+                            <option value="1h|13mo">1 小時（13 個月）</option>
                             <option value="1d|2y">日 K（2 年）</option>
                         </select></label>
                         <label style="font-size:11px;color:var(--ink3)">資金 $<input type="number" id="btStartBalance" value="100000000" style="width:100px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"></label>
@@ -2452,7 +2454,10 @@ async function runBacktest() {
     }
 
     btn.textContent = '⏳ 模擬中…';
-    body.innerHTML = `<div style="color:var(--ink3)">已取得 ${bars.length} 根 ${interval} K 線，模擬 ${ranked.length} 組策略中…</div>`;
+    const firstDate = bars.length ? new Date(bars[0].time * 1000).toISOString().slice(0,10) : '—';
+    const lastDate = bars.length ? new Date(bars[bars.length-1].time * 1000).toISOString().slice(0,10) : '—';
+    const spanDays = bars.length ? Math.round((bars[bars.length-1].time - bars[0].time) / 86400) : 0;
+    body.innerHTML = `<div style="color:var(--ink3)">已取得 ${bars.length} 根 ${interval} K 線（${firstDate} ~ ${lastDate}，跨 ${spanDays} 天），模擬 ${ranked.length} 組策略中…</div>`;
 
     // 讓 UI 能重繪，下一個 tick 再跑計算
     await new Promise(r => setTimeout(r, 30));
@@ -2470,7 +2475,7 @@ async function fetchBacktestBars(interval, rangeTag) {
     const nowSec = Math.floor(Date.now() / 1000);
     const subIntraday = ['1m','2m','5m','15m','30m','90m'].includes(interval);
 
-    const days = { '60d':60, '6mo':180, '180d':180, '1y':365, '2y':730 }[rangeTag] || null;
+    const days = { '60d':60, '6mo':180, '180d':180, '1y':365, '13mo':395, '2y':730 }[rangeTag] || null;
     if (!days) throw new Error(`未知 range: ${rangeTag}`);
 
     // 可以單次抓的情況：日內細 K 上限 60 天、其餘不限
