@@ -984,9 +984,37 @@ function avg(arr) { return arr.reduce((s, v) => s + v, 0) / arr.length; }
 function stddev(arr) { const m = avg(arr); return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length); }
 
 // ==================== STRATEGY ====================
+// 台指期開盤時段判斷（台北時間 UTC+8）
+// 日盤：Mon-Fri 08:45-13:45；夜盤：Mon-Thu 15:00-次日 05:00、Fri 15:00-Sat 05:00
+function isMarketOpen() {
+    const now = new Date();
+    const tw = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 8 * 3600000);
+    const day = tw.getDay();
+    const hhmm = tw.getHours() * 100 + tw.getMinutes();
+    if (day === 0) return false; // 週日休市
+    if (day === 6) return hhmm < 500; // 週六凌晨 05:00 前仍是週五夜盤
+    if (day === 1 && hhmm < 845) return false; // 週一日盤前休市
+    if (hhmm >= 845 && hhmm < 1345) return true; // 日盤
+    if (hhmm >= 1500) return true; // 夜盤開始
+    if (hhmm < 500) return true; // 夜盤凌晨
+    return false; // 13:45-15:00、05:00-08:45 休市
+}
+
+const _lastMarketLog = { val: 0 };
+function maybeLogMarketClosed() {
+    const now = Date.now();
+    if (now - _lastMarketLog.val < 300000) return; // 每 5 分鐘提醒一次
+    _lastMarketLog.val = now;
+    addLogEntry('skip', '休市時段，暫停自動進場（勝率低）', currentPrice);
+}
+
 function evaluateStrategy() {
     if (!autoTrading || !currentPrice || ind.ma5 === null || ind.ma20 === null || ind.rsi === null) return;
     if (!isValidTxfSource()) return; // 來源錯誤時不執行策略
+    if (!isMarketOpen()) {
+        // 休市時仍允許「出場邏輯」（保護已持倉），但不再新開倉
+        if (!account.positions.length) { maybeLogMarketClosed(); return; }
+    }
 
     const hasPosition = account.positions.length > 0;
 
@@ -1179,6 +1207,8 @@ function evaluateCustomStrategy() {
     if (!customStrategy.enabled || currentPrice == null) return;
     if (ind.ma5 === null || ind.ma20 === null || ind.rsi === null) return;
     if (!isValidTxfSource()) return;
+    // 休市時保留出場保護，不再新開倉
+    if (!isMarketOpen() && !customStrategy.position) return;
     const cfg = customStrategy.config;
     const pos = customStrategy.position;
 
@@ -1522,6 +1552,7 @@ function maybeRunAIBattle() {
     if (!aiBattleEnabled) return;
     if (currentPrice == null) return;
     if (!isValidTxfSource()) return; // 來源錯誤時不評估
+    if (!isMarketOpen()) return; // 休市不呼叫 AI（省 API 成本、避免假訊號）
     if (Date.now() - lastAIRunAt < AI_INTERVAL_MS) return;
     lastAIRunAt = Date.now();
     runAIBattle('5 分鐘定時評估');
@@ -2121,7 +2152,8 @@ function updateSimTime() {
     if (synthetic) { el.textContent = '模擬中'; return; }
     if (!lastQuoteAt) { el.textContent = '等待首筆報價…'; return; }
     const ago = Math.floor((Date.now() - lastQuoteAt) / 1000);
-    el.textContent = `最後更新 ${ago}s 前`;
+    const status = isMarketOpen() ? '🟢 開盤中' : '🔴 休市';
+    el.textContent = `${status} · 最後更新 ${ago}s 前`;
 }
 
 // 定期從 proxy 抓取即時報價，更新當前 K 線
