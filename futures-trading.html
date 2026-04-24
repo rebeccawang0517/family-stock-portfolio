@@ -2280,6 +2280,53 @@ function showLearnedRules() {
         </div>
     ` : '';
 
+    // 🎯 按「實際進場原因文字」分組的策略勝率榜
+    const reasonBuckets = {};
+    for (const t of all) {
+        const reason = (t.openReason || '').trim();
+        if (!reason) continue;
+        if (!reasonBuckets[reason]) reasonBuckets[reason] = { reason, n: 0, wins: 0, pnlSum: 0, side: t.side };
+        reasonBuckets[reason].n++;
+        if (t.pnl > 0) reasonBuckets[reason].wins++;
+        reasonBuckets[reason].pnlSum += (t.pnl || 0);
+    }
+    const reasonList = Object.values(reasonBuckets)
+        .filter(b => b.n >= 2)
+        .map(b => ({ ...b, winRate: b.wins / b.n, avgPnl: Math.round(b.pnlSum / b.n) }))
+        .sort((a, b) => b.winRate - a.winRate || b.n - a.n)
+        .slice(0, 15);
+
+    const reasonCard = (b, rank) => {
+        const wr = Math.round(b.winRate * 100);
+        const color = wrColor(b.winRate);
+        const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+        const sideIcon = b.side === 'long' ? '📈' : (b.side === 'short' ? '📉' : '');
+        const sideColor = b.side === 'long' ? '#4aad6e' : (b.side === 'short' ? '#d95353' : '#888');
+        return `
+        <div style="background:#1f1e1b;border-left:4px solid ${color};border-radius:8px;padding:12px 14px;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+                <span style="font-size:18px;min-width:30px">${rankBadge}</span>
+                <div style="flex:1">
+                    <div style="font-size:24px;font-weight:700;color:${color};line-height:1">${wr}<span style="font-size:13px;font-weight:500;color:var(--ink3)">%</span></div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:12px;color:var(--ink2)"><b>${b.n}</b> 筆（${b.wins}勝 ${b.n - b.wins}負）</div>
+                    <div style="font-size:12px;color:${b.avgPnl>=0?'#4aad6e':'#d95353'};font-weight:600">平均 ${b.avgPnl>=0?'+':''}${fmtInt(b.avgPnl)}</div>
+                </div>
+            </div>
+            <div style="font-size:12px;color:var(--ink2);line-height:1.5;padding:6px 8px;background:#2c2b27;border-radius:6px">
+                <span style="color:${sideColor};font-weight:600">${sideIcon} ${b.side === 'long' ? '做多' : b.side === 'short' ? '做空' : ''}</span>
+                · ${(b.reason || '').replace(/</g, '&lt;').slice(0, 200)}
+            </div>
+        </div>`;
+    };
+    const reasonSection = reasonList.length ? `
+        <div style="margin-top:14px">
+            <div style="font-size:13px;font-weight:600;color:#e8b84c;margin-bottom:8px">🎯 策略組合勝率榜（按實際進場原因分組 · 樣本 ≥ 2）</div>
+            ${reasonList.map((b, i) => reasonCard(b, i + 1)).join('')}
+        </div>
+    ` : '';
+
     const loseSection = loseP.length ? `
         <div style="margin-top:14px">
             <div style="font-size:13px;font-weight:600;color:#d95353;margin-bottom:8px">⚠️ 低勝率模式（勝率 ≤ 30%）</div>
@@ -2313,6 +2360,7 @@ function showLearnedRules() {
             ${statCards}
             ${srcBar}
             ${championCard}
+            ${reasonSection}
             ${winSection}
             ${top10Section}
             ${loseSection}
