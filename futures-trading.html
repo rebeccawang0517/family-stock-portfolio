@@ -212,7 +212,7 @@
         .ai-head .title { font-size: 13px; font-weight: 700; color: var(--gold); }
         .ai-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .ai-card { background: #2c2b27; border: 1px solid var(--border); border-radius: 10px; padding: 12px; min-width: 0; }
-        .ai-card.claude { border-left: 3px solid #d97757; }
+        .ai-card.gemini { border-left: 3px solid #4285f4; }
         .ai-card.grok { border-left: 3px solid #6366f1; }
         .ai-card.auto { border-left: 3px solid #4aad6e; }
         .ai-card.custom { border-left: 3px solid #e8b84c; }
@@ -326,7 +326,7 @@
             <!-- AI 對戰 -->
             <div class="ai-battle" id="aiBattle">
                 <div class="ai-head">
-                    <span class="title">🤖 AI 對戰 · Claude vs Grok</span>
+                    <span class="title">🤖 AI 對戰 · Gemini vs Grok</span>
                     <label class="toggle-switch" style="width:40px;height:22px">
                         <input type="checkbox" id="aiToggle" onchange="toggleAIBattle()">
                         <span class="toggle-slider"></span>
@@ -338,20 +338,20 @@
                     <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="resetAIBattle()">重置 AI</button>
                 </div>
                 <div class="ai-grid">
-                    <div class="ai-card claude">
+                    <div class="ai-card gemini">
                         <div class="name">
-                            <span>🧠 Claude</span>
-                            <span class="badge" id="aiClaudeBadge">—</span>
+                            <span>💎 Gemini</span>
+                            <span class="badge" id="aiGeminiBadge">—</span>
                         </div>
                         <div class="ai-kv">
-                            <span class="k">權益</span><span class="v" id="aiClaudeEquity">$0</span>
-                            <span class="k">已實現</span><span class="v" id="aiClaudeRealized">$0</span>
-                            <span class="k">交易</span><span class="v" id="aiClaudeTrades">0</span>
-                            <span class="k">勝率</span><span class="v" id="aiClaudeWin">—</span>
+                            <span class="k">權益</span><span class="v" id="aiGeminiEquity">$0</span>
+                            <span class="k">已實現</span><span class="v" id="aiGeminiRealized">$0</span>
+                            <span class="k">交易</span><span class="v" id="aiGeminiTrades">0</span>
+                            <span class="k">勝率</span><span class="v" id="aiGeminiWin">—</span>
                         </div>
-                        <div class="ai-pos" id="aiClaudePos">無持倉</div>
-                        <div class="ai-last" id="aiClaudeLast">等待首次信號…</div>
-                        <div class="ai-history" id="aiClaudeHistory"></div>
+                        <div class="ai-pos" id="aiGeminiPos">無持倉</div>
+                        <div class="ai-last" id="aiGeminiLast">等待首次信號…</div>
+                        <div class="ai-history" id="aiGeminiHistory"></div>
                     </div>
                     <div class="ai-card grok">
                         <div class="name">
@@ -1442,7 +1442,7 @@ window.editCustomBalance = editCustomBalance;
 // ==================== AI BATTLE ====================
 let aiInitialBalance = 1000000; // 預設 100 萬，可由使用者調整、存 Firebase
 let aiAccounts = {
-    claude: { name: 'Claude', balance: aiInitialBalance, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' },
+    gemini: { name: 'Gemini', balance: aiInitialBalance, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' },
     grok:   { name: 'Grok',   balance: aiInitialBalance, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' }
 };
 let aiBattleEnabled = false;
@@ -1455,8 +1455,13 @@ async function loadAIBattle() {
         if (snap.exists()) {
             const d = snap.data();
             if (d.aiAccounts) {
+                // 舊資料遷移：claude → gemini（保留歷史交易）
+                if (d.aiAccounts.claude && !d.aiAccounts.gemini) {
+                    d.aiAccounts.gemini = { ...d.aiAccounts.claude, name: 'Gemini' };
+                    delete d.aiAccounts.claude;
+                }
                 aiAccounts = { ...aiAccounts, ...d.aiAccounts };
-                ['claude','grok'].forEach(k => { aiAccounts[k].busy = false; });
+                ['gemini','grok'].forEach(k => { aiAccounts[k].busy = false; });
             }
             if (Number.isFinite(d.aiInitialBalance)) aiInitialBalance = d.aiInitialBalance;
             aiBattleEnabled = !!d.aiBattleEnabled;
@@ -1485,7 +1490,7 @@ async function saveAIBattle() {
 
 function serializeAIAccounts() {
     const out = {};
-    for (const k of ['claude','grok']) {
+    for (const k of ['gemini','grok']) {
         const a = aiAccounts[k];
         out[k] = {
             name: a.name, balance: a.balance, realized: a.realized,
@@ -1546,7 +1551,7 @@ function updateAIToggleStatus() {
 
 function resetAIBattle() {
     if (!confirm(`重置兩個 AI 帳戶為起始 ${fmtMoney(aiInitialBalance)}？`)) return;
-    ['claude','grok'].forEach(k => {
+    ['gemini','grok'].forEach(k => {
         aiAccounts[k] = { name: aiAccounts[k].name, balance: aiInitialBalance, realized: 0, position: null, history: [], curve: [], lastSignal: null, busy: false, badge: '待命' };
     });
     saveAIBattle();
@@ -1727,7 +1732,7 @@ function applyAISignal(aiKey, sig) {
 function checkAISLTP() {
     if (currentPrice == null) return;
     let dirty = false;
-    for (const k of ['claude','grok']) {
+    for (const k of ['gemini','grok']) {
         const a = aiAccounts[k];
         if (!a.position) continue;
         const diff = a.position.side === 'long'
@@ -1760,9 +1765,9 @@ async function runAIBattle(triggerEvent) {
     if (currentPrice == null) return;
     if (triggerEvent) toast(`AI 評估觸發：${triggerEvent}`, 'info');
     // 兩個 AI 平行呼叫
-    await Promise.all([evaluateOneAI('claude', triggerEvent), evaluateOneAI('grok', triggerEvent)]);
+    await Promise.all([evaluateOneAI('gemini', triggerEvent), evaluateOneAI('grok', triggerEvent)]);
     // 記錄權益曲線
-    for (const k of ['claude','grok']) {
+    for (const k of ['gemini','grok']) {
         const a = aiAccounts[k];
         const eq = a.balance + aiUnrealized(a);
         a.curve.push({ time: Math.floor(Date.now()/1000), eq });
@@ -1772,7 +1777,7 @@ async function runAIBattle(triggerEvent) {
 }
 
 function renderAIBattle() {
-    for (const k of ['claude','grok']) {
+    for (const k of ['gemini','grok']) {
         const a = aiAccounts[k];
         const cap = k.charAt(0).toUpperCase() + k.slice(1);
         const eq = a.balance + aiUnrealized(a);
@@ -1830,15 +1835,15 @@ function renderAIBattle() {
     renderAutoCard();
     // 三方領先標記
     const eqs = {
-        claude: aiAccounts.claude.balance + aiUnrealized(aiAccounts.claude),
+        gemini: aiAccounts.gemini.balance + aiUnrealized(aiAccounts.gemini),
         grok: aiAccounts.grok.balance + aiUnrealized(aiAccounts.grok),
         auto: (account.balance || 0) + calcUnrealizedTotal()
     };
     const leader = Object.entries(eqs).sort((a,b) => b[1]-a[1])[0][0];
-    ['aiClaudeBadge','aiGrokBadge','aiAutoBadge'].forEach(id => {
+    ['aiGeminiBadge','aiGrokBadge','aiAutoBadge'].forEach(id => {
         const el = document.getElementById(id); if (el) el.className = 'badge';
     });
-    const leaderId = leader === 'claude' ? 'aiClaudeBadge' : (leader === 'grok' ? 'aiGrokBadge' : 'aiAutoBadge');
+    const leaderId = leader === 'gemini' ? 'aiGeminiBadge' : (leader === 'grok' ? 'aiGrokBadge' : 'aiAutoBadge');
     const leaderEl = document.getElementById(leaderId);
     if (leaderEl && new Set(Object.values(eqs)).size > 1) {
         leaderEl.textContent = '👑 領先 ' + leaderEl.textContent;

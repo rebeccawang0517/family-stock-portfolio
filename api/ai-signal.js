@@ -25,6 +25,8 @@ export default async function handler(req, res) {
       ({ raw, model } = await callClaude(prompt));
     } else if (ai === 'grok') {
       ({ raw, model } = await callGrok(prompt));
+    } else if (ai === 'gemini') {
+      ({ raw, model } = await callGemini(prompt));
     } else {
       return res.status(400).json({ error: 'unknown ai' });
     }
@@ -159,6 +161,39 @@ async function callGrok(prompt) {
     if (resp.status === 401) break; // key 無效，不用再試
   }
   throw new Error(`Grok all models failed. Tried: ${ordered.slice(0,5).join(',')}. Last: ${lastErr}`);
+}
+
+async function callGemini(prompt) {
+  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!key) throw new Error('GEMINI_API_KEY missing');
+
+  // 依偏好排序試多個模型（有用就回，沒用退到下一個）
+  const ordered = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+  let lastErr = '';
+  for (const model of ordered) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 400,
+          temperature: 0.7
+        }
+      })
+    });
+    if (resp.ok) {
+      const json = await resp.json();
+      const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      return { raw, model };
+    }
+    const txt = await resp.text();
+    lastErr = `${resp.status} (${model}): ${txt.slice(0, 200)}`;
+    if (resp.status === 400 || resp.status === 401 || resp.status === 403) break; // key 無效/權限問題，不用再試
+  }
+  throw new Error(`Gemini all models failed. Last: ${lastErr}`);
 }
 
 function parseSignal(raw) {
