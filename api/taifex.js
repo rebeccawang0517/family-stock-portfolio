@@ -7,10 +7,12 @@ export default async function handler(req, res) {
   const type = (req.query.type || 'quote').toString();
   const interval = (req.query.interval || '1m').toString();
   const range = (req.query.range || '5d').toString();
+  const period1 = req.query.period1 ? parseInt(req.query.period1) : null;
+  const period2 = req.query.period2 ? parseInt(req.query.period2) : null;
 
   try {
     if (type === 'bars') {
-      const result = await fetchBars(interval, range);
+      const result = await fetchBars(interval, range, period1, period2);
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
       res.status(200).json(result);
       return;
@@ -147,8 +149,13 @@ async function fetchQuote() {
 }
 
 // Yahoo ^TWII K 線，再套用當前 TXF-TAIEX 價差 offset
-async function fetchYahooBars(interval = '1m', range = '5d') {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/^TWII?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+async function fetchYahooBars(interval = '1m', range = '5d', period1 = null, period2 = null) {
+  let url;
+  if (period1 && period2) {
+    url = `https://query1.finance.yahoo.com/v8/finance/chart/^TWII?interval=${encodeURIComponent(interval)}&period1=${period1}&period2=${period2}`;
+  } else {
+    url = `https://query1.finance.yahoo.com/v8/finance/chart/^TWII?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+  }
   const resp = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0' }
   });
@@ -173,8 +180,8 @@ async function fetchYahooBars(interval = '1m', range = '5d') {
   return bars;
 }
 
-async function fetchBars(interval, range) {
-  const bars = await fetchYahooBars(interval, range);
+async function fetchBars(interval, range, period1 = null, period2 = null) {
+  const bars = await fetchYahooBars(interval, range, period1, period2);
 
   // 計算當前 TXF 與 TAIEX 價差，套用到歷史 bars 讓圖表對齊台指期尺度
   let offset = 0;

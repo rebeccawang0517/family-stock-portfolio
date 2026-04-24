@@ -411,7 +411,16 @@
                 <div class="ai-head">
                     <span class="title">📈 歷史回測 · 勝場榜首策略</span>
                     <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                        <label style="font-size:11px;color:var(--ink3)">資金 $<input type="number" id="btStartBalance" value="100000000" style="width:110px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"></label>
+                        <label style="font-size:11px;color:var(--ink3)">K線<select id="btTimeframe" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">
+                            <option value="5m|60d">5 分（60 天）</option>
+                            <option value="15m|60d">15 分（60 天）</option>
+                            <option value="15m|180d" selected>15 分（近半年·3 段抓）</option>
+                            <option value="30m|60d">30 分（60 天）</option>
+                            <option value="1h|6mo">1 小時（近半年）</option>
+                            <option value="1h|1y">1 小時（1 年）</option>
+                            <option value="1d|2y">日 K（2 年）</option>
+                        </select></label>
+                        <label style="font-size:11px;color:var(--ink3)">資金 $<input type="number" id="btStartBalance" value="100000000" style="width:100px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"></label>
                         <label style="font-size:11px;color:var(--ink3)">停損<input type="number" id="btSL" value="100" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
                         <label style="font-size:11px;color:var(--ink3)">停利<input type="number" id="btTP" value="150" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
                         <label style="font-size:11px;color:var(--ink3)">TOP<select id="btTopN" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option></select> 策略</label>
@@ -2427,14 +2436,13 @@ async function runBacktest() {
 
     btn.disabled = true;
     btn.textContent = '⏳ 抓資料中…';
-    body.innerHTML = '<div style="color:var(--ink3)">下載近 1 年 1 小時 K 線…</div>';
+    const tfSel = document.getElementById('btTimeframe').value || '15m|180d';
+    const [interval, rangeTag] = tfSel.split('|');
+    body.innerHTML = `<div style="color:var(--ink3)">下載 ${interval} K 線…</div>`;
 
     let bars;
     try {
-        const resp = await fetch('/api/taifex?type=bars&interval=1h&range=1y');
-        if (!resp.ok) throw new Error('API ' + resp.status);
-        const j = await resp.json();
-        bars = j.bars || [];
+        bars = await fetchBacktestBars(interval, rangeTag);
         if (bars.length < 100) throw new Error(`只拿到 ${bars.length} 根 K，資料不足`);
     } catch (e) {
         btn.disabled = false;
@@ -2444,7 +2452,7 @@ async function runBacktest() {
     }
 
     btn.textContent = '⏳ 模擬中…';
-    body.innerHTML = `<div style="color:var(--ink3)">已取得 ${bars.length} 根 1h K 線，模擬 ${ranked.length} 組策略中…</div>`;
+    body.innerHTML = `<div style="color:var(--ink3)">已取得 ${bars.length} 根 ${interval} K 線，模擬 ${ranked.length} 組策略中…</div>`;
 
     // 讓 UI 能重繪，下一個 tick 再跑計算
     await new Promise(r => setTimeout(r, 30));
@@ -2453,6 +2461,53 @@ async function runBacktest() {
     renderBacktestResults(results, bars, ranked);
     btn.disabled = false;
     btn.textContent = '▶ 再次回測';
+}
+
+// 抓回測資料；對於 15m/180d 這種超出 Yahoo 60d 上限的組合，分段抓再合併
+async function fetchBacktestBars(interval, rangeTag) {
+    // 決定抓法：支援 60d / 6mo / 1y / 2y，或用 period1-period2 切片
+    const dayMs = 86400 * 1000;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const subIntraday = ['1m','2m','5m','15m','30m','90m'].includes(interval);
+
+    const days = { '60d':60, '6mo':180, '180d':180, '1y':365, '2y':730 }[rangeTag] || null;
+    if (!days) throw new Error(`未知 range: ${rangeTag}`);
+
+    // 可以單次抓的情況：日內細 K 上限 60 天、其餘不限
+    if (!subIntraday || days <= 60) {
+        const rangeStr = rangeTag === '180d' ? '6mo' : rangeTag;
+        const resp = await fetch(`/api/taifex?type=bars&interval=${interval}&range=${rangeStr}`);
+        if (!resp.ok) throw new Error('API ' + resp.status);
+        const j = await resp.json();
+        return j.bars || [];
+    }
+
+    // 需要分段：每段最多 60 天，從最舊到最新
+    const segments = [];
+    const segDays = 55; // 稍微小於 60 避免重疊誤差
+    let end = nowSec;
+    let start = end - days * 86400;
+    while (start < end) {
+        const segEnd = Math.min(start + segDays * 86400, end);
+        segments.push([start, segEnd]);
+        start = segEnd;
+    }
+
+    const all = [];
+    const seen = new Set();
+    for (let i = 0; i < segments.length; i++) {
+        const [p1, p2] = segments[i];
+        const resp = await fetch(`/api/taifex?type=bars&interval=${interval}&period1=${p1}&period2=${p2}`);
+        if (!resp.ok) continue; // 單段失敗容忍
+        const j = await resp.json();
+        for (const b of (j.bars || [])) {
+            if (seen.has(b.time)) continue;
+            seen.add(b.time);
+            all.push(b);
+        }
+    }
+    all.sort((a, b) => a.time - b.time);
+    return all;
 }
 
 // 回測單一 pattern：每根 K 收盤若 snapshot 匹配 → 進場；停損停利平倉
