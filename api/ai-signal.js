@@ -167,8 +167,33 @@ async function callGemini(prompt) {
   const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!key) throw new Error('GEMINI_API_KEY missing');
 
-  // 依偏好排序試多個模型（有用就回，沒用退到下一個）
-  const ordered = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+  // 先列可用模型
+  let available = [];
+  try {
+    const mr = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+    if (mr.ok) {
+      const mj = await mr.json();
+      available = (mj.models || [])
+        .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map(m => (m.name || '').replace(/^models\//, ''))
+        .filter(Boolean);
+    }
+  } catch {}
+
+  // 偏好順序：2.5 pro → 2.5 flash → 2.0 flash → flash-latest → 其他
+  const preferred = [
+    'gemini-2.5-pro', 'gemini-2.5-pro-latest', 'gemini-2.5-pro-preview-05-06',
+    'gemini-2.5-flash', 'gemini-2.5-flash-latest', 'gemini-2.5-flash-preview-05-20',
+    'gemini-flash-latest', 'gemini-pro-latest',
+    'gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.0-flash-exp',
+    'gemini-1.5-pro', 'gemini-1.5-pro-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'
+  ];
+  const ordered = available.length
+    ? [...preferred.filter(m => available.includes(m)), ...available.filter(m => !preferred.includes(m) && !m.includes('embedding') && !m.includes('vision') && !m.includes('tts') && !m.includes('imagen'))]
+    : preferred;
+
+  if (!ordered.length) throw new Error('Gemini: 沒有可用模型（ListModels 也空）');
+
   let lastErr = '';
   for (const model of ordered) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
@@ -190,10 +215,10 @@ async function callGemini(prompt) {
       return { raw, model };
     }
     const txt = await resp.text();
-    lastErr = `${resp.status} (${model}): ${txt.slice(0, 200)}`;
-    if (resp.status === 400 || resp.status === 401 || resp.status === 403) break; // key 無效/權限問題，不用再試
+    lastErr = `${resp.status} (${model}): ${txt.slice(0, 150)}`;
+    if (resp.status === 401 || resp.status === 403) break; // key 權限問題，不用再試
   }
-  throw new Error(`Gemini all models failed. Last: ${lastErr}`);
+  throw new Error(`Gemini all models failed. Tried: ${ordered.slice(0,5).join(',')}. Last: ${lastErr}`);
 }
 
 function parseSignal(raw) {
