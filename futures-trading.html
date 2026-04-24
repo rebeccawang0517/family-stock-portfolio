@@ -423,6 +423,13 @@
                             <option value="1d|2y">日 K（2 年）</option>
                             <option value="1d|5y">日 K（5 年）</option>
                             <option value="1h|2y">1 小時（2 年·Yahoo 上限）</option>
+                            <optgroup label="── 本地 TAIFEX 匯入資料 ──">
+                                <option value="1m|taifex">1 分（TAIFEX 匯入）</option>
+                                <option value="5m|taifex">5 分（TAIFEX 匯入）</option>
+                                <option value="15m|taifex">15 分（TAIFEX 匯入）</option>
+                                <option value="1h|taifex">1 小時（TAIFEX 匯入）</option>
+                                <option value="1d|taifex">日 K（TAIFEX 匯入）</option>
+                            </optgroup>
                         </select></label>
                         <label style="font-size:11px;color:var(--ink3)">資金 $<input type="number" id="btStartBalance" value="100000000" style="width:100px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"></label>
                         <label style="font-size:11px;color:var(--ink3)">停損<input type="number" id="btSL" value="100" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
@@ -430,6 +437,8 @@
                         <label style="font-size:11px;color:var(--ink3)">TOP<select id="btTopN" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option></select> 策略</label>
                         <button class="header-btn" onclick="downloadBarsToLocal()" id="btDlBtn" style="font-size:11px;padding:4px 10px" title="把目前選的時間框架 K 棒下載到 localStorage">📥 下載</button>
                         <button class="header-btn" onclick="downloadAllHistoricalBars()" id="btDlAllBtn" style="font-size:11px;padding:4px 10px" title="一次下載所有可用時間框架：日 K 5 年、1 小時 2 年、15 分/5 分各 60 天">📦 全載歷史</button>
+                        <button class="header-btn" onclick="document.getElementById('taifexFileInput').click()" id="btImportBtn" style="font-size:11px;padding:4px 10px" title="匯入期交所「期貨成交簡檔」CSV，自動聚合為 1m/5m/15m/1h/1d K 線">📁 匯入 TAIFEX</button>
+                        <input type="file" id="taifexFileInput" accept=".csv,.txt" multiple style="display:none" onchange="importTaifexFiles(this.files)">
                         <button class="header-btn" onclick="runBacktest()" id="btRunBtn" style="background:var(--accent);font-size:11px;padding:4px 10px">▶ 執行回測</button>
                     </div>
                 </div>
@@ -2464,9 +2473,9 @@ async function runBacktest() {
     const lastDate = bars.length ? new Date(bars[bars.length-1].time * 1000).toISOString().slice(0,10) : '—';
     const spanDays = bars.length ? Math.round((bars[bars.length-1].time - bars[0].time) / 86400) : 0;
 
-    // 檢查資料是否遠小於預期（Yahoo 對日內細 K 只給近 60 天）
+    // 檢查資料是否遠小於預期（Yahoo 對日內細 K 只給近 60 天；TAIFEX 匯入不檢查）
     const expectedDays = { '60d':60, '6mo':180, '180d':180, '1y':365, '13mo':395, '2y':730, '5y':1825 }[rangeTag] || 60;
-    const coverageWarning = spanDays < expectedDays * 0.5 ? `
+    const coverageWarning = (rangeTag !== 'taifex' && spanDays < expectedDays * 0.5) ? `
         <div style="background:#3a1e1e;border-left:3px solid #d95353;padding:8px 10px;border-radius:6px;margin-bottom:8px;font-size:12px;color:#ff9980;line-height:1.6">
             ⚠️ 實際只拿到 ${spanDays} 天資料（原本要 ${expectedDays} 天）<br>
             Yahoo 對 ${interval} K 的歷史深度有限制：小於 1 小時的 K 只給近 60 天，更早的拿不到。<br>
@@ -2609,9 +2618,172 @@ window.downloadBarsToLocal = downloadBarsToLocal;
 window.downloadAllHistoricalBars = downloadAllHistoricalBars;
 window.clearBarsCache = clearBarsCache;
 
+// ---------- 期交所「期貨成交簡檔」匯入 ----------
+// 欄位：成交日期,商品代號,到期月份(週別),成交時間,成交價格,成交數量(B+S),近月價格,遠月價格,開盤集合競價
+// 只保留 TX 且非價差（不含 '/'）、成交價 > 0 的 tick
+
+function parseTaifexCsv(text) {
+    const lines = text.split(/\r?\n/);
+    const ticks = [];
+    for (let i = 1; i < lines.length; i++) { // 跳 header
+        const line = lines[i];
+        if (!line || !line.trim()) continue;
+        const cols = line.split(',').map(c => c.trim());
+        if (cols.length < 6) continue;
+        const date = cols[0];
+        const product = cols[1];
+        const expiry = cols[2];
+        const time = cols[3];
+        const price = parseFloat(cols[4]);
+        const volume = parseInt(cols[5]);
+        if (product !== 'TX') continue;
+        if (expiry.includes('/')) continue; // 跳過價差單（calendar spread）
+        if (!Number.isFinite(price) || price <= 0) continue;
+        if (!Number.isFinite(volume) || volume <= 0) continue;
+        if (!/^\d{8}$/.test(date)) continue;
+        const timePadded = String(time).padStart(6, '0');
+        if (!/^\d{6}$/.test(timePadded)) continue;
+        const y = parseInt(date.slice(0, 4));
+        const m = parseInt(date.slice(4, 6)) - 1;
+        const d = parseInt(date.slice(6, 8));
+        const hh = parseInt(timePadded.slice(0, 2));
+        const mm = parseInt(timePadded.slice(2, 4));
+        const ss = parseInt(timePadded.slice(4, 6));
+        const ts = Math.floor(new Date(y, m, d, hh, mm, ss).getTime() / 1000);
+        if (!Number.isFinite(ts)) continue;
+        ticks.push({ time: ts, price, volume, expiry, date });
+    }
+    return ticks;
+}
+
+// 每日挑「主力合約」= 當日成交量最大的月份，讓換倉自動切
+function pickMainContractPerDay(ticks) {
+    const volByDateExp = {};
+    for (const t of ticks) {
+        const key = t.date;
+        if (!volByDateExp[key]) volByDateExp[key] = {};
+        volByDateExp[key][t.expiry] = (volByDateExp[key][t.expiry] || 0) + t.volume;
+    }
+    const main = {};
+    for (const date in volByDateExp) {
+        const sorted = Object.entries(volByDateExp[date]).sort((a, b) => b[1] - a[1]);
+        main[date] = sorted[0][0];
+    }
+    return main;
+}
+
+function aggregateTicksToBars(ticks, bucketSec) {
+    if (!ticks.length) return [];
+    const bars = {};
+    for (const t of ticks) {
+        const bt = Math.floor(t.time / bucketSec) * bucketSec;
+        let b = bars[bt];
+        if (!b) {
+            b = bars[bt] = { time: bt, open: t.price, high: t.price, low: t.price, close: t.price, volume: 0 };
+        }
+        if (t.price > b.high) b.high = t.price;
+        if (t.price < b.low) b.low = t.price;
+        b.close = t.price;
+        b.volume += t.volume;
+    }
+    return Object.values(bars).sort((a, b) => a.time - b.time);
+}
+
+async function importTaifexFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    const btn = document.getElementById('btImportBtn');
+    const status = document.getElementById('btCacheStatus');
+    btn.disabled = true;
+    btn.textContent = '⏳ 處理中…';
+
+    let allTicks = [];
+    let parsed = 0, fileErrors = 0;
+    for (const f of files) {
+        try {
+            status.innerHTML = `<span style="color:var(--ink3)">讀取 ${f.name}…（${parsed + 1}/${files.length}）</span>`;
+            const buf = await f.arrayBuffer();
+            let text;
+            try { text = new TextDecoder('big5').decode(buf); }
+            catch { text = new TextDecoder('utf-8').decode(buf); }
+            const ticks = parseTaifexCsv(text);
+            allTicks.push(...ticks);
+            parsed++;
+        } catch (e) {
+            console.error('檔案讀取失敗', f.name, e);
+            fileErrors++;
+        }
+    }
+    if (!allTicks.length) {
+        status.innerHTML = `<span style="color:#d95353">沒解析到任何 TX 成交，檢查檔案格式是否正確（期交所「期貨成交簡檔」）</span>`;
+        btn.disabled = false;
+        btn.textContent = '📁 匯入 TAIFEX';
+        return;
+    }
+
+    // 只留每日主力合約
+    status.innerHTML = `<span style="color:var(--ink3)">挑主力合約中…（共 ${allTicks.length.toLocaleString()} 筆 tick）</span>`;
+    await new Promise(r => setTimeout(r, 30));
+    const main = pickMainContractPerDay(allTicks);
+    const mainTicks = allTicks.filter(t => t.expiry === main[t.date]);
+    mainTicks.sort((a, b) => a.time - b.time);
+
+    // 聚合成多種 K
+    status.innerHTML = `<span style="color:var(--ink3)">聚合 K 線…（${mainTicks.length.toLocaleString()} 筆主力 tick）</span>`;
+    await new Promise(r => setTimeout(r, 30));
+    const tfBuckets = [
+        { interval: '1m',  sec: 60 },
+        { interval: '5m',  sec: 300 },
+        { interval: '15m', sec: 900 },
+        { interval: '1h',  sec: 3600 },
+        { interval: '1d',  sec: 86400 }
+    ];
+    const summary = [];
+    for (const { interval, sec } of tfBuckets) {
+        const bars = aggregateTicksToBars(mainTicks, sec);
+        if (bars.length) {
+            // 如果已有既有 taifex 匯入、合併後去重（支援多次匯入不同月份）
+            const existing = readBarsCache(interval, 'taifex');
+            let merged = bars;
+            if (existing && existing.bars && existing.bars.length) {
+                const seen = new Set(bars.map(b => b.time));
+                merged = [...existing.bars.filter(b => !seen.has(b.time)), ...bars].sort((a,b) => a.time - b.time);
+            }
+            writeBarsCache(interval, 'taifex', merged);
+            summary.push(`${interval}: ${merged.length} 根`);
+        }
+    }
+    const firstD = new Date(mainTicks[0].time * 1000).toISOString().slice(0, 10);
+    const lastD = new Date(mainTicks[mainTicks.length - 1].time * 1000).toISOString().slice(0, 10);
+    const uniqueContracts = [...new Set(Object.values(main))].join(', ');
+
+    status.innerHTML = `
+        <div style="color:#8bc34a;line-height:1.8">
+            ✅ 匯入完成 · ${parsed} 檔、${mainTicks.length.toLocaleString()} 筆主力 tick（原始 ${allTicks.length.toLocaleString()}）
+            <br><span style="color:var(--ink3)">期間 ${firstD} ~ ${lastD} · 合約 ${uniqueContracts} · 聚合結果：${summary.join('、')}</span>
+            ${fileErrors ? `<br><span style="color:#d95353">${fileErrors} 檔解析失敗</span>` : ''}
+        </div>
+    `;
+    toast(`已匯入 ${mainTicks.length.toLocaleString()} 筆 tick`, 'success');
+    btn.disabled = false;
+    btn.textContent = '📁 匯入 TAIFEX';
+
+    // 切下拉到 5m/taifex 供立即測試
+    document.getElementById('btTimeframe').value = '5m|taifex';
+    renderCacheStatus();
+}
+
+window.importTaifexFiles = importTaifexFiles;
+
 // 抓回測資料；對於 15m/180d 這種超出 Yahoo 60d 上限的組合，分段抓再合併
 // 有本地快取就先用本地（除非 forceFetch=true）
 async function fetchBacktestBars(interval, rangeTag, forceFetch = false) {
+    // TAIFEX 匯入資料：只讀本地快取，不打網路
+    if (rangeTag === 'taifex') {
+        const cached = readBarsCache(interval, rangeTag);
+        if (cached && cached.bars && cached.bars.length) return cached.bars;
+        throw new Error('尚未匯入 TAIFEX CSV，請先按「📁 匯入 TAIFEX」');
+    }
     if (!forceFetch) {
         const cached = readBarsCache(interval, rangeTag);
         if (cached && cached.bars && cached.bars.length) {
