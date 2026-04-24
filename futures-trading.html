@@ -411,7 +411,7 @@
                 <div class="ai-head">
                     <span class="title">📈 歷史回測 · 勝場榜首策略</span>
                     <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                        <label style="font-size:11px;color:var(--ink3)">K線<select id="btTimeframe" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">
+                        <label style="font-size:11px;color:var(--ink3)">K線<select id="btTimeframe" onchange="renderCacheStatus()" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">
                             <option value="5m|60d">5 分（60 天）</option>
                             <option value="15m|60d">15 分（60 天）</option>
                             <option value="15m|180d">15 分（近半年·分段抓）</option>
@@ -426,11 +426,13 @@
                         <label style="font-size:11px;color:var(--ink3)">停損<input type="number" id="btSL" value="100" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
                         <label style="font-size:11px;color:var(--ink3)">停利<input type="number" id="btTP" value="150" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
                         <label style="font-size:11px;color:var(--ink3)">TOP<select id="btTopN" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option></select> 策略</label>
+                        <button class="header-btn" onclick="downloadBarsToLocal()" id="btDlBtn" style="font-size:11px;padding:4px 10px" title="把目前選的時間框架 K 棒下載到 localStorage，下次回測直接用快取不重抓">📥 下載到本地</button>
                         <button class="header-btn" onclick="runBacktest()" id="btRunBtn" style="background:var(--accent);font-size:11px;padding:4px 10px">▶ 執行回測</button>
                     </div>
                 </div>
+                <div id="btCacheStatus" style="padding:6px 12px;font-size:11px;color:var(--ink3);border-bottom:1px solid var(--border)"></div>
                 <div id="backtestBody" style="padding:12px;font-size:12px;color:var(--ink3)">
-                    點「執行回測」會抓近一年 1 小時 K 線，模擬勝場學習榜首的 N 個策略，顯示完整績效。
+                    點「執行回測」會抓 K 線模擬勝場榜首策略；或先「📥 下載到本地」快取，之後每次回測即時秒開。
                 </div>
             </div>
 
@@ -668,6 +670,7 @@ async function initApp() {
     renderAIBattle();
     learnedRules = analyzeTradeHistory();
     renderCustomCard();
+    renderCacheStatus();
 
     // 關閉或刷新前強制把最新狀態推到 Firebase（避免最後一筆交易遺失）
     window.addEventListener('beforeunload', () => {
@@ -2468,8 +2471,95 @@ async function runBacktest() {
     btn.textContent = '▶ 再次回測';
 }
 
+// ---------- 本地 K 線快取（localStorage） ----------
+function bcacheKey(interval, rangeTag) { return `bt_bars:${interval}:${rangeTag}`; }
+
+function readBarsCache(interval, rangeTag) {
+    try {
+        const raw = localStorage.getItem(bcacheKey(interval, rangeTag));
+        if (!raw) return null;
+        const j = JSON.parse(raw);
+        if (!j || !Array.isArray(j.bars) || !j.bars.length) return null;
+        return j;
+    } catch { return null; }
+}
+
+function writeBarsCache(interval, rangeTag, bars) {
+    try {
+        const j = {
+            bars,
+            downloadedAt: Date.now(),
+            startTime: bars[0]?.time,
+            endTime: bars[bars.length - 1]?.time,
+            interval, rangeTag
+        };
+        localStorage.setItem(bcacheKey(interval, rangeTag), JSON.stringify(j));
+    } catch (e) {
+        toast('本地儲存失敗（可能超額）：' + e.message, 'error');
+    }
+}
+
+function renderCacheStatus() {
+    const el = document.getElementById('btCacheStatus');
+    if (!el) return;
+    const tfSel = document.getElementById('btTimeframe')?.value || '';
+    if (!tfSel) { el.textContent = ''; return; }
+    const [interval, rangeTag] = tfSel.split('|');
+    const c = readBarsCache(interval, rangeTag);
+    if (!c) {
+        el.innerHTML = `<span style="color:var(--ink3)">💾 目前選的時間框架沒有本地快取 · <span style="color:#e8b84c">點「📥 下載到本地」可預存以便秒開回測</span></span>`;
+        return;
+    }
+    const first = new Date(c.startTime * 1000).toISOString().slice(0,10);
+    const last = new Date(c.endTime * 1000).toISOString().slice(0,10);
+    const ageHr = Math.round((Date.now() - c.downloadedAt) / 3600000);
+    const kb = Math.round(JSON.stringify(c).length / 1024);
+    el.innerHTML = `<span style="color:#8bc34a">💾 已快取 ${c.bars.length} 根 K（${first} ~ ${last}，${kb} KB）</span> <span style="color:var(--ink3)">· ${ageHr} 小時前下載 · <a href="javascript:clearBarsCache()" style="color:#d95353">清除</a></span>`;
+}
+
+function clearBarsCache() {
+    const tfSel = document.getElementById('btTimeframe').value;
+    const [interval, rangeTag] = tfSel.split('|');
+    if (!confirm(`清除 ${interval} · ${rangeTag} 的本地快取？`)) return;
+    localStorage.removeItem(bcacheKey(interval, rangeTag));
+    renderCacheStatus();
+    toast('快取已清除', 'info');
+}
+
+async function downloadBarsToLocal() {
+    const btn = document.getElementById('btDlBtn');
+    const tfSel = document.getElementById('btTimeframe').value;
+    const [interval, rangeTag] = tfSel.split('|');
+    btn.disabled = true;
+    btn.textContent = '⏳ 下載中…';
+    const status = document.getElementById('btCacheStatus');
+    status.innerHTML = `<span style="color:var(--ink3)">下載 ${interval} · ${rangeTag} K 線中…</span>`;
+    try {
+        const bars = await fetchBacktestBars(interval, rangeTag, true); // 強制從網路抓
+        if (!bars.length) throw new Error('沒拿到任何 K 線');
+        writeBarsCache(interval, rangeTag, bars);
+        toast(`已下載 ${bars.length} 根 K 到本地`, 'success');
+    } catch (e) {
+        toast('下載失敗：' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '📥 下載到本地';
+        renderCacheStatus();
+    }
+}
+
+window.downloadBarsToLocal = downloadBarsToLocal;
+window.clearBarsCache = clearBarsCache;
+
 // 抓回測資料；對於 15m/180d 這種超出 Yahoo 60d 上限的組合，分段抓再合併
-async function fetchBacktestBars(interval, rangeTag) {
+// 有本地快取就先用本地（除非 forceFetch=true）
+async function fetchBacktestBars(interval, rangeTag, forceFetch = false) {
+    if (!forceFetch) {
+        const cached = readBarsCache(interval, rangeTag);
+        if (cached && cached.bars && cached.bars.length) {
+            return cached.bars;
+        }
+    }
     // 決定抓法：支援 60d / 6mo / 1y / 2y，或用 period1-period2 切片
     const dayMs = 86400 * 1000;
     const nowSec = Math.floor(Date.now() / 1000);
@@ -2484,7 +2574,9 @@ async function fetchBacktestBars(interval, rangeTag) {
         const resp = await fetch(`/api/taifex?type=bars&interval=${interval}&range=${rangeStr}`);
         if (!resp.ok) throw new Error('API ' + resp.status);
         const j = await resp.json();
-        return j.bars || [];
+        const bars = j.bars || [];
+        if (bars.length && !forceFetch) writeBarsCache(interval, rangeTag, bars);
+        return bars;
     }
 
     // 需要分段：每段最多 60 天，從最舊到最新
@@ -2512,6 +2604,7 @@ async function fetchBacktestBars(interval, rangeTag) {
         }
     }
     all.sort((a, b) => a.time - b.time);
+    if (all.length && !forceFetch) writeBarsCache(interval, rangeTag, all);
     return all;
 }
 
