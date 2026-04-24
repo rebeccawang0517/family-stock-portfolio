@@ -2119,14 +2119,71 @@ function formatRecentTrades(historyArr, n = 10) {
     }).join('\n');
 }
 
+// 把所有帳戶的歷史合併成單一陣列（統一 side 欄位）
+function gatherAllTrades() {
+    const out = [];
+    (account.history || []).forEach(h => {
+        if (!h.entrySnapshot) return;
+        out.push({ src: '主自動', side: h.direction, pnl: h.pnl, entry: h.entryPrice, exit: h.exitPrice, openReason: h.entryReason, closeReason: h.exitReason, snapshot: h.entrySnapshot, time: h.entryTime });
+    });
+    for (const k of ['gemini','grok']) {
+        (aiAccounts[k]?.history || []).forEach(h => {
+            if (!h.entrySnapshot) return;
+            out.push({ src: aiAccounts[k].name, side: h.side, pnl: h.pnl, entry: h.entry, exit: h.exit, openReason: h.openReason, closeReason: h.closeReason, snapshot: h.entrySnapshot, time: h.openTime });
+        });
+    }
+    (customStrategy.history || []).forEach(h => {
+        if (!h.entrySnapshot) return;
+        out.push({ src: '自訂', side: h.side, pnl: h.pnl, entry: h.entry, exit: h.exit, openReason: h.openReason, closeReason: h.closeReason, snapshot: h.entrySnapshot, time: h.openTime });
+    });
+    return out;
+}
+
 function showLearnedRules() {
-    learnedRules = analyzeTradeHistory();
+    const all = gatherAllTrades();
+    learnedRules = analyzeTradeHistory(); // 主帳戶用的（保留原行為）
+
+    // 用合併的樣本做分析，minN 依樣本量動態
+    const minN = all.length >= 30 ? 3 : all.length >= 10 ? 2 : 1;
+    const buckets = {};
+    for (const t of all) {
+        const k = patternKey(t.side, t.snapshot);
+        if (!buckets[k]) buckets[k] = { key: k, n: 0, wins: 0, pnlSum: 0 };
+        buckets[k].n++;
+        if (t.pnl > 0) buckets[k].wins++;
+        buckets[k].pnlSum += (t.pnl || 0);
+    }
+    const list = Object.values(buckets).map(b => ({ ...b, winRate: b.wins / b.n, avgPnl: Math.round(b.pnlSum / b.n) }));
+    const winP = list.filter(b => b.n >= minN && b.winRate >= 0.6).sort((a,b) => b.winRate - a.winRate);
+    const loseP = list.filter(b => b.n >= minN && b.winRate <= 0.3).sort((a,b) => a.winRate - b.winRate);
+    const fmtP = arr => arr.slice(0, 8).map(b => `${b.key} → ${b.n}筆 勝${Math.round(b.winRate*100)}% 平均${b.avgPnl>=0?'+':''}${b.avgPnl}`).join('\n');
+
+    const srcCount = all.reduce((m, t) => { m[t.src] = (m[t.src] || 0) + 1; return m; }, {});
+    const srcLine = Object.entries(srcCount).map(([s,n]) => `${s} ${n}`).join(' / ') || '無';
+
+    const summary = [
+        `合併樣本：${all.length} 筆（含快照）— ${srcLine}`,
+        `樣本門檻 minN=${minN}（樣本越多越嚴）、高勝率 ≥ 60%、低勝率 ≤ 30%`,
+        '',
+        winP.length ? `✅ 高勝率模式（${winP.length} 種）\n${fmtP(winP)}` : '✅ 高勝率：尚未累積到穩定 pattern',
+        '',
+        loseP.length ? `⚠️ 低勝率模式（${loseP.length} 種）\n${fmtP(loseP)}` : '⚠️ 低勝率：暫無'
+    ].join('\n');
+
+    // 原始明細（最近 20 筆）
+    const recent = all.slice(-20).reverse().map(t => {
+        const tag = t.pnl > 0 ? '✓' : (t.pnl < 0 ? '✗' : '·');
+        return `${tag} [${t.src}] ${t.side === 'long' ? '多' : '空'} ${t.entry}→${t.exit} ${t.pnl>=0?'+':''}${t.pnl} | ${patternKey(t.side, t.snapshot)}`;
+    }).join('\n');
+
     const html = `
-        <div style="white-space:pre-wrap;font-family:'Cascadia Code',monospace;font-size:12px;line-height:1.6;color:var(--ink2);max-height:60vh;overflow:auto">${learnedRules.summary.replace(/</g, '&lt;')}</div>
-        <div style="margin-top:14px;font-size:11px;color:var(--ink3);line-height:1.5">
-            • 規則樣本門檻：同模式 ≥ 3 筆<br>
-            • 高勝率 ≥ 60%、低勝率 ≤ 30%<br>
-            • 自動套用：AI 對戰 prompt 會帶入此摘要；自動策略會跳過「低勝率」進場
+        <div style="white-space:pre-wrap;font-family:'Cascadia Code',monospace;font-size:12px;line-height:1.6;color:var(--ink2);max-height:40vh;overflow:auto">${summary.replace(/</g, '&lt;')}</div>
+        <div style="margin-top:10px;font-weight:600;font-size:12px;color:var(--ink1)">最近 20 筆明細</div>
+        <div style="white-space:pre-wrap;font-family:'Cascadia Code',monospace;font-size:11px;line-height:1.5;color:var(--ink3);max-height:25vh;overflow:auto;background:#1f1e1b;padding:6px;border-radius:6px">${(recent || '（無）').replace(/</g, '&lt;')}</div>
+        <div style="margin-top:10px;font-size:11px;color:var(--ink3);line-height:1.5">
+            • 樣本來源：主自動 + Gemini + Grok + 自訂策略（全部合併）<br>
+            • pattern 欄位：方向 + RSI 區間 + 趨勢 + 布林位置 + MA20 距離<br>
+            • 歷史勝率過濾已關閉，結果僅供參考、不影響進場決策
         </div>
     `;
     showModal('🧠 歷史勝場學習結果', html);
