@@ -2917,37 +2917,43 @@ async function autoFetchTaifexHistory() {
     btn.disabled = true;
     btn.textContent = '⏳ 爬資料中…';
 
-    // 切成 3 個月 chunk（每段約 60 個交易日 ZIP，平行 10 個並發約 5-8 秒，避開 Vercel 10 秒超時）
+    // 切成 3 個月 chunk
     const today = new Date();
     const allBars = [];
     let totalErrors = 0;
-    const totalChunks = years * 4; // 每年 4 個季度
+    let lastDiag = null;
+    let totalAttempted = 0, totalFetched = 0;
+    const totalChunks = years * 4;
     let chunkIdx = 0;
     for (let i = years * 12 - 1; i >= 0; i -= 3) {
         chunkIdx++;
-        const chunkEnd = new Date(today.getFullYear(), today.getMonth() - i + 3, 0); // 該季最後一天
-        const chunkStart = new Date(today.getFullYear(), today.getMonth() - i, 1);     // 該季第一天
+        const chunkEnd = new Date(today.getFullYear(), today.getMonth() - i + 3, 0);
+        const chunkStart = new Date(today.getFullYear(), today.getMonth() - i, 1);
         const fromStr = chunkStart.toISOString().slice(0, 10).replace(/-/g, '');
         const toStr = chunkEnd.toISOString().slice(0, 10).replace(/-/g, '');
-        status.innerHTML = `<span style="color:var(--ink3)">爬第 ${chunkIdx}/${totalChunks} 季（${fromStr.slice(0,4)}-${fromStr.slice(4,6)} ~ ${toStr.slice(0,4)}-${toStr.slice(4,6)}）…</span>`;
+        status.innerHTML = `<span style="color:var(--ink3)">爬第 ${chunkIdx}/${totalChunks} 季（${fromStr.slice(0,4)}-${fromStr.slice(4,6)} ~ ${toStr.slice(0,4)}-${toStr.slice(4,6)}）… 已累積 ${allBars.length} 根</span>`;
         try {
             const resp = await fetch(`/api/taifex-history?from=${fromStr}&to=${toStr}`);
+            const j = await resp.json().catch(() => ({}));
             if (!resp.ok) {
-                const j = await resp.json().catch(() => ({}));
-                console.warn(`期交所第 ${chunkIdx} 季抓取失敗 ${resp.status}:`, j.error || '');
+                console.warn(`第 ${chunkIdx} 季 HTTP ${resp.status}:`, j);
+                lastDiag = j;
                 totalErrors++;
                 continue;
             }
-            const j = await resp.json();
+            totalAttempted += j.days_attempted || 0;
+            totalFetched += j.days_fetched || 0;
             if (j.bars && j.bars.length) allBars.push(...j.bars);
+            if (j.failureSamples && j.failureSamples.length) lastDiag = { chunk: chunkIdx, samples: j.failureSamples };
         } catch (e) {
-            console.error(`第 ${chunkIdx} 季抓取例外:`, e);
+            console.error(`第 ${chunkIdx} 季例外:`, e);
             totalErrors++;
         }
     }
 
     if (!allBars.length) {
-        status.innerHTML = `<span style="color:#d95353">爬不到資料，期交所端點可能變更。建議改用「📁 匯入」手動下載 CSV。${totalErrors ? `（${totalErrors} 段錯誤）` : ''}</span>`;
+        const diagText = lastDiag ? `<br><small style="color:var(--ink3)">診斷：嘗試 ${totalAttempted} 個交易日、成功 ${totalFetched} 個。樣本：${JSON.stringify(lastDiag.samples || lastDiag).slice(0, 300)}</small>` : '';
+        status.innerHTML = `<span style="color:#d95353">爬不到資料 · ${totalErrors} 段錯誤 / ${totalChunks} 段</span>${diagText}<br><span style="color:var(--ink3)">建議：(1) 改用「📁 匯入」手動下載 期交所 CSV；或 (2) 改下拉「日 K（5 年）」用 Yahoo ^TWII 替代</span>`;
         btn.disabled = false;
         btn.textContent = '🚀 自動爬 5 年日 K';
         return;

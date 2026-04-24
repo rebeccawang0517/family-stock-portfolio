@@ -42,17 +42,20 @@ export default async function handler(req, res) {
   const concurrency = 10;
   const results = [];
   let okCount = 0, missCount = 0;
+  const failureSamples = []; // 收集失敗診斷
   for (let i = 0; i < dates.length; i += concurrency) {
     const batch = dates.slice(i, i + concurrency);
     const batchResults = await Promise.all(batch.map(d => fetchOneDay(d.y, d.m, d.d)));
     for (let j = 0; j < batch.length; j++) {
       const r = batchResults[j];
-      if (r) { results.push({ ...r, dateInfo: batch[j] }); okCount++; }
-      else missCount++;
+      if (r && !r._failed) { results.push(r); okCount++; }
+      else {
+        missCount++;
+        if (r && r._diag && failureSamples.length < 3) failureSamples.push(r._diag);
+      }
     }
   }
 
-  // 每日挑成交量最大的 TX 契約當主力
   const bars = results.map(r => ({
     time: r.time,
     open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume
@@ -61,7 +64,9 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=604800');
   res.status(200).json({
     bars, from: fromStr, to: toStr, count: bars.length,
-    days_fetched: okCount, days_skipped: missCount
+    days_fetched: okCount, days_skipped: missCount,
+    days_attempted: dates.length,
+    failureSamples
   });
 }
 
@@ -82,30 +87,41 @@ function formatYmdParts(d) {
 }
 
 async function fetchOneDay(y, m, d) {
-  const url = `https://www.taifex.com.tw/file/taifex/Dailydownload/DailydownloadCSV/Daily_${y}_${m}_${d}.zip`;
-  try {
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-        'Referer': 'https://www.taifex.com.tw/'
-      }
-    });
-    if (!resp.ok) return null; // 假日/未上架日 → 404
-    const buf = await resp.arrayBuffer();
-    const zip = await JSZip.loadAsync(buf);
-    const fileName = Object.keys(zip.files).find(n => n.toLowerCase().endsWith('.csv'));
-    if (!fileName) return null;
-    const u8 = await zip.files[fileName].async('uint8array');
-    // CSV 是 Big5；我們只需 ASCII 部分（"TX"、數字、逗號），latin1 byte-by-byte 解碼即可
-    const text = Buffer.from(u8).toString('latin1');
-    const main = pickTxMain(text);
-    if (!main) return null;
-    const time = Math.floor(Date.UTC(y, parseInt(m) - 1, parseInt(d), 0, 45) / 1000);
-    return { time, ...main };
-  } catch (e) {
-    console.error(`fetchOneDay ${y}-${m}-${d} 失敗:`, e.message);
-    return null;
+  // 多個 URL pattern 嘗試
+  const urls = [
+    `https://www.taifex.com.tw/file/taifex/Dailydownload/DailydownloadCSV/Daily_${y}_${m}_${d}.zip`,
+    `https://www.taifex.com.tw/file/taifex/Dailydownload/Daily_${y}_${m}_${d}.zip`,
+    `https://www.taifex.com.tw/file/taifex/Dailydownload/DailydownloadCSV/Daily_${y}${m}${d}.zip`,
+    `https://www.taifex.com.tw/file/taifex/Dailydownload/Daily_${y}${m}${d}.zip`
+  ];
+  let lastStatus = '?';
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+          'Referer': 'https://www.taifex.com.tw/',
+          'Accept': '*/*'
+        }
+      });
+      lastStatus = resp.status;
+      if (!resp.ok) continue;
+      const buf = await resp.arrayBuffer();
+      if (buf.byteLength < 100) { lastStatus = 'empty'; continue; }
+      const zip = await JSZip.loadAsync(buf);
+      const fileName = Object.keys(zip.files).find(n => n.toLowerCase().endsWith('.csv'));
+      if (!fileName) { lastStatus = 'no-csv'; continue; }
+      const u8 = await zip.files[fileName].async('uint8array');
+      const text = Buffer.from(u8).toString('latin1');
+      const main = pickTxMain(text);
+      if (!main) { lastStatus = 'no-tx'; continue; }
+      const time = Math.floor(Date.UTC(y, parseInt(m) - 1, parseInt(d), 0, 45) / 1000);
+      return { time, ...main, _diag: { url, status: resp.status } };
+    } catch (e) {
+      lastStatus = e.message.slice(0, 80);
+    }
   }
+  return { _failed: true, _diag: { date: `${y}-${m}-${d}`, lastStatus, tried: urls.length } };
 }
 
 // 從每日 CSV 挑 TX 成交量最大合約當主力，回傳 OHLCV
