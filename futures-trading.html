@@ -3161,21 +3161,30 @@ async function aiFindBestStrategy() {
     btn.disabled = true;
     btn.textContent = '⏳ 找資料…';
 
-    // 讀本地快取（優先 1d 5y，再來 1h 2y）
-    const sources = [
-        { interval: '1d', rangeTag: '5y' },
-        { interval: '1h', rangeTag: '2y' },
-        { interval: '15m', rangeTag: '60d' }
-    ];
+    // 用使用者目前下拉選的時間框架；若該時間框架沒快取就現抓
+    const tfSel = document.getElementById('btTimeframe').value || '15m|180d';
+    const [pickedInterval, pickedRangeTag] = tfSel.split('|');
     let chosen = null;
-    for (const s of sources) {
-        const c = readBarsCache(s.interval, s.rangeTag);
-        if (c && c.bars && c.bars.length >= 200) { chosen = { ...s, bars: c.bars }; break; }
+    try {
+        const bars = await fetchBacktestBars(pickedInterval, pickedRangeTag);
+        if (bars && bars.length >= 200) {
+            chosen = { interval: pickedInterval, rangeTag: pickedRangeTag, bars };
+        } else if (bars && bars.length) {
+            btn.disabled = false;
+            btn.textContent = '🤖 AI 找最佳策略';
+            showModal('🤖 AI 找最佳策略', `<div style="color:#d95353;padding:20px">「${pickedInterval} · ${pickedRangeTag}」只有 ${bars.length} 根 K，不足 200 根無法跑統計。請改選時間框架更長的範圍（例如「日 K（5 年）」）並按「📥 下載」抓本地後再試。</div>`);
+            return;
+        }
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '🤖 AI 找最佳策略';
+        showModal('🤖 AI 找最佳策略', `<div style="color:#d95353;padding:20px">讀取「${pickedInterval} · ${pickedRangeTag}」失敗：${e.message}<br>請先「📥 下載到本地」這個時間框架。</div>`);
+        return;
     }
     if (!chosen) {
         btn.disabled = false;
         btn.textContent = '🤖 AI 找最佳策略';
-        showModal('🤖 AI 找最佳策略', '<div style="color:#d95353;padding:20px">本地沒任何 ≥ 200 根的快取 K 線。請先按「📥 下載」抓 1d/5y 或 1h/2y。</div>');
+        showModal('🤖 AI 找最佳策略', `<div style="color:#d95353;padding:20px">「${pickedInterval} · ${pickedRangeTag}」沒抓到 K 線。請先「📥 下載到本地」。</div>`);
         return;
     }
 
