@@ -1224,15 +1224,29 @@ const CUSTOM_CONDITIONS = [
 
 function defaultCustomConfig() {
     return {
-        longEntry:  { conditions: ['ma5UpMa20', 'standMa20'],   mode: 'all' },
-        shortEntry: { conditions: ['ma5DownMa20', 'breakMa20'], mode: 'all' },
-        longExit:   { conditions: ['hitBbUpper', 'macdDown'],   mode: 'any' },
-        shortExit:  { conditions: ['hitBbLower', 'macdUp'],     mode: 'any' },
+        // 新格式：required（全部必須成立）+ alternative（任一成立即可）
+        // 邏輯：required.every() && (alternative.length === 0 || alternative.some())
+        longEntry:  { required: ['ma5UpMa20'], alternative: ['standMa20', 'rsiOversold'] },
+        shortEntry: { required: ['ma5DownMa20'], alternative: ['breakMa20', 'rsiOverbought'] },
+        longExit:   { required: [], alternative: ['hitBbUpper', 'macdDown'] },
+        shortExit:  { required: [], alternative: ['hitBbLower', 'macdUp'] },
         stopLoss: 100, takeProfit: 150,
         freeText: '',
-        lots: 0, // 0 = 依保證金自動
-        minHoldSec: 30 // 最短持倉秒數（避免進場即出場），停損停利仍可提前觸發
+        lots: 0,
+        minHoldSec: 30
     };
+}
+
+// 把舊格式 { conditions, mode } 遷移成 { required, alternative }
+function migrateConditionSet(set) {
+    if (!set) return { required: [], alternative: [] };
+    if (Array.isArray(set.required) || Array.isArray(set.alternative)) {
+        return { required: set.required || [], alternative: set.alternative || [] };
+    }
+    // 舊格式
+    const conds = set.conditions || [];
+    if (set.mode === 'all') return { required: conds, alternative: [] };
+    return { required: [], alternative: conds }; // any 或預設
 }
 
 let customStrategy = {
@@ -1242,12 +1256,37 @@ let customStrategy = {
 };
 
 function evalConditionSet(setCfg) {
-    if (!setCfg || !setCfg.conditions || !setCfg.conditions.length) return false;
-    const results = setCfg.conditions.map(id => {
+    if (!setCfg) return false;
+    const set = migrateConditionSet(setCfg); // 自動兼容舊格式
+    const req = set.required || [];
+    const alt = set.alternative || [];
+    if (req.length === 0 && alt.length === 0) return false; // 都沒選
+    // 必滿足條件全部成立
+    const reqOk = req.every(id => {
         const c = CUSTOM_CONDITIONS.find(x => x.id === id);
-        return c ? !!c.test() : false;
+        return c && c.test();
     });
-    return setCfg.mode === 'all' ? results.every(Boolean) : results.some(Boolean);
+    if (!reqOk) return false;
+    // 沒選任一條件 → 只要必滿足成立即可
+    if (alt.length === 0) return true;
+    // 任一條件至少一個成立
+    return alt.some(id => {
+        const c = CUSTOM_CONDITIONS.find(x => x.id === id);
+        return c && c.test();
+    });
+}
+
+// 取得實際觸發進場/出場的條件名稱（用於 reason 顯示）
+function getHitConditions(setCfg) {
+    const set = migrateConditionSet(setCfg);
+    const req = set.required || [];
+    const alt = set.alternative || [];
+    const hitReq = req.filter(id => CUSTOM_CONDITIONS.find(x => x.id === id)?.test());
+    const hitAlt = alt.filter(id => CUSTOM_CONDITIONS.find(x => x.id === id)?.test());
+    const labels = [];
+    for (const id of hitReq) labels.push('★' + (CUSTOM_CONDITIONS.find(x => x.id === id)?.label || id));
+    for (const id of hitAlt) labels.push(CUSTOM_CONDITIONS.find(x => x.id === id)?.label || id);
+    return labels;
 }
 
 function customUnrealized() {
@@ -1278,8 +1317,7 @@ function evaluateCustomStrategy() {
         if (holdMs < minHoldMs) return;
         const exitCfg = pos.side === 'long' ? cfg.longExit : cfg.shortExit;
         if (evalConditionSet(exitCfg)) {
-            const hit = exitCfg.conditions.filter(id => { const c = CUSTOM_CONDITIONS.find(x => x.id === id); return c && c.test(); });
-            const labels = hit.map(id => CUSTOM_CONDITIONS.find(x => x.id === id).label).join(' + ');
+            const labels = getHitConditions(exitCfg).join(' + ');
             return closeCustomPosition(`[自訂出場] ${labels}`);
         }
         return;
@@ -1292,12 +1330,10 @@ function evaluateCustomStrategy() {
     const lots = lotCfg > 0 ? Math.min(lotCfg, maxLots) : Math.min(20, maxLots);
 
     if (evalConditionSet(cfg.longEntry)) {
-        const hit = cfg.longEntry.conditions.filter(id => CUSTOM_CONDITIONS.find(x => x.id === id)?.test());
-        const reason = hit.map(id => CUSTOM_CONDITIONS.find(x => x.id === id).label).join(' + ');
+        const reason = getHitConditions(cfg.longEntry).join(' + ');
         openCustomPosition('long', lots, reason);
     } else if (evalConditionSet(cfg.shortEntry)) {
-        const hit = cfg.shortEntry.conditions.filter(id => CUSTOM_CONDITIONS.find(x => x.id === id)?.test());
-        const reason = hit.map(id => CUSTOM_CONDITIONS.find(x => x.id === id).label).join(' + ');
+        const reason = getHitConditions(cfg.shortEntry).join(' + ');
         openCustomPosition('short', lots, reason);
     }
 }
@@ -1400,24 +1436,38 @@ function renderCustomCard() {
 
 function openCustomStrategyModal() {
     const cfg = customStrategy.config;
-    const condCheckboxes = (groupName, selected) => CUSTOM_CONDITIONS.map(c => {
-        const checked = (selected || []).includes(c.id) ? 'checked' : '';
-        return `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;font-size:12px;cursor:pointer">
-            <input type="checkbox" name="${groupName}" value="${c.id}" ${checked}> ${c.label}
-        </label>`;
-    }).join('');
-    const modeRadios = (groupName, mode) => `
-        <label style="font-size:11px;margin-right:10px"><input type="radio" name="${groupName}-mode" value="all" ${mode === 'all' ? 'checked' : ''}> 全部滿足</label>
-        <label style="font-size:11px"><input type="radio" name="${groupName}-mode" value="any" ${mode === 'any' ? 'checked' : ''}> 任一滿足</label>
-    `;
-    const section = (title, groupName, setCfg) => `
+    // 每組顯示為 3-state 按鈕：不選 / 必滿足 (★) / 任一滿足 (◯)
+    // 點擊循環切換狀態
+    const tristate = (groupName, set) => {
+        const reqSet = new Set(set.required || []);
+        const altSet = new Set(set.alternative || []);
+        return CUSTOM_CONDITIONS.map(c => {
+            let state = 'off';
+            if (reqSet.has(c.id)) state = 'req';
+            else if (altSet.has(c.id)) state = 'alt';
+            const styles = {
+                off: { bg: '#2c2b27', fg: '#888', label: '○' },
+                req: { bg: '#3a1e1e', fg: '#ff8a7a', label: '★ 必' },
+                alt: { bg: '#1e2a3a', fg: '#7aa8ff', label: '◯ 任' }
+            }[state];
+            return `<div data-group="${groupName}" data-cond="${c.id}" data-state="${state}" onclick="cycleCondState(this)" style="display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:12px;cursor:pointer;background:${styles.bg};color:${styles.fg};border-radius:6px;border:1px solid #3a3a33;user-select:none">
+                <span style="min-width:34px;font-size:10px;font-weight:600">${styles.label}</span>
+                <span style="color:var(--ink2);flex:1">${c.label}</span>
+            </div>`;
+        }).join('');
+    };
+    const section = (title, groupName, setCfg) => {
+        const set = migrateConditionSet(setCfg);
+        return `
         <div style="margin-bottom:14px">
-            <div style="font-weight:600;margin-bottom:4px;font-size:13px">${title}</div>
-            <div>${modeRadios(groupName, setCfg.mode)}</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:4px;background:#1f1e1b;border-radius:6px;padding:4px">
-                ${condCheckboxes(groupName, setCfg.conditions)}
+            <div style="font-weight:600;margin-bottom:6px;font-size:13px">${title}</div>
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:6px">點擊每個條件循環切換：<span style="color:#888">○ 不選</span> → <span style="color:#ff8a7a">★ 必滿足</span> → <span style="color:#7aa8ff">◯ 任一滿足</span> → 不選</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#1f1e1b;border-radius:6px;padding:6px">
+                ${tristate(groupName, set)}
             </div>
+            <div style="font-size:10px;color:var(--ink3);margin-top:4px;line-height:1.5">📌 邏輯：所有「★ 必滿足」條件全部成立 <b>且</b>「◯ 任一」至少 1 個成立（若沒選任一則只看必滿足）</div>
         </div>`;
+    };
     const html = `
         <div style="max-height:65vh;overflow:auto;padding-right:4px">
             ${section('📈 做多進場條件', 'longEntry', cfg.longEntry)}
@@ -1443,11 +1493,31 @@ function openCustomStrategyModal() {
     showModal('🎯 自訂策略設定', html);
 }
 
+function cycleCondState(el) {
+    const order = ['off', 'req', 'alt'];
+    const cur = el.getAttribute('data-state') || 'off';
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    el.setAttribute('data-state', next);
+    const styles = {
+        off: { bg: '#2c2b27', fg: '#888', label: '○' },
+        req: { bg: '#3a1e1e', fg: '#ff8a7a', label: '★ 必' },
+        alt: { bg: '#1e2a3a', fg: '#7aa8ff', label: '◯ 任' }
+    }[next];
+    el.style.background = styles.bg;
+    el.style.color = styles.fg;
+    el.querySelector('span').textContent = styles.label;
+}
+
 function saveCustomStrategyModal() {
     const readSet = groupName => {
-        const conds = Array.from(document.querySelectorAll(`input[name="${groupName}"]:checked`)).map(i => i.value);
-        const mode = document.querySelector(`input[name="${groupName}-mode"]:checked`)?.value || 'any';
-        return { conditions: conds, mode };
+        const required = [], alternative = [];
+        document.querySelectorAll(`[data-group="${groupName}"]`).forEach(el => {
+            const state = el.getAttribute('data-state');
+            const cond = el.getAttribute('data-cond');
+            if (state === 'req') required.push(cond);
+            else if (state === 'alt') alternative.push(cond);
+        });
+        return { required, alternative };
     };
     customStrategy.config = {
         longEntry: readSet('longEntry'),
@@ -1464,6 +1534,8 @@ function saveCustomStrategyModal() {
     hideInfoModal();
     toast('自訂策略已儲存', 'success');
 }
+
+window.cycleCondState = cycleCondState;
 
 function resetCustomStrategy() {
     const v = prompt('重置自訂策略的起始金額（交易紀錄、持倉一併清空，策略設定保留）', String(customStrategy.balance || 1000000));
@@ -1489,6 +1561,10 @@ async function loadCustomStrategy() {
         if (snap.exists()) {
             const d = snap.data();
             customStrategy = { ...customStrategy, ...d, config: { ...defaultCustomConfig(), ...(d.config || {}) } };
+            // 把舊格式 conditions+mode 自動轉新格式 required+alternative
+            ['longEntry','shortEntry','longExit','shortExit'].forEach(k => {
+                if (customStrategy.config[k]) customStrategy.config[k] = migrateConditionSet(customStrategy.config[k]);
+            });
             const t = document.getElementById('customToggle');
             if (t) t.checked = !!customStrategy.enabled;
         }
