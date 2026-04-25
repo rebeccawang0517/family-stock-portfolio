@@ -3143,12 +3143,22 @@ window.setAutoUpdateEnabled = setAutoUpdateEnabled;
 // 3) 取勝率 × 樣本數加權的 TOP 10
 // 4) 送 Gemini 做白話分析、推薦最佳組合
 
+// 條件方向分類（看多訊號 only 配做多、看空訊號 only 配做空）
+const LONG_BIASED_CONDS = new Set(['ma5UpMa20', 'standMa20', 'rsiOversold', 'macdUp', 'hitBbLower']);
+const SHORT_BIASED_CONDS = new Set(['ma5DownMa20', 'breakMa20', 'rsiOverbought', 'macdDown', 'hitBbUpper']);
+
+function condsForSide(side) {
+    return CUSTOM_CONDITIONS.filter(c =>
+        side === 'long' ? LONG_BIASED_CONDS.has(c.id) : SHORT_BIASED_CONDS.has(c.id)
+    );
+}
+
 function generateCandidateStrategies() {
     const strategies = [];
     const sides = ['long', 'short'];
-    // 單條件
+    // 單條件（每方向 5 個）
     for (const side of sides) {
-        for (const cond of CUSTOM_CONDITIONS) {
+        for (const cond of condsForSide(side)) {
             strategies.push({
                 key: `${side}|${cond.id}`,
                 name: (side === 'long' ? '📈 做多' : '📉 做空') + ' · ' + cond.label,
@@ -3156,12 +3166,13 @@ function generateCandidateStrategies() {
             });
         }
     }
-    // 雙條件 ALL / ANY
+    // 雙條件 ALL / ANY（每方向 C(5,2)=10 對 × 2 模式 = 20）
     for (const side of sides) {
-        for (let i = 0; i < CUSTOM_CONDITIONS.length; i++) {
-            for (let j = i + 1; j < CUSTOM_CONDITIONS.length; j++) {
-                const c1 = CUSTOM_CONDITIONS[i];
-                const c2 = CUSTOM_CONDITIONS[j];
+        const pool = condsForSide(side);
+        for (let i = 0; i < pool.length; i++) {
+            for (let j = i + 1; j < pool.length; j++) {
+                const c1 = pool[i];
+                const c2 = pool[j];
                 for (const mode of ['all', 'any']) {
                     strategies.push({
                         key: `${side}|${c1.id}|${c2.id}|${mode}`,
@@ -3172,6 +3183,7 @@ function generateCandidateStrategies() {
             }
         }
     }
+    // 共：單 10 + 雙 40 = 50 組（取代原 200 組）
     return strategies;
 }
 
@@ -3299,7 +3311,7 @@ async function aiFindBestStrategy() {
     const ranked = strategies.map(strat => {
         const r = backtestCandidate(chosen.bars, indSnaps, strat, 100, 150);
         return { ...strat, ...r };
-    }).filter(r => r.trades >= 5) // 樣本太少不列
+    }).filter(r => r.trades >= 10) // 樣本至少 10 筆才算
       .sort((a, b) => {
           // 排序：勝率 × 樣本權重 + 平均 PnL 權重
           const sa = a.winRate * Math.log(1 + a.trades) + (a.avgPnl / 1000);
