@@ -33,7 +33,7 @@
         .nav-link { color: var(--gold); text-decoration: none; font-size: 12px; }
         .nav-link:hover { text-decoration: underline; }
 
-        .main-layout { display: grid; grid-template-columns: 1fr 370px; gap: 0; min-height: calc(100vh - 50px); }
+        .main-layout { display: grid; grid-template-columns: 1fr 460px; gap: 0; min-height: calc(100vh - 50px); }
         .left-panel { display: flex; flex-direction: column; overflow: hidden; }
         .right-panel { background: #232220; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
 
@@ -420,52 +420,6 @@
             </div>
             </div><!-- /section-block ai -->
 
-            <!-- 📈 歷史回測區塊 -->
-            <div class="section-block backtest">
-                <div class="section-header">
-                    <span class="badge-icon">📈</span>
-                    <span class="badge-title">歷史回測 · 勝場榜首策略</span>
-                    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                        <label style="font-size:11px;color:var(--ink3)">K線<select id="btTimeframe" onchange="renderCacheStatus()" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">
-                            <option value="5m|60d">5 分（60 天）</option>
-                            <option value="15m|60d">15 分（60 天）</option>
-                            <option value="15m|180d">15 分（近半年·分段抓）</option>
-                            <option value="15m|13mo" selected>15 分（13 個月·分段 Yahoo 限制 60 天可能抓不滿）</option>
-                            <option value="30m|60d">30 分（60 天）</option>
-                            <option value="1h|6mo">1 小時（近半年）</option>
-                            <option value="1h|1y">1 小時（1 年）</option>
-                            <option value="1h|13mo">1 小時（13 個月）</option>
-                            <option value="1d|2y">日 K（2 年）</option>
-                            <option value="1d|5y">日 K（5 年）</option>
-                            <option value="1h|2y">1 小時（2 年·Yahoo 上限）</option>
-                            <optgroup label="── 本地 TAIFEX 匯入資料 ──">
-                                <option value="1m|taifex">1 分（TAIFEX 匯入）</option>
-                                <option value="5m|taifex">5 分（TAIFEX 匯入）</option>
-                                <option value="15m|taifex">15 分（TAIFEX 匯入）</option>
-                                <option value="1h|taifex">1 小時（TAIFEX 匯入）</option>
-                                <option value="1d|taifex">日 K（TAIFEX 匯入）</option>
-                            </optgroup>
-                        </select></label>
-                        <label style="font-size:11px;color:var(--ink3)">資金 $<input type="number" id="btStartBalance" value="100000000" style="width:100px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"></label>
-                        <label style="font-size:11px;color:var(--ink3)">停損<input type="number" id="btSL" value="100" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
-                        <label style="font-size:11px;color:var(--ink3)">停利<input type="number" id="btTP" value="150" style="width:55px;padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">點</label>
-                        <label style="font-size:11px;color:var(--ink3)">TOP<select id="btTopN" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option></select> 策略</label>
-                        <button class="header-btn" onclick="downloadBarsToLocal()" id="btDlBtn" style="font-size:11px;padding:4px 10px" title="把目前選的時間框架 K 棒下載到 localStorage">📥 下載</button>
-                        <button class="header-btn" onclick="downloadAllHistoricalBars()" id="btDlAllBtn" style="font-size:11px;padding:4px 10px" title="一次下載所有可用時間框架：日 K 5 年、1 小時 2 年、15 分/5 分各 60 天">📦 全載歷史</button>
-                        <button class="header-btn" onclick="document.getElementById('taifexFileInput').click()" id="btImportBtn" style="font-size:11px;padding:4px 10px" title="匯入期交所 CSV（手動下載）">📁 匯入</button>
-                        <button class="header-btn" onclick="autoFetchTaifexHistory()" id="btAutoFetchBtn" style="font-size:11px;padding:4px 10px;background:#4aad6e" title="自動從期交所抓 5 年日 K（免費），存到本地">🚀 自動爬 5 年日 K</button>
-                        <label style="font-size:11px;color:var(--ink3);display:flex;align-items:center;gap:4px" title="開啟後每次開頁會自動補抓今日 K（已有快取的時間框架）"><input type="checkbox" id="btAutoUpdateChk" onchange="setAutoUpdateEnabled(this.checked)" style="margin:0"> 每日自動更新</label>
-                        <button class="header-btn" onclick="aiFindBestStrategy()" id="btAiSearchBtn" style="font-size:11px;padding:4px 10px;background:#9c5fd9" title="跑遍 200 組候選策略 + AI 分析推薦最佳組合">🤖 AI 找最佳策略</button>
-                        <input type="file" id="taifexFileInput" accept=".csv,.txt" multiple style="display:none" onchange="importTaifexFiles(this.files)">
-                        <button class="header-btn" onclick="runBacktest()" id="btRunBtn" style="background:var(--accent);font-size:11px;padding:4px 10px">▶ 執行回測</button>
-                    </div>
-                </div>
-                <div id="btCacheStatus" style="padding:6px 12px;font-size:11px;color:var(--ink3);border-bottom:1px solid var(--border)"></div>
-                <div id="backtestBody" style="padding:12px;font-size:12px;color:var(--ink3)">
-                    點「執行回測」會抓 K 線模擬勝場榜首策略；或先「📥 下載到本地」快取，之後每次回測即時秒開。
-                </div>
-            </div>
-
         </div>
 
         <!-- RIGHT: Auto Trading Panel -->
@@ -480,6 +434,61 @@
                     <div class="ab-cell"><div class="ab-label">已用保證金</div><div class="ab-value" id="abUsed">$0</div></div>
                     <div class="ab-cell"><div class="ab-label">未實現損益</div><div class="ab-value" id="abUnrealized">$0</div></div>
                     <div class="ab-cell"><div class="ab-label">已實現損益</div><div class="ab-value" id="abRealized">$0</div></div>
+                </div>
+            </div>
+
+            <!-- 📈 歷史回測（緊湊版） -->
+            <div class="rp-section" style="border-top:4px solid #9c5fd9;background:#1f1e1b">
+                <div class="rp-title">📈 歷史回測</div>
+                <div style="display:grid;grid-template-columns:60px 1fr;gap:4px 8px;font-size:11px;align-items:center;margin-bottom:8px">
+                    <span style="color:var(--ink4)">K 線</span>
+                    <select id="btTimeframe" onchange="renderCacheStatus()" style="padding:3px 6px;background:#2c2b27;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px;width:100%">
+                        <option value="5m|60d">5 分（60 天）</option>
+                        <option value="15m|60d">15 分（60 天）</option>
+                        <option value="15m|180d">15 分（半年·分段）</option>
+                        <option value="15m|13mo">15 分（13 月·可能不滿）</option>
+                        <option value="30m|60d">30 分（60 天）</option>
+                        <option value="1h|6mo">1 小時（半年）</option>
+                        <option value="1h|1y">1 小時（1 年）</option>
+                        <option value="1h|2y" selected>1 小時（2 年·上限）</option>
+                        <option value="1h|13mo">1 小時（13 月）</option>
+                        <option value="1d|2y">日 K（2 年）</option>
+                        <option value="1d|5y">日 K（5 年）</option>
+                        <optgroup label="── TAIFEX 匯入 ──">
+                            <option value="1m|taifex">1 分</option>
+                            <option value="5m|taifex">5 分</option>
+                            <option value="15m|taifex">15 分</option>
+                            <option value="1h|taifex">1 小時</option>
+                            <option value="1d|taifex">日 K</option>
+                        </optgroup>
+                    </select>
+                    <span style="color:var(--ink4)">資金</span>
+                    <input type="number" id="btStartBalance" value="100000000" style="padding:3px 6px;background:#2c2b27;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px;width:100%">
+                    <span style="color:var(--ink4)">停損/利</span>
+                    <span style="display:flex;gap:4px">
+                        <input type="number" id="btSL" value="100" style="padding:3px 6px;background:#2c2b27;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px;flex:1" title="停損點數">
+                        <input type="number" id="btTP" value="150" style="padding:3px 6px;background:#2c2b27;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px;flex:1" title="停利點數">
+                        <select id="btTopN" style="padding:3px 6px;background:#2c2b27;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px;flex:0 0 auto" title="TOP N 策略">
+                            <option value="3">TOP3</option><option value="5" selected>TOP5</option><option value="10">TOP10</option>
+                        </select>
+                    </span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px">
+                    <button class="header-btn" onclick="downloadBarsToLocal()" id="btDlBtn" style="font-size:10px;padding:5px" title="下載當前時間框架">📥 下載</button>
+                    <button class="header-btn" onclick="downloadAllHistoricalBars()" id="btDlAllBtn" style="font-size:10px;padding:5px" title="全載 4 個時間框架">📦 全載歷史</button>
+                    <button class="header-btn" onclick="document.getElementById('taifexFileInput').click()" id="btImportBtn" style="font-size:10px;padding:5px">📁 匯入 CSV</button>
+                    <button class="header-btn" onclick="autoFetchTaifexHistory()" id="btAutoFetchBtn" style="font-size:10px;padding:5px;background:#4aad6e">🚀 爬 5 年</button>
+                </div>
+                <label style="font-size:10px;color:var(--ink3);display:flex;align-items:center;gap:4px;margin-bottom:6px"><input type="checkbox" id="btAutoUpdateChk" onchange="setAutoUpdateEnabled(this.checked)" style="margin:0"> 每日開頁自動補抓今日 K</label>
+                <input type="file" id="taifexFileInput" accept=".csv,.txt" multiple style="display:none" onchange="importTaifexFiles(this.files)">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px">
+                    <button class="header-btn" onclick="runBacktest()" id="btRunBtn" style="background:var(--accent);font-size:11px;padding:6px;font-weight:700">▶ 執行回測</button>
+                    <button class="header-btn" onclick="aiFindBestStrategy()" id="btAiSearchBtn" style="font-size:11px;padding:6px;background:#9c5fd9;font-weight:600" title="跑 200 組候選 + AI 推薦最佳進場">🎯 進場 TOP</button>
+                    <button class="header-btn" onclick="aiFindBestExit()" id="btAiExitBtn" style="font-size:11px;padding:6px;background:#d97757;font-weight:600" title="測試多種出場策略 + AI 推薦最佳出場 TOP 3">🚪 出場 TOP3</button>
+                </div>
+                <div id="btCacheStatus" style="font-size:10px;color:var(--ink3);padding:6px 8px;background:#2c2b27;border-radius:4px;line-height:1.5">　</div>
+                <div id="backtestBody" style="margin-top:8px;font-size:11px;color:var(--ink3);max-height:280px;overflow-y:auto;padding:6px;background:#1a1916;border-radius:4px">
+                    結果會顯示於此。複雜結果（AI 推薦、TOP 排行）會跳出視窗。
                 </div>
             </div>
 
@@ -3398,6 +3407,226 @@ function renderAiBestStrategyModal(top10, aiResult, source, periodFirst, periodL
 }
 
 window.aiFindBestStrategy = aiFindBestStrategy;
+
+// ==================== AI 找最佳出場策略 ====================
+// 固定一個進場條件（用最近 aiFindBestStrategy 的 TOP 1 或預設 MA5 上穿 MA20）
+// 測試 10 種出場變化，回傳 TOP 3
+const EXIT_VARIANTS = [
+    { name: '緊停損 50 / 停利 75',    type: 'fixed', sl: 50,  tp: 75 },
+    { name: '中停損 75 / 停利 150',   type: 'fixed', sl: 75,  tp: 150 },
+    { name: '標準 100 / 150',         type: 'fixed', sl: 100, tp: 150 },
+    { name: '寬停損 100 / 大停利 200', type: 'fixed', sl: 100, tp: 200 },
+    { name: '大停損 150 / 大停利 300', type: 'fixed', sl: 150, tp: 300 },
+    { name: '移動停損 50 點',         type: 'trailing', trail: 50, sl: 100 },
+    { name: '移動停損 80 點',         type: 'trailing', trail: 80, sl: 100 },
+    { name: '反向 MA 交叉出場',       type: 'condition', sl: 100, tp: 0, exitCond: 'maReverse' },
+    { name: '反向布林觸軌出場',       type: 'condition', sl: 100, tp: 0, exitCond: 'bbReverse' },
+    { name: 'RSI 反轉出場',          type: 'condition', sl: 100, tp: 0, exitCond: 'rsiReverse' }
+];
+
+function backtestEntryWithExit(bars, indSnaps, entryStrat, exit) {
+    const trades = [];
+    let position = null;
+    for (let i = 60; i < bars.length; i++) {
+        const snap = indSnaps[i];
+        const price = bars[i].close;
+
+        if (position) {
+            const isLong = position.side === 'long';
+            const diffH = isLong ? bars[i].high - position.entry : position.entry - bars[i].low;
+            const diffL = isLong ? bars[i].low - position.entry : position.entry - bars[i].high;
+            let pts = null;
+            // 停損
+            if (exit.sl > 0 && diffL <= -exit.sl) pts = -exit.sl;
+            // 停利（type=fixed）
+            else if (exit.type === 'fixed' && exit.tp > 0 && diffH >= exit.tp) pts = exit.tp;
+            // 移動停損
+            else if (exit.type === 'trailing') {
+                position.peak = isLong ? Math.max(position.peak ?? position.entry, bars[i].high) : Math.min(position.peak ?? position.entry, bars[i].low);
+                const drawdown = isLong ? position.peak - bars[i].low : bars[i].high - position.peak;
+                if (drawdown >= exit.trail) {
+                    pts = isLong ? position.peak - position.entry - exit.trail : position.entry - position.peak - exit.trail;
+                }
+            }
+            // 條件出場
+            else if (exit.type === 'condition') {
+                let exitNow = false;
+                const ind2 = snap.ind;
+                if (exit.exitCond === 'maReverse') {
+                    if (isLong && ind2.prevMa5 != null && ind2.prevMa20 != null && ind2.prevMa5 >= ind2.prevMa20 && ind2.ma5 < ind2.ma20) exitNow = true;
+                    if (!isLong && ind2.prevMa5 != null && ind2.prevMa20 != null && ind2.prevMa5 <= ind2.prevMa20 && ind2.ma5 > ind2.ma20) exitNow = true;
+                } else if (exit.exitCond === 'bbReverse') {
+                    if (isLong && ind2.bbUpper != null && price >= ind2.bbUpper * 0.998) exitNow = true;
+                    if (!isLong && ind2.bbLower != null && price <= ind2.bbLower * 1.002) exitNow = true;
+                } else if (exit.exitCond === 'rsiReverse') {
+                    if (isLong && ind2.rsi != null && ind2.rsi > 70) exitNow = true;
+                    if (!isLong && ind2.rsi != null && ind2.rsi < 30) exitNow = true;
+                }
+                if (exitNow) pts = isLong ? price - position.entry : position.entry - price;
+            }
+            if (pts != null) {
+                trades.push({ side: position.side, entry: position.entry, pts, pnl: pts * 200 });
+                position = null;
+            }
+        }
+
+        if (!position && testStrategyOnSnapshot(entryStrat, snap)) {
+            position = { side: entryStrat.side, entry: price, idx: i, peak: null };
+        }
+    }
+    if (position) {
+        const last = bars[bars.length - 1];
+        const pts = position.side === 'long' ? last.close - position.entry : position.entry - last.close;
+        trades.push({ side: position.side, entry: position.entry, pts, pnl: Math.round(pts * 200), forcedClose: true });
+    }
+    const wins = trades.filter(t => t.pnl > 0).length;
+    const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
+    return {
+        trades: trades.length, wins, losses: trades.length - wins,
+        winRate: trades.length ? wins / trades.length : 0,
+        totalPnl, avgPnl: trades.length ? Math.round(totalPnl / trades.length) : 0
+    };
+}
+
+async function aiFindBestExit() {
+    const btn = document.getElementById('btAiExitBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 找資料…';
+
+    const tfSel = document.getElementById('btTimeframe').value || '1h|2y';
+    const [pickedInterval, pickedRangeTag] = tfSel.split('|');
+    let bars;
+    try {
+        bars = await fetchBacktestBars(pickedInterval, pickedRangeTag);
+        if (!bars || bars.length < 200) {
+            btn.disabled = false;
+            btn.textContent = '🚪 出場 TOP3';
+            showModal('🚪 找最佳出場 TOP 3', `<div style="color:#d95353;padding:20px">「${pickedInterval} · ${pickedRangeTag}」資料不足 200 根。請先按「📥 下載」抓本地。</div>`);
+            return;
+        }
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '🚪 出場 TOP3';
+        showModal('🚪 找最佳出場 TOP 3', `<div style="color:#d95353;padding:20px">讀資料失敗：${e.message}</div>`);
+        return;
+    }
+
+    btn.textContent = '⏳ 找最佳進場…';
+    await new Promise(r => setTimeout(r, 30));
+    const indSnaps = buildIndSnapshots(bars);
+    // 先跑進場分析找 TOP 1
+    const entryStrats = generateCandidateStrategies();
+    const entryRanked = entryStrats.map(strat => {
+        const r = backtestCandidate(bars, indSnaps, strat, 100, 150);
+        return { ...strat, ...r };
+    }).filter(r => r.trades >= 5)
+      .sort((a, b) => (b.winRate * Math.log(1 + b.trades)) - (a.winRate * Math.log(1 + a.trades)));
+    if (!entryRanked.length) {
+        btn.disabled = false;
+        btn.textContent = '🚪 出場 TOP3';
+        showModal('🚪 找最佳出場 TOP 3', `<div style="color:#d95353;padding:20px">沒有任何進場策略樣本 ≥ 5，無法測試出場。</div>`);
+        return;
+    }
+    const bestEntry = entryRanked[0];
+
+    btn.textContent = `⏳ 測 ${EXIT_VARIANTS.length} 種出場…`;
+    await new Promise(r => setTimeout(r, 30));
+    const exitResults = EXIT_VARIANTS.map(exit => {
+        const r = backtestEntryWithExit(bars, indSnaps, bestEntry, exit);
+        return { exit, ...r };
+    }).sort((a, b) => b.totalPnl - a.totalPnl);
+
+    const top3 = exitResults.slice(0, 3);
+    btn.textContent = '⏳ 詢問 AI…';
+    await new Promise(r => setTimeout(r, 30));
+
+    const periodFirst = new Date(bars[0].time * 1000).toISOString().slice(0, 10);
+    const periodLast = new Date(bars[bars.length - 1].time * 1000).toISOString().slice(0, 10);
+    const prompt = `你是台指期量化分析師。我固定使用「${bestEntry.name}」當進場條件（這是樣本最大、勝率最穩的策略），在 ${periodFirst} ~ ${periodLast} 期間 ${bars.length} 根 ${pickedInterval} K 上測試 ${EXIT_VARIANTS.length} 種出場策略。
+
+TOP 3 出場結果：
+
+${top3.map((r, i) => `${i+1}. ${r.exit.name}
+   交易 ${r.trades} 筆 · 勝 ${r.wins} 敗 ${r.losses} · 勝率 ${Math.round(r.winRate*100)}% · 平均 ${r.avgPnl>=0?'+':''}${r.avgPnl} · 總損益 ${r.totalPnl>=0?'+':''}${r.totalPnl}`).join('\n\n')}
+
+請以中文回覆 JSON：
+{
+  "best": "推薦哪一個（編號 1-3）",
+  "reason": "推薦這個出場策略的理由（穩定性、平均盈虧、停損行為）",
+  "warning": "可能的風險或這策略的限制",
+  "alt": "備選（編號）+ 簡短說明"
+}`;
+
+    let aiResult = null;
+    try {
+        const resp = await fetch('/api/ai-signal', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ai: 'gemini', context: { customPrompt: prompt } })
+        });
+        const j = await resp.json();
+        if (j.error) throw new Error(j.error);
+        aiResult = j;
+    } catch (e) { console.warn('AI 出場分析失敗', e); }
+
+    btn.disabled = false;
+    btn.textContent = '🚪 出場 TOP3';
+    renderAiBestExitModal(top3, aiResult, bestEntry, pickedInterval, periodFirst, periodLast, bars.length);
+}
+
+function renderAiBestExitModal(top3, aiResult, bestEntry, interval, periodFirst, periodLast, barCount) {
+    const wrColor = wr => wr >= 0.6 ? '#4aad6e' : wr >= 0.5 ? '#8bc34a' : wr >= 0.4 ? '#e8b84c' : '#d95353';
+    const pnlColor = n => n >= 0 ? '#4aad6e' : '#d95353';
+
+    let aiBlock = '';
+    if (aiResult && aiResult.raw) {
+        let parsed = null;
+        try { const m = aiResult.raw.match(/\{[\s\S]*\}/); if (m) parsed = JSON.parse(m[0]); } catch {}
+        if (parsed) {
+            const bestIdx = parseInt(parsed.best);
+            const bestExit = bestIdx >= 1 && bestIdx <= top3.length ? top3[bestIdx - 1] : null;
+            aiBlock = `
+                <div style="background:linear-gradient(135deg,#3d2820,#5a3525);border:1px solid #d97757;border-radius:10px;padding:14px;margin-bottom:14px">
+                    <div style="font-size:11px;color:#ffb499;font-weight:600;letter-spacing:1px;margin-bottom:8px">🚪 ${aiResult.model || 'AI'} 推薦出場</div>
+                    ${bestExit ? `<div style="font-size:14px;color:#fff;font-weight:600;margin-bottom:6px">🏆 第 ${bestIdx} 名：${bestExit.exit.name}</div>` : ''}
+                    <div style="font-size:12px;color:#ffe2d4;line-height:1.7;margin-bottom:6px">💡 <b>推薦理由</b>：${(parsed.reason || '—').replace(/</g,'&lt;')}</div>
+                    <div style="font-size:12px;color:#ffc;line-height:1.7;margin-bottom:6px">⚠️ <b>風險</b>：${(parsed.warning || '—').replace(/</g,'&lt;')}</div>
+                    <div style="font-size:12px;color:#ffb499;line-height:1.7">🔁 <b>備選</b>：${(parsed.alt || '—').replace(/</g,'&lt;')}</div>
+                </div>`;
+        } else {
+            aiBlock = `<div style="background:#3d2820;border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--ink2);white-space:pre-wrap">${(aiResult.raw || '').replace(/</g,'&lt;')}</div>`;
+        }
+    } else {
+        aiBlock = `<div style="background:#3a1e1e;border:1px solid #d95353;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;color:#ff9980">AI 分析失敗（API key 沒設或額度用盡），純列回測結果。</div>`;
+    }
+
+    const cards = top3.map((r, i) => `
+        <div style="background:#1f1e1b;border-left:4px solid ${pnlColor(r.totalPnl)};border-radius:8px;padding:10px 12px;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:18px;min-width:30px">${i+1===1?'🥇':i+1===2?'🥈':'🥉'}</span>
+                <div style="flex:1;font-size:13px;color:var(--ink1);font-weight:600">${r.exit.name}</div>
+                <div style="text-align:right">
+                    <div style="font-size:14px;font-weight:700;color:${pnlColor(r.totalPnl)}">${r.totalPnl>=0?'+':'-'}$${fmtInt(Math.abs(r.totalPnl))}</div>
+                    <div style="font-size:10px;color:var(--ink3)">${r.trades} 筆 · 勝率 <span style="color:${wrColor(r.winRate)}">${Math.round(r.winRate*100)}%</span> · 平均 ${r.avgPnl>=0?'+':''}${r.avgPnl}</div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    const html = `
+        <div style="max-height:75vh;overflow:auto;padding-right:4px">
+            <div style="background:#2c2b27;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--ink3)">
+                <b style="color:var(--ink1)">固定進場：</b>${bestEntry.name}<br>
+                資料：${interval} K · ${periodFirst} ~ ${periodLast} · ${barCount} 根
+            </div>
+            ${aiBlock}
+            <div style="font-size:13px;font-weight:600;color:var(--ink1);margin-bottom:6px">🥇 出場策略 TOP 3</div>
+            ${cards}
+        </div>
+    `;
+    showModal('🚪 找最佳出場 TOP 3', html);
+}
+
+window.aiFindBestExit = aiFindBestExit;
 
 // 抓回測資料；對於 15m/180d 這種超出 Yahoo 60d 上限的組合，分段抓再合併
 // 有本地快取就先用本地（除非 forceFetch=true）
