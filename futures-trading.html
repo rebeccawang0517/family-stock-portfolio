@@ -38,19 +38,19 @@
         .right-panel { background: #232220; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
 
         /* Price Bar */
-        .price-bar { background: #2c2b27; border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-        .pb-symbol { font-size: 16px; font-weight: 800; font-family: var(--mono); color: var(--paper); }
-        .pb-name { font-size: 12px; color: var(--ink4); margin-left: -8px; }
-        .pb-price { font-size: 24px; font-weight: 700; font-family: var(--mono); }
-        .pb-change { font-size: 13px; font-weight: 600; font-family: var(--mono); }
-        .pb-stats { display: flex; gap: 16px; margin-left: auto; }
+        .price-bar { background: #2c2b27; border-bottom: 1px solid var(--border); padding: 6px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .pb-symbol { font-size: 14px; font-weight: 800; font-family: var(--mono); color: var(--paper); }
+        .pb-name { font-size: 11px; color: var(--ink4); margin-left: -6px; }
+        .pb-price { font-size: 20px; font-weight: 700; font-family: var(--mono); }
+        .pb-change { font-size: 12px; font-weight: 600; font-family: var(--mono); }
+        .pb-stats { display: flex; gap: 14px; margin-left: auto; }
         .pb-stat-label { font-size: 9px; color: var(--ink3); text-transform: uppercase; letter-spacing: .05em; }
-        .pb-stat-val { font-size: 13px; font-weight: 600; font-family: var(--mono); color: var(--paper); }
+        .pb-stat-val { font-size: 12px; font-weight: 600; font-family: var(--mono); color: var(--paper); }
 
-        .chart-wrap { flex: 1; min-height: 350px; background: #1a1916; }
+        .chart-wrap { flex: 1; min-height: 360px; background: #1a1916; }
 
         /* Speed bar */
-        .speed-bar { display: flex; align-items: center; gap: 8px; padding: 6px 16px; background: #232220; border-top: 1px solid var(--border); }
+        .speed-bar { display: flex; align-items: center; gap: 8px; padding: 3px 16px; background: #232220; border-top: 1px solid var(--border); }
         .speed-label { font-size: 10px; color: var(--ink4); white-space: nowrap; }
         .speed-btn { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--ink4); font-family: var(--mono); }
         .speed-btn.active { background: var(--gold); color: #1a1916; border-color: var(--gold); }
@@ -58,7 +58,7 @@
         .pause-btn.paused { background: var(--red); color: #fff; border-color: var(--red); }
 
         /* Timeframe bar */
-        .tf-bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #2c2b27; border-bottom: 1px solid var(--border); }
+        .tf-bar { display: flex; align-items: center; gap: 8px; padding: 4px 16px; background: #2c2b27; border-bottom: 1px solid var(--border); }
         .tf-btn { padding: 5px 12px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--ink4); font-family: var(--mono); }
         .tf-btn.active { background: var(--gold); color: #1a1916; border-color: var(--gold); }
         .tf-btn:hover:not(.active) { color: var(--paper); border-color: rgba(255,255,255,.2); }
@@ -206,10 +206,19 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
 
+        /* Section divider — visually separate AI battle / backtest blocks */
+        .section-block { background: #1f1e1b; border-top: 4px solid #3d3c38; }
+        .section-block.ai { border-top-color: #6366f1; }
+        .section-block.backtest { border-top-color: #9c5fd9; }
+        .section-header { padding: 8px 16px; background: linear-gradient(90deg, rgba(99,102,241,.10), transparent); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+        .section-block.backtest .section-header { background: linear-gradient(90deg, rgba(156,95,217,.10), transparent); }
+        .section-header .badge-icon { font-size: 16px; }
+        .section-header .badge-title { font-size: 13px; font-weight: 700; color: var(--paper); letter-spacing: .5px; }
+
         /* AI Battle */
-        .ai-battle { border-top: 1px solid var(--border); padding: 12px 16px; background: #23221f; }
-        .ai-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-        .ai-head .title { font-size: 13px; font-weight: 700; color: var(--gold); }
+        .ai-battle { padding: 10px 16px 12px; background: #23221f; }
+        .ai-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+        .ai-head .title { font-size: 12px; font-weight: 600; color: var(--gold); }
         .ai-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .ai-card { background: #2c2b27; border: 1px solid var(--border); border-radius: 10px; padding: 12px; min-width: 0; }
         .ai-card.gemini { border-left: 3px solid #4285f4; }
@@ -323,20 +332,24 @@
                 <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸</button>
             </div>
 
-            <!-- AI 對戰 -->
-            <div class="ai-battle" id="aiBattle">
-                <div class="ai-head">
-                    <span class="title">🤖 AI 對戰 · Gemini vs Grok</span>
-                    <label class="toggle-switch" style="width:40px;height:22px">
+            <!-- 🤖 AI 對戰區塊 -->
+            <div class="section-block ai">
+                <div class="section-header">
+                    <span class="badge-icon">🤖</span>
+                    <span class="badge-title">AI 交易對戰</span>
+                    <label class="toggle-switch" style="width:40px;height:22px;margin-left:12px">
                         <input type="checkbox" id="aiToggle" onchange="toggleAIBattle()">
                         <span class="toggle-slider"></span>
                     </label>
                     <span class="toggle-status off" id="aiStatus">OFF</span>
-                    <button class="header-btn" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="manualRunAIBattle()">立即測試</button>
-                    <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="showLearnedRules()" title="從歷史交易快照分析勝率規則（只顯示不過濾）">🧠 勝場學習</button>
-                    <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="editAIInitialBalance()" title="設定 AI 起始資金">💰 起始金額</button>
-                    <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="resetAIBattle()">重置 AI</button>
+                    <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+                        <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="manualRunAIBattle()">立即測試</button>
+                        <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="showLearnedRules()" title="從歷史交易快照分析勝率規則（只顯示不過濾）">🧠 勝場學習</button>
+                        <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="editAIInitialBalance()" title="設定 AI 起始資金">💰 起始金額</button>
+                        <button class="header-btn" style="font-size:11px;padding:4px 10px" onclick="resetAIBattle()">重置 AI</button>
+                    </span>
                 </div>
+            <div class="ai-battle" id="aiBattle">
                 <div class="ai-grid">
                     <div class="ai-card gemini">
                         <div class="name">
@@ -405,11 +418,13 @@
                     </div>
                 </div>
             </div>
+            </div><!-- /section-block ai -->
 
-            <!-- 📈 歷史回測（勝場榜首策略） -->
-            <div class="ai-battle" id="backtestSection" style="margin-top:14px">
-                <div class="ai-head">
-                    <span class="title">📈 歷史回測 · 勝場榜首策略</span>
+            <!-- 📈 歷史回測區塊 -->
+            <div class="section-block backtest">
+                <div class="section-header">
+                    <span class="badge-icon">📈</span>
+                    <span class="badge-title">歷史回測 · 勝場榜首策略</span>
                     <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                         <label style="font-size:11px;color:var(--ink3)">K線<select id="btTimeframe" onchange="renderCacheStatus()" style="padding:3px 6px;background:#1f1e1b;color:var(--ink1);border:1px solid var(--border);border-radius:4px;font-size:11px">
                             <option value="5m|60d">5 分（60 天）</option>
