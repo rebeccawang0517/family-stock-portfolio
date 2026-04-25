@@ -17,7 +17,10 @@ export default async function handler(req, res) {
   const { ai, context } = body || {};
   if (!ai || !context) return res.status(400).json({ error: 'ai and context required' });
 
-  const prompt = buildPrompt(context);
+  // 支援前端傳 customPrompt 直接覆蓋（用於非交易訊號的分析請求，例如策略推薦）
+  const prompt = (context && typeof context.customPrompt === 'string' && context.customPrompt)
+    ? context.customPrompt
+    : buildPrompt(context);
   const started = Date.now();
   let raw, model;
   try {
@@ -33,6 +36,11 @@ export default async function handler(req, res) {
   } catch (e) {
     console.error(`[${ai}] api call failed:`, e);
     return res.status(500).json({ error: `API: ${e.message}`, ai, stage: 'api', latencyMs: Date.now() - started });
+  }
+
+  // 自訂 prompt 模式：不解析交易訊號 schema，直接回 raw
+  if (context && context.customPrompt) {
+    return res.status(200).json({ raw, model, latencyMs: Date.now() - started });
   }
 
   try {

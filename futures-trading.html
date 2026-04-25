@@ -440,6 +440,7 @@
                         <button class="header-btn" onclick="document.getElementById('taifexFileInput').click()" id="btImportBtn" style="font-size:11px;padding:4px 10px" title="匯入期交所 CSV（手動下載）">📁 匯入</button>
                         <button class="header-btn" onclick="autoFetchTaifexHistory()" id="btAutoFetchBtn" style="font-size:11px;padding:4px 10px;background:#4aad6e" title="自動從期交所抓 5 年日 K（免費），存到本地">🚀 自動爬 5 年日 K</button>
                         <label style="font-size:11px;color:var(--ink3);display:flex;align-items:center;gap:4px" title="開啟後每次開頁會自動補抓今日 K（已有快取的時間框架）"><input type="checkbox" id="btAutoUpdateChk" onchange="setAutoUpdateEnabled(this.checked)" style="margin:0"> 每日自動更新</label>
+                        <button class="header-btn" onclick="aiFindBestStrategy()" id="btAiSearchBtn" style="font-size:11px;padding:4px 10px;background:#9c5fd9" title="跑遍 200 組候選策略 + AI 分析推薦最佳組合">🤖 AI 找最佳策略</button>
                         <input type="file" id="taifexFileInput" accept=".csv,.txt" multiple style="display:none" onchange="importTaifexFiles(this.files)">
                         <button class="header-btn" onclick="runBacktest()" id="btRunBtn" style="background:var(--accent);font-size:11px;padding:4px 10px">▶ 執行回測</button>
                     </div>
@@ -3035,6 +3036,268 @@ async function autoUpdateCachesIfStale() {
 
 window.autoUpdateCachesIfStale = autoUpdateCachesIfStale;
 window.setAutoUpdateEnabled = setAutoUpdateEnabled;
+
+// ==================== AI 搜尋最佳策略 ====================
+// 1) 從本地快取讀歷史 K
+// 2) 跑 200 組候選策略（單條件 × 10 + 雙條件 ALL/ANY × 90 = 200）
+// 3) 取勝率 × 樣本數加權的 TOP 10
+// 4) 送 Gemini 做白話分析、推薦最佳組合
+
+function generateCandidateStrategies() {
+    const strategies = [];
+    const sides = ['long', 'short'];
+    // 單條件
+    for (const side of sides) {
+        for (const cond of CUSTOM_CONDITIONS) {
+            strategies.push({
+                key: `${side}|${cond.id}`,
+                name: (side === 'long' ? '📈 做多' : '📉 做空') + ' · ' + cond.label,
+                side, conditions: [cond.id], mode: 'all'
+            });
+        }
+    }
+    // 雙條件 ALL / ANY
+    for (const side of sides) {
+        for (let i = 0; i < CUSTOM_CONDITIONS.length; i++) {
+            for (let j = i + 1; j < CUSTOM_CONDITIONS.length; j++) {
+                const c1 = CUSTOM_CONDITIONS[i];
+                const c2 = CUSTOM_CONDITIONS[j];
+                for (const mode of ['all', 'any']) {
+                    strategies.push({
+                        key: `${side}|${c1.id}|${c2.id}|${mode}`,
+                        name: (side === 'long' ? '📈 做多' : '📉 做空') + ` · ${c1.label} ${mode === 'all' ? '+' : '∨'} ${c2.label}`,
+                        side, conditions: [c1.id, c2.id], mode
+                    });
+                }
+            }
+        }
+    }
+    return strategies;
+}
+
+// 暫時切換全域 ind / currentPrice 跑條件測試
+function testStrategyOnSnapshot(strat, snap) {
+    const savedInd = { ...ind };
+    const savedPrice = currentPrice;
+    Object.assign(ind, snap.ind);
+    currentPrice = snap.price;
+    try {
+        const results = strat.conditions.map(id => {
+            const c = CUSTOM_CONDITIONS.find(x => x.id === id);
+            return c ? !!c.test() : false;
+        });
+        return strat.mode === 'all' ? results.every(Boolean) : results.some(Boolean);
+    } finally {
+        Object.assign(ind, savedInd);
+        currentPrice = savedPrice;
+    }
+}
+
+function backtestCandidate(bars, indSnaps, strat, slPts = 100, tpPts = 150) {
+    const trades = [];
+    let position = null;
+    for (let i = 60; i < bars.length; i++) {
+        const snap = indSnaps[i];
+        const price = bars[i].close;
+        if (position) {
+            const diffH = position.side === 'long' ? bars[i].high - position.entry : position.entry - bars[i].low;
+            const diffL = position.side === 'long' ? bars[i].low - position.entry : position.entry - bars[i].high;
+            let pts = null;
+            if (diffL <= -slPts) pts = -slPts;
+            else if (diffH >= tpPts) pts = tpPts;
+            if (pts != null) {
+                trades.push({ side: position.side, entry: position.entry, pts, pnl: pts * 200 });
+                position = null;
+            }
+        }
+        if (!position && testStrategyOnSnapshot(strat, snap)) {
+            position = { side: strat.side, entry: price, idx: i };
+        }
+    }
+    if (position) {
+        const last = bars[bars.length - 1];
+        const pts = position.side === 'long' ? last.close - position.entry : position.entry - last.close;
+        trades.push({ side: position.side, entry: position.entry, pts, pnl: Math.round(pts * 200), forcedClose: true });
+    }
+    const wins = trades.filter(t => t.pnl > 0).length;
+    const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
+    return {
+        trades: trades.length, wins, losses: trades.length - wins,
+        winRate: trades.length ? wins / trades.length : 0,
+        totalPnl,
+        avgPnl: trades.length ? Math.round(totalPnl / trades.length) : 0
+    };
+}
+
+// 預先把每根 K 的指標 snapshot 算出來
+function buildIndSnapshots(bars) {
+    const closes = bars.map(b => b.close);
+    const ma5Arr = rollingAvg(closes, 5);
+    const ma20Arr = rollingAvg(closes, 20);
+    const ma60Arr = rollingAvg(closes, 60);
+    const rsiArr = computeRsi(closes, 14);
+    const macd = computeMacd(closes, 12, 26, 9);
+    const bb = computeBollinger(closes, 20, 2);
+    const out = new Array(bars.length);
+    for (let i = 0; i < bars.length; i++) {
+        out[i] = {
+            price: bars[i].close,
+            ind: {
+                ma5: ma5Arr[i], ma20: ma20Arr[i], ma60: ma60Arr[i],
+                rsi: rsiArr[i],
+                macd: macd.macd[i], macdHist: macd.hist[i],
+                bbUpper: bb.upper[i], bbLower: bb.lower[i],
+                prevMa5: i > 0 ? ma5Arr[i - 1] : null,
+                prevMa20: i > 0 ? ma20Arr[i - 1] : null,
+                prevMacdHist: i > 0 ? macd.hist[i - 1] : null
+            }
+        };
+    }
+    return out;
+}
+
+async function aiFindBestStrategy() {
+    const btn = document.getElementById('btAiSearchBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 找資料…';
+
+    // 讀本地快取（優先 1d 5y，再來 1h 2y）
+    const sources = [
+        { interval: '1d', rangeTag: '5y' },
+        { interval: '1h', rangeTag: '2y' },
+        { interval: '15m', rangeTag: '60d' }
+    ];
+    let chosen = null;
+    for (const s of sources) {
+        const c = readBarsCache(s.interval, s.rangeTag);
+        if (c && c.bars && c.bars.length >= 200) { chosen = { ...s, bars: c.bars }; break; }
+    }
+    if (!chosen) {
+        btn.disabled = false;
+        btn.textContent = '🤖 AI 找最佳策略';
+        showModal('🤖 AI 找最佳策略', '<div style="color:#d95353;padding:20px">本地沒任何 ≥ 200 根的快取 K 線。請先按「📥 下載」抓 1d/5y 或 1h/2y。</div>');
+        return;
+    }
+
+    btn.textContent = `⏳ 回測 ${chosen.bars.length} 根 ${chosen.interval} K…`;
+    await new Promise(r => setTimeout(r, 30));
+
+    const indSnaps = buildIndSnapshots(chosen.bars);
+    const strategies = generateCandidateStrategies();
+    btn.textContent = `⏳ 跑 ${strategies.length} 組策略…`;
+    await new Promise(r => setTimeout(r, 30));
+
+    const ranked = strategies.map(strat => {
+        const r = backtestCandidate(chosen.bars, indSnaps, strat, 100, 150);
+        return { ...strat, ...r };
+    }).filter(r => r.trades >= 5) // 樣本太少不列
+      .sort((a, b) => {
+          // 排序：勝率 × 樣本權重 + 平均 PnL 權重
+          const sa = a.winRate * Math.log(1 + a.trades) + (a.avgPnl / 1000);
+          const sb = b.winRate * Math.log(1 + b.trades) + (b.avgPnl / 1000);
+          return sb - sa;
+      });
+
+    const top10 = ranked.slice(0, 10);
+    btn.textContent = '⏳ 詢問 AI…';
+
+    // 組 prompt 給 Gemini
+    const periodFirst = new Date(chosen.bars[0].time * 1000).toISOString().slice(0, 10);
+    const periodLast = new Date(chosen.bars[chosen.bars.length - 1].time * 1000).toISOString().slice(0, 10);
+    const prompt = `你是台指期量化分析師。我已用 ${chosen.interval} K 線在 ${periodFirst} ~ ${periodLast} 期間（${chosen.bars.length} 根 K）回測 ${strategies.length} 組候選策略，停損 100 點、停利 150 點，1 點 = 200 元。
+
+以下是按「勝率 × 樣本數 + 平均損益」加權後的 TOP 10 策略：
+
+${top10.map((s, i) => `${i+1}. ${s.name}
+   交易 ${s.trades} 筆 · 勝 ${s.wins} 敗 ${s.losses} · 勝率 ${Math.round(s.winRate*100)}% · 平均單筆 ${s.avgPnl>=0?'+':''}${s.avgPnl} · 總損益 ${s.totalPnl>=0?'+':''}${s.totalPnl}`).join('\n\n')}
+
+請以中文回覆 JSON：
+{
+  "best": "推薦哪一個（用上面編號 1-10）",
+  "reason": "推薦理由（為何這個比其他好，考量勝率、穩定性、樣本量、平均盈虧）",
+  "warning": "可能的風險或這策略的限制",
+  "alt": "備選第二名（編號）+ 簡短說明"
+}`;
+
+    let aiResult = null;
+    try {
+        const resp = await fetch('/api/ai-signal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ai: 'gemini', context: { symbol: 'TX', price: 0, bars: [], indicators: {}, customPrompt: prompt } })
+        });
+        const j = await resp.json();
+        if (j.error) throw new Error(j.error);
+        aiResult = j;
+    } catch (e) {
+        console.warn('AI 分析失敗', e);
+    }
+
+    btn.disabled = false;
+    btn.textContent = '🤖 AI 找最佳策略';
+
+    renderAiBestStrategyModal(top10, aiResult, chosen, periodFirst, periodLast);
+}
+
+function renderAiBestStrategyModal(top10, aiResult, source, periodFirst, periodLast) {
+    const wrColor = wr => wr >= 0.6 ? '#4aad6e' : wr >= 0.5 ? '#8bc34a' : wr >= 0.4 ? '#e8b84c' : '#d95353';
+    const pnlColor = n => n >= 0 ? '#4aad6e' : '#d95353';
+
+    let aiBlock = '';
+    if (aiResult && aiResult.raw) {
+        // 嘗試 parse AI JSON
+        let parsed = null;
+        try {
+            const m = aiResult.raw.match(/\{[\s\S]*\}/);
+            if (m) parsed = JSON.parse(m[0]);
+        } catch {}
+        if (parsed) {
+            const bestIdx = parseInt(parsed.best);
+            const bestStrat = bestIdx >= 1 && bestIdx <= top10.length ? top10[bestIdx - 1] : null;
+            aiBlock = `
+                <div style="background:linear-gradient(135deg,#2d2440,#3d2855);border:1px solid #9c5fd9;border-radius:10px;padding:14px;margin-bottom:14px">
+                    <div style="font-size:11px;color:#c9b3e8;font-weight:600;letter-spacing:1px;margin-bottom:8px">🤖 ${aiResult.model || 'AI'} 推薦</div>
+                    ${bestStrat ? `<div style="font-size:14px;color:#fff;font-weight:600;margin-bottom:6px">🏆 第 ${bestIdx} 名：${bestStrat.name}</div>` : ''}
+                    <div style="font-size:12px;color:#e2dcef;line-height:1.7;margin-bottom:6px">💡 <b>推薦理由</b>：${(parsed.reason || '—').replace(/</g,'&lt;')}</div>
+                    <div style="font-size:12px;color:#ffc;line-height:1.7;margin-bottom:6px">⚠️ <b>風險</b>：${(parsed.warning || '—').replace(/</g,'&lt;')}</div>
+                    <div style="font-size:12px;color:#c9b3e8;line-height:1.7">🔁 <b>備選</b>：${(parsed.alt || '—').replace(/</g,'&lt;')}</div>
+                </div>
+            `;
+        } else {
+            aiBlock = `<div style="background:#2d2440;border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--ink2);white-space:pre-wrap">${(aiResult.raw || '').replace(/</g,'&lt;')}</div>`;
+        }
+    } else {
+        aiBlock = `<div style="background:#3a1e1e;border:1px solid #d95353;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;color:#ff9980">AI 分析失敗（可能是 API key 沒設或額度用盡），純列回測結果。</div>`;
+    }
+
+    const cards = top10.map((s, i) => `
+        <div style="background:#1f1e1b;border-left:4px solid ${pnlColor(s.totalPnl)};border-radius:8px;padding:10px 12px;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:14px;min-width:24px;color:var(--ink3)">#${i+1}</span>
+                <div style="flex:1;font-size:12px;color:var(--ink1);font-weight:500">${s.name}</div>
+                <div style="text-align:right">
+                    <div style="font-size:14px;font-weight:700;color:${pnlColor(s.totalPnl)}">${s.totalPnl>=0?'+':'-'}$${fmtInt(Math.abs(s.totalPnl))}</div>
+                    <div style="font-size:10px;color:var(--ink3)">${s.trades} 筆 · 勝率 <span style="color:${wrColor(s.winRate)}">${Math.round(s.winRate*100)}%</span> · 平均 ${s.avgPnl>=0?'+':''}${s.avgPnl}</div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    const html = `
+        <div style="max-height:75vh;overflow:auto;padding-right:4px">
+            <div style="background:#2c2b27;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--ink3)">
+                資料來源：${source.interval} K · ${periodFirst} ~ ${periodLast} · ${source.bars.length} 根<br>
+                條件設定：停損 100 點、停利 150 點、樣本門檻 ≥ 5 筆
+            </div>
+            ${aiBlock}
+            <div style="font-size:13px;font-weight:600;color:var(--ink1);margin-bottom:6px">📊 加權排名 TOP 10</div>
+            ${cards}
+        </div>
+    `;
+    showModal('🤖 AI 找最佳策略', html);
+}
+
+window.aiFindBestStrategy = aiFindBestStrategy;
 
 // 抓回測資料；對於 15m/180d 這種超出 Yahoo 60d 上限的組合，分段抓再合併
 // 有本地快取就先用本地（除非 forceFetch=true）
