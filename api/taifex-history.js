@@ -1,13 +1,9 @@
 // 期交所歷史日 K 自動抓取
 // /api/taifex-history?from=YYYYMMDD&to=YYYYMMDD
 //
-// 策略：直連期交所每日 ZIP（URL 模式穩定多年）
-//   https://www.taifex.com.tw/file/taifex/Dailydownload/DailydownloadCSV/Daily_YYYY_MM_DD.zip
-// 每個 ZIP 內含當日所有期貨契約的 CSV
-// 平行抓多日（concurrency 限制避免被擋），每日挑 TX 成交量最大合約當主力
-// 回傳：{ bars: [{time, open, high, low, close, volume}], from, to, count, days_fetched, days_skipped }
-
-import JSZip from 'jszip';
+// 改用 TAIFEX 官方表單下載端點（直接回 CSV、不需 ZIP）
+//   POST https://www.taifex.com.tw/cht/3/futDataDown
+// 一次可拿一段日期範圍的 TX 主力合約日 K
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -19,136 +15,134 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'from and to required, format YYYYMMDD' });
   }
 
-  const fromDate = parseYmd(fromStr);
-  const toDate = parseYmd(toStr);
-  if (!fromDate || !toDate || fromDate > toDate) {
-    return res.status(400).json({ error: 'invalid date range' });
-  }
+  const fromDate = `${fromStr.slice(0,4)}/${fromStr.slice(4,6)}/${fromStr.slice(6,8)}`;
+  const toDate = `${toStr.slice(0,4)}/${toStr.slice(4,6)}/${toStr.slice(6,8)}`;
 
-  // 建日期清單，跳週末（期交所收盤日不抓 ZIP）
-  const dates = [];
-  const cur = new Date(fromDate);
-  while (cur <= toDate) {
-    const day = cur.getUTCDay();
-    if (day !== 0 && day !== 6) {
-      dates.push(formatYmdParts(cur));
+  // 嘗試多個 TAIFEX URL pattern
+  const attempts = [
+    {
+      name: 'futDataDown',
+      url: 'https://www.taifex.com.tw/cht/3/futDataDown',
+      body: new URLSearchParams({
+        queryStartDate: fromDate, queryEndDate: toDate,
+        commodity_id: 'TX', commodity_idt: 'TX',
+        MarketCode: '0', doQuery: '1'
+      }).toString()
+    },
+    {
+      name: 'futAndOptDailyMarketReport',
+      url: 'https://www.taifex.com.tw/cht/3/futAndOptDailyMarketReport',
+      body: new URLSearchParams({
+        queryStartDate: fromDate, queryEndDate: toDate,
+        commodity_id: 'TX', MarketCode: '0', doQuery: '1'
+      }).toString()
+    },
+    {
+      name: 'dlFutDataDown',
+      url: 'https://www.taifex.com.tw/cht/3/dlFutDataDown',
+      body: new URLSearchParams({
+        queryStartDate: fromDate, queryEndDate: toDate,
+        commodity_id: 'TX', commodity_idt: 'TX',
+        MarketCode: '0', doQuery: '1'
+      }).toString()
     }
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
+  ];
 
-  if (!dates.length) return res.status(200).json({ bars: [], from: fromStr, to: toStr, count: 0 });
-
-  // 平行抓 ZIP，每批 10 個避免被擋
-  const concurrency = 10;
-  const results = [];
-  let okCount = 0, missCount = 0;
-  const failureSamples = []; // 收集失敗診斷
-  for (let i = 0; i < dates.length; i += concurrency) {
-    const batch = dates.slice(i, i + concurrency);
-    const batchResults = await Promise.all(batch.map(d => fetchOneDay(d.y, d.m, d.d)));
-    for (let j = 0; j < batch.length; j++) {
-      const r = batchResults[j];
-      if (r && !r._failed) { results.push(r); okCount++; }
-      else {
-        missCount++;
-        if (r && r._diag && failureSamples.length < 3) failureSamples.push(r._diag);
+  const diag = [];
+  let csvText = null, usedEndpoint = null;
+  for (const att of attempts) {
+    try {
+      const resp = await fetch(att.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+          'Accept': 'text/csv,text/html,*/*',
+          'Accept-Language': 'zh-TW,zh;q=0.9',
+          'Referer': 'https://www.taifex.com.tw/cht/3/futAndOptDailyMarketReport'
+        },
+        body: att.body
+      });
+      const ctype = resp.headers.get('content-type') || '';
+      if (!resp.ok) {
+        diag.push({ ep: att.name, status: resp.status, ctype });
+        continue;
       }
+      const buf = await resp.arrayBuffer();
+      const text = Buffer.from(buf).toString('latin1');
+      const sniff = text.slice(0, 80).replace(/\r?\n/g, '\\n');
+      // 確認看起來是 CSV（含逗號 + 數字 + 'TX'）
+      const looksLikeCsv = text.includes('TX') && text.includes(',') && /\d{4}/.test(text);
+      if (!looksLikeCsv) {
+        diag.push({ ep: att.name, status: resp.status, ctype, size: buf.byteLength, sniff });
+        continue;
+      }
+      csvText = text;
+      usedEndpoint = att.name;
+      diag.push({ ep: att.name, status: resp.status, ctype, size: buf.byteLength, ok: true });
+      break;
+    } catch (e) {
+      diag.push({ ep: att.name, error: e.message.slice(0, 100) });
     }
   }
 
-  const bars = results.map(r => ({
-    time: r.time,
-    open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume
-  })).sort((a, b) => a.time - b.time);
+  if (!csvText) {
+    return res.status(502).json({ error: 'all TAIFEX endpoints failed', diag });
+  }
+
+  let bars;
+  try {
+    bars = parseTaifexHistoryCsv(csvText);
+  } catch (e) {
+    return res.status(500).json({ error: 'CSV parse failed: ' + e.message, diag, preview: csvText.slice(0, 300) });
+  }
 
   res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=604800');
   res.status(200).json({
     bars, from: fromStr, to: toStr, count: bars.length,
-    days_fetched: okCount, days_skipped: missCount,
-    days_attempted: dates.length,
-    failureSamples
+    days_fetched: bars.length,
+    days_attempted: bars.length,
+    days_skipped: 0,
+    endpoint: usedEndpoint,
+    failureSamples: diag.filter(d => !d.ok)
   });
 }
 
-function parseYmd(s) {
-  const y = parseInt(s.slice(0, 4));
-  const m = parseInt(s.slice(4, 6));
-  const d = parseInt(s.slice(6, 8));
-  if (!y || !m || !d) return null;
-  return new Date(Date.UTC(y, m - 1, d));
-}
+// 期交所每日行情 CSV 解析；一日可能多合約，挑成交量最大者當主力
+function parseTaifexHistoryCsv(text) {
+  const lines = text.split(/\r?\n/);
+  const dateBuckets = {};
 
-function formatYmdParts(d) {
-  return {
-    y: d.getUTCFullYear(),
-    m: String(d.getUTCMonth() + 1).padStart(2, '0'),
-    d: String(d.getUTCDate()).padStart(2, '0')
-  };
-}
-
-async function fetchOneDay(y, m, d) {
-  // 多個 URL pattern 嘗試
-  const urls = [
-    `https://www.taifex.com.tw/file/taifex/Dailydownload/DailydownloadCSV/Daily_${y}_${m}_${d}.zip`,
-    `https://www.taifex.com.tw/file/taifex/Dailydownload/Daily_${y}_${m}_${d}.zip`,
-    `https://www.taifex.com.tw/file/taifex/Dailydownload/DailydownloadCSV/Daily_${y}${m}${d}.zip`,
-    `https://www.taifex.com.tw/file/taifex/Dailydownload/Daily_${y}${m}${d}.zip`
-  ];
-  let lastStatus = '?';
-  for (const url of urls) {
-    try {
-      const resp = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-          'Referer': 'https://www.taifex.com.tw/',
-          'Accept': '*/*'
-        }
-      });
-      lastStatus = resp.status;
-      if (!resp.ok) continue;
-      const buf = await resp.arrayBuffer();
-      if (buf.byteLength < 100) { lastStatus = 'empty'; continue; }
-      const zip = await JSZip.loadAsync(buf);
-      const fileName = Object.keys(zip.files).find(n => n.toLowerCase().endsWith('.csv'));
-      if (!fileName) { lastStatus = 'no-csv'; continue; }
-      const u8 = await zip.files[fileName].async('uint8array');
-      const text = Buffer.from(u8).toString('latin1');
-      const main = pickTxMain(text);
-      if (!main) { lastStatus = 'no-tx'; continue; }
-      const time = Math.floor(Date.UTC(y, parseInt(m) - 1, parseInt(d), 0, 45) / 1000);
-      return { time, ...main, _diag: { url, status: resp.status } };
-    } catch (e) {
-      lastStatus = e.message.slice(0, 80);
-    }
-  }
-  return { _failed: true, _diag: { date: `${y}-${m}-${d}`, lastStatus, tried: urls.length } };
-}
-
-// 從每日 CSV 挑 TX 成交量最大合約當主力，回傳 OHLCV
-function pickTxMain(csvText) {
-  const lines = csvText.split(/\r?\n/);
-  const txRows = [];
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
     if (!line || !line.trim()) continue;
     const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
     if (cols.length < 10) continue;
-    // 期交所每日 CSV 典型欄位序：
-    // 0:交易日期 1:契約 2:到期月份 3:開盤價 4:最高價 5:最低價 6:收盤價 7:漲跌價 8:漲跌% 9:成交量 ...
+    // 期望：[0]日期 [1]契約 [2]到期月份 [3]開 [4]高 [5]低 [6]收 [7]漲跌 [8]漲跌% [9]量
+    const dateStr = cols[0];
     const contract = cols[1];
     const expiry = cols[2];
     if (contract !== 'TX') continue;
-    if (!expiry || expiry.includes('/')) continue; // 跳價差
+    if (!expiry || expiry.includes('/')) continue;
+    if (!/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(dateStr)) continue;
     const open = parseFloat(cols[3]);
     const high = parseFloat(cols[4]);
     const low = parseFloat(cols[5]);
     const close = parseFloat(cols[6]);
     const volume = parseInt(cols[9]) || 0;
     if (![open, high, low, close].every(x => Number.isFinite(x) && x > 0)) continue;
-    txRows.push({ open, high, low, close, volume, expiry });
+    const [y, m, d] = dateStr.split('/').map(s => parseInt(s));
+    const time = Math.floor(Date.UTC(y, m - 1, d, 0, 45) / 1000);
+    if (!dateBuckets[dateStr]) dateBuckets[dateStr] = [];
+    dateBuckets[dateStr].push({ time, open, high, low, close, volume, expiry });
   }
-  if (!txRows.length) return null;
-  // 挑成交量最大者當主力
-  txRows.sort((a, b) => b.volume - a.volume);
-  return txRows[0];
+
+  const bars = [];
+  for (const date in dateBuckets) {
+    const rows = dateBuckets[date].sort((a, b) => b.volume - a.volume);
+    const main = rows[0];
+    bars.push({ time: main.time, open: main.open, high: main.high, low: main.low, close: main.close, volume: main.volume });
+  }
+  bars.sort((a, b) => a.time - b.time);
+  return bars;
 }
