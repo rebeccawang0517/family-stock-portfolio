@@ -439,6 +439,7 @@
                         <button class="header-btn" onclick="downloadAllHistoricalBars()" id="btDlAllBtn" style="font-size:11px;padding:4px 10px" title="一次下載所有可用時間框架：日 K 5 年、1 小時 2 年、15 分/5 分各 60 天">📦 全載歷史</button>
                         <button class="header-btn" onclick="document.getElementById('taifexFileInput').click()" id="btImportBtn" style="font-size:11px;padding:4px 10px" title="匯入期交所 CSV（手動下載）">📁 匯入</button>
                         <button class="header-btn" onclick="autoFetchTaifexHistory()" id="btAutoFetchBtn" style="font-size:11px;padding:4px 10px;background:#4aad6e" title="自動從期交所抓 5 年日 K（免費），存到本地">🚀 自動爬 5 年日 K</button>
+                        <label style="font-size:11px;color:var(--ink3);display:flex;align-items:center;gap:4px" title="開啟後每次開頁會自動補抓今日 K（已有快取的時間框架）"><input type="checkbox" id="btAutoUpdateChk" onchange="setAutoUpdateEnabled(this.checked)" style="margin:0"> 每日自動更新</label>
                         <input type="file" id="taifexFileInput" accept=".csv,.txt" multiple style="display:none" onchange="importTaifexFiles(this.files)">
                         <button class="header-btn" onclick="runBacktest()" id="btRunBtn" style="background:var(--accent);font-size:11px;padding:4px 10px">▶ 執行回測</button>
                     </div>
@@ -684,6 +685,13 @@ async function initApp() {
     learnedRules = analyzeTradeHistory();
     renderCustomCard();
     renderCacheStatus();
+
+    // 同步「每日自動更新」勾選狀態
+    const chk = document.getElementById('btAutoUpdateChk');
+    if (chk) chk.checked = isAutoUpdateEnabled();
+
+    // 開頁背景自動更新陳舊的本地 K 線快取（不阻塞 UI）
+    setTimeout(() => autoUpdateCachesIfStale().catch(e => console.warn('autoUpdate err', e)), 3000);
 
     // 關閉或刷新前強制把最新狀態推到 Firebase（避免最後一筆交易遺失）
     window.addEventListener('beforeunload', () => {
@@ -2981,6 +2989,52 @@ async function autoFetchTaifexHistory() {
 }
 
 window.autoFetchTaifexHistory = autoFetchTaifexHistory;
+
+// 每次開頁自動補抓今日 K（讓本地快取持續累積）
+const AUTO_UPDATE_TIMEFRAMES = [
+    { interval: '1d', rangeTag: '5y' },
+    { interval: '1h', rangeTag: '2y' },
+    { interval: '15m', rangeTag: '60d' },
+    { interval: '5m', rangeTag: '60d' }
+];
+
+function isAutoUpdateEnabled() {
+    return localStorage.getItem('btAutoUpdate') !== '0'; // 預設開啟
+}
+
+function setAutoUpdateEnabled(on) {
+    localStorage.setItem('btAutoUpdate', on ? '1' : '0');
+}
+
+async function autoUpdateCachesIfStale() {
+    if (!isAutoUpdateEnabled()) return;
+    const todaySec = Math.floor(Date.now() / 1000);
+    let updated = 0, skipped = 0;
+    for (const tf of AUTO_UPDATE_TIMEFRAMES) {
+        const cached = readBarsCache(tf.interval, tf.rangeTag);
+        if (!cached || !cached.endTime) { skipped++; continue; } // 沒快取就不主動下載（用戶要手動先載一次）
+        const ageSec = todaySec - cached.endTime;
+        // 大於 12 小時才更新（避免每次刷新都打 Yahoo）
+        if (ageSec < 12 * 3600) { skipped++; continue; }
+        try {
+            // 強制重抓覆蓋（Yahoo 全量回傳，含歷史 + 最新）
+            const bars = await fetchBacktestBars(tf.interval, tf.rangeTag, true);
+            if (bars && bars.length) {
+                writeBarsCache(tf.interval, tf.rangeTag, bars);
+                updated++;
+            }
+        } catch (e) {
+            console.warn(`autoUpdate ${tf.interval}/${tf.rangeTag} 失敗:`, e.message);
+        }
+    }
+    if (updated) {
+        console.log(`💾 自動更新本地 K 線：${updated} 個時間框架`);
+        renderCacheStatus();
+    }
+}
+
+window.autoUpdateCachesIfStale = autoUpdateCachesIfStale;
+window.setAutoUpdateEnabled = setAutoUpdateEnabled;
 
 // 抓回測資料；對於 15m/180d 這種超出 Yahoo 60d 上限的組合，分段抓再合併
 // 有本地快取就先用本地（除非 forceFetch=true）
