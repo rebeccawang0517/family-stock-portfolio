@@ -1222,14 +1222,24 @@ function evaluateStrategy() {
 }
 
 // ==================== CUSTOM STRATEGY ====================
+// 取得 RSI 門檻（從 customStrategy.config 動態讀，未設則用預設）
+function rsiOversoldT() {
+    const v = parseFloat(customStrategy?.config?.rsiOversoldThreshold);
+    return Number.isFinite(v) && v > 0 ? v : 35;
+}
+function rsiOverboughtT() {
+    const v = parseFloat(customStrategy?.config?.rsiOverboughtThreshold);
+    return Number.isFinite(v) && v > 0 ? v : 65;
+}
+
 // 10 個可勾選的條件定義
 const CUSTOM_CONDITIONS = [
     { id: 'ma5UpMa20',    label: 'MA5 上穿 MA20（黃金交叉）',   test: () => ind.prevMa5 != null && ind.prevMa20 != null && ind.prevMa5 <= ind.prevMa20 && ind.ma5 > ind.ma20 },
     { id: 'ma5DownMa20',  label: 'MA5 下穿 MA20（死亡交叉）',   test: () => ind.prevMa5 != null && ind.prevMa20 != null && ind.prevMa5 >= ind.prevMa20 && ind.ma5 < ind.ma20 },
     { id: 'standMa20',    label: '站穩 MA20（價格 > MA20）',    test: () => ind.ma20 != null && currentPrice > ind.ma20 },
     { id: 'breakMa20',    label: '跌破 MA20（價格 < MA20）',    test: () => ind.ma20 != null && currentPrice < ind.ma20 },
-    { id: 'rsiOversold',  label: 'RSI < 35（超賣）',              test: () => ind.rsi != null && ind.rsi < 35 },
-    { id: 'rsiOverbought',label: 'RSI > 65（超買）',              test: () => ind.rsi != null && ind.rsi > 65 },
+    { id: 'rsiOversold',  get label() { return `RSI < ${rsiOversoldT()}（超賣）`; }, test: () => ind.rsi != null && ind.rsi < rsiOversoldT() },
+    { id: 'rsiOverbought',get label() { return `RSI > ${rsiOverboughtT()}（超買）`; }, test: () => ind.rsi != null && ind.rsi > rsiOverboughtT() },
     { id: 'macdUp',       label: 'MACD 柱由負轉正',              test: () => ind.macdHist != null && ind.prevMacdHist != null && ind.prevMacdHist < 0 && ind.macdHist > 0 },
     { id: 'macdDown',     label: 'MACD 柱由正轉負',              test: () => ind.macdHist != null && ind.prevMacdHist != null && ind.prevMacdHist > 0 && ind.macdHist < 0 },
     { id: 'hitBbLower',   label: '觸及布林下軌',                  test: () => ind.bbLower != null && currentPrice <= ind.bbLower * 1.002 },
@@ -1247,7 +1257,9 @@ function defaultCustomConfig() {
         stopLoss: 100, takeProfit: 150,
         freeText: '',
         lots: 0,
-        minHoldSec: 30
+        minHoldSec: 30,
+        rsiOversoldThreshold: 35,   // RSI 超賣門檻（< 此值算超賣）
+        rsiOverboughtThreshold: 65  // RSI 超買門檻（> 此值算超買）
     };
 }
 
@@ -1488,11 +1500,15 @@ function openCustomStrategyModal() {
             ${section('📉 做空進場條件', 'shortEntry', cfg.shortEntry)}
             ${section('🔼 多單出場條件', 'longExit', cfg.longExit)}
             ${section('🔽 空單出場條件', 'shortExit', cfg.shortExit)}
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
                 <label style="font-size:12px">停損點數<input type="number" id="csSL" value="${cfg.stopLoss}" min="0" style="width:100%;padding:4px"></label>
                 <label style="font-size:12px">停利點數<input type="number" id="csTP" value="${cfg.takeProfit}" min="0" style="width:100%;padding:4px"></label>
                 <label style="font-size:12px">口數（0=自動）<input type="number" id="csLots" value="${cfg.lots}" min="0" style="width:100%;padding:4px"></label>
                 <label style="font-size:12px" title="進場後多少秒內不觸發條件式出場（停損停利仍可提前），避免剛進場就因條件重疊馬上平倉">最短持倉秒數<input type="number" id="csMinHold" value="${cfg.minHoldSec ?? 30}" min="0" style="width:100%;padding:4px"></label>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;padding:8px;background:#1f1e1b;border-radius:6px">
+                <label style="font-size:12px" title="RSI 低於此值算超賣（建議 20-40）">RSI 超賣門檻 < <input type="number" id="csRsiOverSold" value="${cfg.rsiOversoldThreshold ?? 35}" min="1" max="50" style="width:60px;padding:4px"></label>
+                <label style="font-size:12px" title="RSI 高於此值算超買（建議 60-80）">RSI 超買門檻 > <input type="number" id="csRsiOverBought" value="${cfg.rsiOverboughtThreshold ?? 65}" min="50" max="99" style="width:60px;padding:4px"></label>
             </div>
             <div style="margin-bottom:12px">
                 <div style="font-weight:600;margin-bottom:4px;font-size:13px">📝 自由策略描述（中文，僅供記錄、暫不參與執行）</div>
@@ -1542,6 +1558,8 @@ function saveCustomStrategyModal() {
         takeProfit: Math.max(0, parseInt(document.getElementById('csTP').value) || 0),
         lots: Math.max(0, parseInt(document.getElementById('csLots').value) || 0),
         minHoldSec: Math.max(0, parseInt(document.getElementById('csMinHold').value) || 0),
+        rsiOversoldThreshold: Math.max(1, Math.min(50, parseInt(document.getElementById('csRsiOverSold').value) || 35)),
+        rsiOverboughtThreshold: Math.max(50, Math.min(99, parseInt(document.getElementById('csRsiOverBought').value) || 65)),
         freeText: document.getElementById('csFreeText').value.slice(0, 500)
     };
     saveCustomStrategy();
