@@ -492,7 +492,7 @@
             <!-- 🤖 AI 最佳策略結果（恆久顯示） -->
             <div class="rp-section" style="border-top:4px solid #d97757;background:#1f1e1b">
                 <div class="rp-title">🤖 AI 最佳策略 · 進出場 TOP 3</div>
-                <div id="aiStrategyResults" style="font-size:11px;color:var(--ink3);line-height:1.6">
+                <div id="aiStrategyResults" style="font-size:11px;color:var(--ink3);line-height:1.6;overflow-x:hidden;word-break:break-all">
                     <div style="text-align:center;padding:20px;color:var(--ink4)">
                         按「🎯 進場 TOP」或「🚪 出場 TOP3」<br>
                         結果會永久顯示於此（重整不消失）<br>
@@ -3436,11 +3436,11 @@ function renderAiBestStrategyModal(top10, aiResult, source, periodFirst, periodL
             const bestStrat = bestIdx >= 1 && bestIdx <= top10.length ? top10[bestIdx - 1] : null;
             aiBlock = `
                 <div style="background:linear-gradient(135deg,#2d2440,#3d2855);border:1px solid #9c5fd9;border-radius:10px;padding:14px;margin-bottom:14px">
-                    <div style="font-size:11px;color:#c9b3e8;font-weight:600;letter-spacing:1px;margin-bottom:8px">🤖 ${aiResult.model || 'AI'} 推薦</div>
-                    ${bestStrat ? `<div style="font-size:14px;color:#fff;font-weight:600;margin-bottom:6px">🏆 第 ${bestIdx} 名：${bestStrat.name}</div>` : ''}
-                    <div style="font-size:12px;color:#e2dcef;line-height:1.7;margin-bottom:6px">💡 <b>推薦理由</b>：${(parsed.reason || '—').replace(/</g,'&lt;')}</div>
-                    <div style="font-size:12px;color:#ffc;line-height:1.7;margin-bottom:6px">⚠️ <b>風險</b>：${(parsed.warning || '—').replace(/</g,'&lt;')}</div>
-                    <div style="font-size:12px;color:#c9b3e8;line-height:1.7">🔁 <b>備選</b>：${(parsed.alt || '—').replace(/</g,'&lt;')}</div>
+                    <div style="font-size:11px;color:#c9b3e8;font-weight:600;letter-spacing:1px;margin-bottom:6px">🤖 ${aiResult.model || 'AI'} 推薦</div>
+                    ${bestStrat ? `<div style="font-size:13px;color:#fff;font-weight:600;margin-bottom:6px;line-height:1.4;word-break:break-all">🏆 第 ${bestIdx} 名<br><span style="color:#e2dcef;font-weight:500">${bestStrat.name}</span></div>` : ''}
+                    <div style="font-size:11px;color:#e2dcef;line-height:1.7;margin-bottom:6px;word-break:break-all">💡 <b>理由</b>：${(parsed.reason || '—').replace(/</g,'&lt;')}</div>
+                    <div style="font-size:11px;color:#ffc;line-height:1.7;margin-bottom:6px;word-break:break-all">⚠️ <b>風險</b>：${(parsed.warning || '—').replace(/</g,'&lt;')}</div>
+                    <div style="font-size:11px;color:#c9b3e8;line-height:1.7;word-break:break-all">🔁 <b>備選</b>：${(parsed.alt || '—').replace(/</g,'&lt;')}</div>
                 </div>
             `;
         } else {
@@ -3450,29 +3450,33 @@ function renderAiBestStrategyModal(top10, aiResult, source, periodFirst, periodL
         aiBlock = `<div style="background:#3a1e1e;border:1px solid #d95353;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;color:#ff9980">AI 分析失敗（可能是 API key 沒設或額度用盡），純列回測結果。</div>`;
     }
 
-    const cards = top10.map((s, i) => `
-        <div style="background:#1f1e1b;border-left:4px solid ${pnlColor(s.totalPnl)};border-radius:8px;padding:10px 12px;margin-bottom:6px">
-            <div style="display:flex;align-items:center;gap:10px">
-                <span style="font-size:14px;min-width:24px;color:var(--ink3)">#${i+1}</span>
-                <div style="flex:1;font-size:12px;color:var(--ink1);font-weight:500">${s.name}</div>
-                <div style="text-align:right">
-                    <div style="font-size:14px;font-weight:700;color:${pnlColor(s.totalPnl)}">${s.totalPnl>=0?'+':'-'}$${fmtInt(Math.abs(s.totalPnl))}</div>
-                    <div style="font-size:10px;color:var(--ink3)">${s.trades} 筆 · 勝率 <span style="color:${wrColor(s.winRate)}">${Math.round(s.winRate*100)}%</span> · 平均 ${s.avgPnl>=0?'+':''}${s.avgPnl}</div>
-                </div>
+    // 完全垂直排版的卡片（一行一個資訊，避免左右捲動）
+    const cards = top10.map((s, i) => {
+        const rank = i + 1;
+        const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+        const wrPct = Math.round(s.winRate * 100);
+        return `
+        <div style="background:#1f1e1b;border-left:3px solid ${pnlColor(s.totalPnl)};border-radius:6px;padding:8px 10px;margin-bottom:6px">
+            <div style="font-size:12px;color:var(--ink1);font-weight:600;margin-bottom:4px;line-height:1.4;word-break:break-all">
+                <span style="color:#e8b84c;margin-right:4px">${rankIcon}</span>${s.name}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:10px;font-family:var(--mono);color:var(--ink3)">
+                <div>📊 <b style="color:${wrColor(s.winRate)}">${wrPct}%</b> 勝率</div>
+                <div>💰 <b style="color:${pnlColor(s.totalPnl)}">${s.totalPnl>=0?'+':''}${fmtInt(s.totalPnl)}</b></div>
+                <div>📈 ${s.trades} 筆 (${s.wins}/${s.losses})</div>
+                <div style="grid-column:span 3">⌀ 平均 <b style="color:${pnlColor(s.avgPnl)}">${s.avgPnl>=0?'+':''}${s.avgPnl}</b> 元/筆</div>
             </div>
         </div>
-    `).join('');
+    `;}).join('');
 
     const html = `
-        <div style="max-height:75vh;overflow:auto;padding-right:4px">
-            <div style="background:#2c2b27;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--ink3)">
-                資料來源：${source.interval} K · ${periodFirst} ~ ${periodLast} · ${source.bars.length} 根<br>
-                條件設定：停損 100 點、停利 150 點、樣本門檻 ≥ 5 筆
-            </div>
-            ${aiBlock}
-            <div style="font-size:13px;font-weight:600;color:var(--ink1);margin-bottom:6px">📊 加權排名 TOP 10</div>
-            ${cards}
+        <div style="background:#2c2b27;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:10px;color:var(--ink3);line-height:1.5">
+            ${source.interval} K · ${periodFirst} ~ ${periodLast} · ${source.bars.length} 根<br>
+            停損 100 點、停利 150 點
         </div>
+        ${aiBlock}
+        <div style="font-size:12px;font-weight:600;color:var(--ink1);margin-bottom:6px">📊 加權排名 TOP 10</div>
+        ${cards}
     `;
     // 改成寫入恆久面板，不開 modal
     const headerLine = `<div style="font-size:13px;font-weight:700;color:#9c5fd9;margin-bottom:8px">🎯 進場 TOP 排行</div>`;
@@ -3659,11 +3663,11 @@ function renderAiBestExitModal(top3, aiResult, bestEntry, interval, periodFirst,
             const bestExit = bestIdx >= 1 && bestIdx <= top3.length ? top3[bestIdx - 1] : null;
             aiBlock = `
                 <div style="background:linear-gradient(135deg,#3d2820,#5a3525);border:1px solid #d97757;border-radius:10px;padding:14px;margin-bottom:14px">
-                    <div style="font-size:11px;color:#ffb499;font-weight:600;letter-spacing:1px;margin-bottom:8px">🚪 ${aiResult.model || 'AI'} 推薦出場</div>
-                    ${bestExit ? `<div style="font-size:14px;color:#fff;font-weight:600;margin-bottom:6px">🏆 第 ${bestIdx} 名：${bestExit.exit.name}</div>` : ''}
-                    <div style="font-size:12px;color:#ffe2d4;line-height:1.7;margin-bottom:6px">💡 <b>推薦理由</b>：${(parsed.reason || '—').replace(/</g,'&lt;')}</div>
-                    <div style="font-size:12px;color:#ffc;line-height:1.7;margin-bottom:6px">⚠️ <b>風險</b>：${(parsed.warning || '—').replace(/</g,'&lt;')}</div>
-                    <div style="font-size:12px;color:#ffb499;line-height:1.7">🔁 <b>備選</b>：${(parsed.alt || '—').replace(/</g,'&lt;')}</div>
+                    <div style="font-size:11px;color:#ffb499;font-weight:600;letter-spacing:1px;margin-bottom:6px">🚪 ${aiResult.model || 'AI'} 推薦出場</div>
+                    ${bestExit ? `<div style="font-size:13px;color:#fff;font-weight:600;margin-bottom:6px;line-height:1.4;word-break:break-all">🏆 第 ${bestIdx} 名<br><span style="color:#ffe2d4;font-weight:500">${bestExit.exit.name}</span></div>` : ''}
+                    <div style="font-size:11px;color:#ffe2d4;line-height:1.7;margin-bottom:6px;word-break:break-all">💡 <b>理由</b>：${(parsed.reason || '—').replace(/</g,'&lt;')}</div>
+                    <div style="font-size:11px;color:#ffc;line-height:1.7;margin-bottom:6px;word-break:break-all">⚠️ <b>風險</b>：${(parsed.warning || '—').replace(/</g,'&lt;')}</div>
+                    <div style="font-size:11px;color:#ffb499;line-height:1.7;word-break:break-all">🔁 <b>備選</b>：${(parsed.alt || '—').replace(/</g,'&lt;')}</div>
                 </div>`;
         } else {
             aiBlock = `<div style="background:#3d2820;border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--ink2);white-space:pre-wrap">${(aiResult.raw || '').replace(/</g,'&lt;')}</div>`;
@@ -3672,29 +3676,32 @@ function renderAiBestExitModal(top3, aiResult, bestEntry, interval, periodFirst,
         aiBlock = `<div style="background:#3a1e1e;border:1px solid #d95353;border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px;color:#ff9980">AI 分析失敗（API key 沒設或額度用盡），純列回測結果。</div>`;
     }
 
-    const cards = top3.map((r, i) => `
-        <div style="background:#1f1e1b;border-left:4px solid ${pnlColor(r.totalPnl)};border-radius:8px;padding:10px 12px;margin-bottom:6px">
-            <div style="display:flex;align-items:center;gap:10px">
-                <span style="font-size:18px;min-width:30px">${i+1===1?'🥇':i+1===2?'🥈':'🥉'}</span>
-                <div style="flex:1;font-size:13px;color:var(--ink1);font-weight:600">${r.exit.name}</div>
-                <div style="text-align:right">
-                    <div style="font-size:14px;font-weight:700;color:${pnlColor(r.totalPnl)}">${r.totalPnl>=0?'+':'-'}$${fmtInt(Math.abs(r.totalPnl))}</div>
-                    <div style="font-size:10px;color:var(--ink3)">${r.trades} 筆 · 勝率 <span style="color:${wrColor(r.winRate)}">${Math.round(r.winRate*100)}%</span> · 平均 ${r.avgPnl>=0?'+':''}${r.avgPnl}</div>
-                </div>
+    const cards = top3.map((r, i) => {
+        const rank = i + 1;
+        const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+        const wrPct = Math.round(r.winRate * 100);
+        return `
+        <div style="background:#1f1e1b;border-left:3px solid ${pnlColor(r.totalPnl)};border-radius:6px;padding:8px 10px;margin-bottom:6px">
+            <div style="font-size:12px;color:var(--ink1);font-weight:600;margin-bottom:4px;line-height:1.4;word-break:break-all">
+                <span style="color:#e8b84c;margin-right:4px">${rankIcon}</span>${r.exit.name}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:10px;font-family:var(--mono);color:var(--ink3)">
+                <div>📊 <b style="color:${wrColor(r.winRate)}">${wrPct}%</b> 勝率</div>
+                <div>💰 <b style="color:${pnlColor(r.totalPnl)}">${r.totalPnl>=0?'+':''}${fmtInt(r.totalPnl)}</b></div>
+                <div>📈 ${r.trades} 筆 (${r.wins}/${r.losses})</div>
+                <div style="grid-column:span 3">⌀ 平均 <b style="color:${pnlColor(r.avgPnl)}">${r.avgPnl>=0?'+':''}${r.avgPnl}</b> 元/筆</div>
             </div>
         </div>
-    `).join('');
+    `;}).join('');
 
     const html = `
-        <div style="max-height:75vh;overflow:auto;padding-right:4px">
-            <div style="background:#2c2b27;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--ink3)">
-                <b style="color:var(--ink1)">固定進場：</b>${bestEntry.name}<br>
-                資料：${interval} K · ${periodFirst} ~ ${periodLast} · ${barCount} 根
-            </div>
-            ${aiBlock}
-            <div style="font-size:13px;font-weight:600;color:var(--ink1);margin-bottom:6px">🥇 出場策略 TOP 3</div>
-            ${cards}
+        <div style="background:#2c2b27;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:10px;color:var(--ink3);line-height:1.5">
+            <b style="color:var(--ink1)">固定進場：</b>${bestEntry.name}<br>
+            ${interval} K · ${periodFirst} ~ ${periodLast} · ${barCount} 根
         </div>
+        ${aiBlock}
+        <div style="font-size:12px;font-weight:600;color:var(--ink1);margin-bottom:6px">🥇 出場策略 TOP 3</div>
+        ${cards}
     `;
     const headerLine = `<div style="font-size:13px;font-weight:700;color:#d97757;margin-bottom:8px">🚪 出場 TOP 3 排行</div>`;
     writeAiResult('exit', headerLine + html);
