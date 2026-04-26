@@ -3962,23 +3962,10 @@ function renderBacktestResults(results, bars, ranked, interval = '1h') {
     const pctColor = n => n >= 0 ? '#4aad6e' : '#d95353';
 
     const summary = `
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
-            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
-                <div style="font-size:20px;font-weight:700;color:${pctColor(total.pnl)}">${total.pnl>=0?'+':'-'}$${fmtInt(Math.abs(total.pnl))}</div>
-                <div style="font-size:10px;color:var(--ink3)">${results.length} 組策略合計損益</div>
-            </div>
-            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
-                <div style="font-size:20px;font-weight:700;color:var(--ink1)">${total.trades}</div>
-                <div style="font-size:10px;color:var(--ink3)">總交易次數</div>
-            </div>
-            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
-                <div style="font-size:20px;font-weight:700;color:${wrColor(total.trades ? total.wins/total.trades : 0)}">${total.trades ? Math.round(total.wins/total.trades*100) : 0}%</div>
-                <div style="font-size:10px;color:var(--ink3)">整體勝率</div>
-            </div>
-            <div style="background:#2c2b27;border-radius:8px;padding:10px 12px;text-align:center">
-                <div style="font-size:13px;font-weight:700;color:var(--ink2);line-height:1.2">${periodStart}<br>~ ${periodEnd}</div>
-                <div style="font-size:10px;color:var(--ink3);margin-top:2px">${bars.length} 根 ${interval} K · 跨 ${spanDays} 天</div>
-            </div>
+        <div style="background:#2c2b27;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11px;line-height:1.6">
+            <div>💰 合計損益：<b style="color:${pctColor(total.pnl)}">${total.pnl>=0?'+':'-'}$${fmtInt(Math.abs(total.pnl))}</b>（${results.length} 組策略）</div>
+            <div>📈 總交易：<b style="color:var(--ink1)">${total.trades}</b> 筆 · 整體勝率 <b style="color:${wrColor(total.trades ? total.wins/total.trades : 0)}">${total.trades ? Math.round(total.wins/total.trades*100) : 0}%</b></div>
+            <div>📅 期間 ${periodStart} ~ ${periodEnd}（${bars.length} 根 ${interval} K · 跨 ${spanDays} 天）</div>
         </div>
     `;
 
@@ -3991,43 +3978,35 @@ function renderBacktestResults(results, bars, ranked, interval = '1h') {
     };
 
     const ruleCards = results.map((r, i) => {
-        const pnlColor = pctColor(r.totalPnl);
+        const pnlClr = pctColor(r.totalPnl);
         const rank = i + 1;
         const rankBadge = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
-        // 來源拆解
         const srcEntries = Object.entries(r.rule.sources || {});
         const srcLine = srcEntries.length
-            ? srcEntries.map(([s, v]) => `<span style="color:var(--ink2)">${s}</span> <span style="color:#4aad6e">${v.wins}勝</span>/<span style="color:#d95353">${v.n - v.wins}敗</span>`).join('　·　')
+            ? srcEntries.map(([s, v]) => `<b style="color:var(--ink1)">${s}</b> ${v.wins}勝${v.n - v.wins}敗`).join(' · ')
             : '無';
+        const wrPct = r.trades.length ? Math.round(r.winRate*100) : 0;
         return `
-        <div style="background:#1f1e1b;border-left:4px solid ${pnlColor};border-radius:8px;padding:14px;margin-bottom:10px">
-            <!-- 頂部：排名 + 回測損益 -->
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-                <span style="font-size:24px;min-width:36px">${rankBadge}</span>
-                <div style="flex:1">
-                    <div style="font-size:13px;color:var(--ink1);font-weight:600;line-height:1.4">${describeStrategy(r.rule.key)}</div>
-                    <div style="font-size:11px;color:var(--ink3);margin-top:2px">歷史樣本 ${r.rule.n} 筆 · 學習勝率 ${Math.round(r.rule.winRate*100)}%</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0">
-                    <div style="font-size:20px;font-weight:700;color:${pnlColor};line-height:1.1">${r.totalPnl>=0?'+':'-'}$${fmtInt(Math.abs(r.totalPnl))}</div>
-                    <div style="font-size:11px;color:var(--ink3);margin-top:2px">${r.trades.length} 筆 · ${r.wins}勝 ${r.losses}敗 · 勝率 ${r.trades.length?Math.round(r.winRate*100):0}%</div>
-                </div>
+        <div style="background:#1f1e1b;border-left:3px solid ${pnlClr};border-radius:6px;padding:10px;margin-bottom:8px">
+            <!-- 標題 -->
+            <div style="font-size:12px;color:var(--ink1);font-weight:600;line-height:1.5;margin-bottom:6px;word-break:break-all">
+                <span style="color:#e8b84c;margin-right:4px">${rankBadge}</span>${describeStrategy(r.rule.key)}
             </div>
-            <!-- 條件 pill -->
-            <div style="line-height:2.2;margin-bottom:8px;word-break:keep-all">${r.rule.key.split('+').map(p => {
-                const preset = { long: {bg:'#1e3a2a',fg:'#4aad6e',icon:'📈'}, short: {bg:'#3a1e1e',fg:'#d95353',icon:'📉'} }[p];
-                const label = PRETTY_MAP[p] || p;
-                const bg = preset ? preset.bg : '#3a3a33';
-                const fg = preset ? preset.fg : '#d5d3c8';
-                const icon = preset ? preset.icon + ' ' : '';
-                return `<span style="display:inline-block;background:${bg};color:${fg};padding:4px 12px;border-radius:14px;font-size:11px;margin:2px 6px 2px 0;white-space:nowrap;font-weight:500">${icon}${label}</span>`;
-            }).join('')}</div>
-            <!-- 來源拆解 -->
-            <div style="margin-top:8px;padding:6px 10px;background:#2c2b27;border-radius:6px;font-size:11px;line-height:1.6">
-                <span style="color:var(--ink3)">學習來源：</span>${srcLine}
+            <!-- 統計 3 欄 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:10px;font-family:var(--mono);color:var(--ink3);margin-bottom:6px">
+                <div>📊 <b style="color:${wrColor(r.winRate)}">${wrPct}%</b> 勝率</div>
+                <div>💰 <b style="color:${pnlClr}">${r.totalPnl>=0?'+':''}${fmtInt(r.totalPnl)}</b></div>
+                <div>📈 ${r.trades.length} 筆 (${r.wins}/${r.losses})</div>
             </div>
-            <!-- 統計 -->
-            <div style="margin-top:6px;font-size:11px;color:var(--ink3)">最大回撤 ${(r.maxDrawdown*100).toFixed(1)}% · 平均單勝 +${fmtInt(r.avgWin)} · 平均單敗 ${fmtInt(r.avgLose)}</div>
+            <!-- 細部統計 -->
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:6px;line-height:1.5">
+                歷史樣本 ${r.rule.n} 筆（學習勝率 ${Math.round(r.rule.winRate*100)}%）<br>
+                最大回撤 ${(r.maxDrawdown*100).toFixed(1)}% · 平均單勝 +${fmtInt(r.avgWin)} · 平均單敗 ${fmtInt(r.avgLose)}
+            </div>
+            <!-- 來源 -->
+            <div style="font-size:10px;color:var(--ink3);padding:4px 8px;background:#2c2b27;border-radius:4px;line-height:1.5;word-break:break-all">
+                學習來源：${srcLine}
+            </div>
         </div>`;
     }).join('');
 
@@ -4035,24 +4014,20 @@ function renderBacktestResults(results, bars, ranked, interval = '1h') {
     const worstTrades = results.flatMap(r => r.trades.map(t => ({ ...t, ruleKey: r.rule.key }))).sort((a,b) => a.pnl - b.pnl).slice(0, 5);
     const fmtDate = ts => new Date(ts * 1000).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
     const tradeRow = (t, isWin) => `
-        <div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid #2c2b27;font-size:11px">
-            <span style="color:${isWin?'#4aad6e':'#d95353'};font-weight:600;min-width:28px">${t.pnl>=0?'+':''}${fmtInt(t.pnl)}</span>
-            <span style="color:var(--ink3);min-width:70px">${fmtDate(t.entryTime)}-${fmtDate(t.exitTime)}</span>
-            <span style="color:var(--ink2);min-width:88px">${t.side==='long'?'📈 多':'📉 空'} ${t.lots}口</span>
-            <span style="color:var(--ink3)">${fmtInt(t.entryPrice)}→${fmtInt(t.exitPrice)}</span>
-            <span style="color:var(--ink3);font-size:10px">(${t.reason})</span>
+        <div style="padding:5px 0;border-bottom:1px solid #2c2b27;font-size:10px;line-height:1.5;word-break:break-all">
+            <b style="color:${isWin?'#4aad6e':'#d95353'};font-size:11px">${t.pnl>=0?'+':''}${fmtInt(t.pnl)}</b>
+            <span style="color:var(--ink2);margin-left:6px">${t.side==='long'?'📈多':'📉空'}${t.lots}口</span>
+            <span style="color:var(--ink3);margin-left:6px">${fmtInt(t.entryPrice)}→${fmtInt(t.exitPrice)}</span>
+            <span style="color:var(--ink4);margin-left:6px">${fmtDate(t.entryTime)}-${fmtDate(t.exitTime)}</span>
+            <span style="color:var(--ink4);margin-left:6px">(${t.reason})</span>
         </div>`;
 
     const detailBlocks = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
-            <div>
-                <div style="font-size:12px;font-weight:600;color:#4aad6e;margin-bottom:4px">🏆 最賺 10 筆</div>
-                <div style="background:#1f1e1b;border-radius:8px;padding:6px 10px;max-height:180px;overflow:auto">${bestTrades.map(t => tradeRow(t, true)).join('') || '<div style="color:var(--ink3);font-size:11px">無</div>'}</div>
-            </div>
-            <div>
-                <div style="font-size:12px;font-weight:600;color:#d95353;margin-bottom:4px">💧 最虧 5 筆</div>
-                <div style="background:#1f1e1b;border-radius:8px;padding:6px 10px;max-height:180px;overflow:auto">${worstTrades.map(t => tradeRow(t, false)).join('') || '<div style="color:var(--ink3);font-size:11px">無</div>'}</div>
-            </div>
+        <div style="margin-top:10px">
+            <div style="font-size:12px;font-weight:600;color:#4aad6e;margin-bottom:4px">🏆 最賺 10 筆</div>
+            <div style="background:#1f1e1b;border-radius:6px;padding:4px 8px;max-height:140px;overflow:auto;margin-bottom:8px">${bestTrades.map(t => tradeRow(t, true)).join('') || '<div style="color:var(--ink3);font-size:11px;padding:6px">無</div>'}</div>
+            <div style="font-size:12px;font-weight:600;color:#d95353;margin-bottom:4px">💧 最虧 5 筆</div>
+            <div style="background:#1f1e1b;border-radius:6px;padding:4px 8px;max-height:120px;overflow:auto">${worstTrades.map(t => tradeRow(t, false)).join('') || '<div style="color:var(--ink3);font-size:11px;padding:6px">無</div>'}</div>
         </div>
     `;
 
