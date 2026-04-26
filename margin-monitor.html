@@ -123,8 +123,12 @@
 
 <!-- 持倉編輯 -->
 <div class="card">
-    <h2>📈 持倉設定 <button class="btn primary" onclick="addPosition()" style="margin-left:auto;font-size:11px;padding:4px 10px">+ 新增持倉</button></h2>
-    <div class="desc">編輯每筆持倉：選商品 → 多/空 → 口數 → 進場價 → 當前價。下方「壓力測試」會套用這些持倉。</div>
+    <h2>📈 持倉設定
+        <span id="priceStatus" style="margin-left:auto;font-size:11px;color:var(--ink3)">尚未抓價</span>
+        <button class="btn green" onclick="fetchLivePrices()" style="font-size:11px;padding:4px 10px">🔄 更新最新價</button>
+        <button class="btn primary" onclick="addPosition()" style="font-size:11px;padding:4px 10px">+ 新增持倉</button>
+    </h2>
+    <div class="desc">編輯每筆持倉：選商品 → 多/空 → 口數 → 進場價。當前價會自動從台指期/台積電行情同步（按「🔄 更新最新價」）。</div>
     <table>
         <thead>
             <tr>
@@ -200,13 +204,53 @@ onAuthStateChanged(auth, user => {
 
 <script>
 // ================== 商品規格（期交所 2025 Q2 大致數值，可手動更新）==================
+// underlying: 'taifex' = 用 /api/taifex?type=quote 取台指期價（大台/小台/微台共用）
+//             '2330.TW' = 用 /api/yahoo-quote?symbol=2330.TW 取台積電股價
 const PRODUCTS = {
-    TXF:  { name: '大台 (TXF)',   pointValue: 200, original: 184000, maintenance: 142000, indexLink: true },
-    MXF:  { name: '小台 (MXF)',   pointValue: 50,  original: 46000,  maintenance: 35500,  indexLink: true },
-    TMF:  { name: '微台 (TMF)',   pointValue: 10,  original: 9200,   maintenance: 7100,   indexLink: true },
-    STX:  { name: '台積期 (STX)', pointValue: 2000, original: 250000, maintenance: 200000, indexLink: false },
-    SXF:  { name: '小台積期 (SXF)', pointValue: 100, original: 12500, maintenance: 10000, indexLink: false }
+    TXF:  { name: '大台 (TXF)',   pointValue: 200, original: 184000, maintenance: 142000, indexLink: true,  underlying: 'taifex' },
+    MXF:  { name: '小台 (MXF)',   pointValue: 50,  original: 46000,  maintenance: 35500,  indexLink: true,  underlying: 'taifex' },
+    TMF:  { name: '微台 (TMF)',   pointValue: 10,  original: 9200,   maintenance: 7100,   indexLink: true,  underlying: 'taifex' },
+    STX:  { name: '台積期 (STX)', pointValue: 2000, original: 250000, maintenance: 200000, indexLink: false, underlying: '2330.TW' },
+    SXF:  { name: '小台積期 (SXF)', pointValue: 100, original: 12500, maintenance: 10000, indexLink: false, underlying: '2330.TW' }
 };
+
+// 即時行情快取
+let livePrices = { taifex: null, '2330.TW': null, fetchedAt: null };
+
+async function fetchLivePrices() {
+    const status = document.getElementById('priceStatus');
+    if (status) status.textContent = '⏳ 抓取中…';
+    try {
+        const [txf, tsmc] = await Promise.all([
+            fetch('/api/taifex?type=quote').then(r => r.json()).catch(() => null),
+            fetch('/api/yahoo-quote?symbol=2330.TW').then(r => r.json()).catch(() => null)
+        ]);
+        if (txf && txf.price) livePrices.taifex = txf.price;
+        if (tsmc && tsmc.price) livePrices['2330.TW'] = tsmc.price;
+        livePrices.fetchedAt = Date.now();
+        applyLivePricesToPositions();
+        renderPositions();
+        recalcAll();
+        if (status) {
+            const t = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const txfTxt = livePrices.taifex ? `台指期 ${Math.round(livePrices.taifex)}` : '台指期 ✗';
+            const tsmcTxt = livePrices['2330.TW'] ? `台積電 $${livePrices['2330.TW'].toFixed(1)}` : '台積電 ✗';
+            status.innerHTML = `🟢 ${txfTxt} · ${tsmcTxt} <span style="color:var(--ink4)">@ ${t}</span>`;
+        }
+    } catch (e) {
+        if (status) status.innerHTML = `<span style="color:var(--red)">抓取失敗：${e.message}</span>`;
+    }
+}
+
+function applyLivePricesToPositions() {
+    for (const p of positions) {
+        const spec = PRODUCTS[p.product];
+        if (!spec) continue;
+        const live = livePrices[spec.underlying];
+        if (live != null) p.current = Math.round(live * 100) / 100;
+    }
+    savePositions();
+}
 
 // 持倉清單（localStorage 永久保存）
 let positions = [];
@@ -439,11 +483,15 @@ window.updatePosition = updatePosition;
 window.recalcAll = recalcAll;
 window.updateStressTest = updateStressTest;
 window.loadMarginsFromTaifex = loadMarginsFromTaifex;
+window.fetchLivePrices = fetchLivePrices;
 
 // 初始化
 renderMarginSpecs();
 renderPositions();
 recalcAll();
+// 開頁立刻抓一次行情，之後每 60 秒自動更新
+fetchLivePrices();
+setInterval(fetchLivePrices, 60000);
 </script>
 
 </body>
