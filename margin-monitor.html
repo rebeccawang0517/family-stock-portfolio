@@ -108,8 +108,12 @@
     </div>
 
     <div class="card">
-        <h2>📋 期交所保證金規格 <button class="btn" onclick="loadMarginsFromTaifex()" id="fetchBtn" style="margin-left:auto;font-size:10px;padding:3px 8px">🔄 抓最新</button></h2>
-        <div class="desc" id="marginUpdateInfo">資料：手動維護（期交所每季調整）。按右上「🔄 抓最新」嘗試從期交所更新。</div>
+        <h2>📋 期交所保證金規格
+            <button class="btn green" onclick="loadMarginsFromTaifex()" style="margin-left:auto;font-size:10px;padding:3px 8px">🔄 抓期交所最新</button>
+            <a href="https://www.taifex.com.tw/cht/5/indexFutsRBMargining" target="_blank" class="btn" style="font-size:10px;padding:3px 8px">📄 查官方</a>
+            <button class="btn" onclick="resetMarginSpecs()" style="font-size:10px;padding:3px 8px">↺ 還原預設</button>
+        </h2>
+        <div class="desc" id="marginUpdateInfo">數值可直接點欄位編輯（自動存本機）。期交所每季調整、請依官方頁為準。</div>
         <table>
             <colgroup>
                 <col style="width:34%">
@@ -286,14 +290,46 @@ function fmtMoney(n) {
 function fmtMoneyPlain(n) { return '$' + Math.round(n).toLocaleString(); }
 function fmtInt(n) { return Math.round(n).toLocaleString(); }
 
+// 載入使用者自訂的保證金（覆蓋 PRODUCTS 預設）
+function loadCustomMargins() {
+    try {
+        const saved = JSON.parse(localStorage.getItem('marginCustomSpecs') || '{}');
+        for (const k in saved) {
+            if (PRODUCTS[k]) {
+                if (saved[k].original != null) PRODUCTS[k].original = saved[k].original;
+                if (saved[k].maintenance != null) PRODUCTS[k].maintenance = saved[k].maintenance;
+            }
+        }
+    } catch {}
+}
+
+function saveMarginSpec(k, key, val) {
+    val = parseInt(String(val).replace(/[,$\s]/g, '')) || 0;
+    if (val <= 0) return;
+    PRODUCTS[k][key] = val;
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('marginCustomSpecs') || '{}'); } catch {}
+    if (!saved[k]) saved[k] = {};
+    saved[k][key] = val;
+    localStorage.setItem('marginCustomSpecs', JSON.stringify(saved));
+    renderMarginSpecs();
+    recalcAll();
+}
+
+function resetMarginSpecs() {
+    if (!confirm('清除所有自訂保證金，回到程式預設值？')) return;
+    localStorage.removeItem('marginCustomSpecs');
+    location.reload();
+}
+
 function renderMarginSpecs() {
     const body = document.getElementById('marginSpecsBody');
     body.innerHTML = Object.entries(PRODUCTS).map(([k, p]) => `
         <tr>
             <td>${p.name}</td>
             <td class="r">${p.pointValue} 元</td>
-            <td class="r">${fmtMoneyPlain(p.original)}</td>
-            <td class="r">${fmtMoneyPlain(p.maintenance)}</td>
+            <td class="r"><input type="number" value="${p.original}" onchange="saveMarginSpec('${k}', 'original', this.value)" title="原始保證金"></td>
+            <td class="r"><input type="number" value="${p.maintenance}" onchange="saveMarginSpec('${k}', 'maintenance', this.value)" title="維持保證金"></td>
         </tr>
     `).join('');
 }
@@ -480,20 +516,29 @@ function updateStressTest() {
     }).join('');
 }
 
-// 嘗試從期交所抓最新保證金（備援：保留現有規格）
+// 嘗試從期交所自動抓最新保證金（serverless proxy 解 CORS）
 async function loadMarginsFromTaifex() {
-    const btn = document.getElementById('fetchBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳';
+    const info = document.getElementById('marginUpdateInfo');
+    info.innerHTML = '<span style="color:var(--ink3)">⏳ 嘗試從期交所抓最新…</span>';
     try {
-        const resp = await fetch('https://www.taifex.com.tw/cht/5/indexFutsRBMargining', { mode: 'no-cors' });
-        // no-cors 不能讀內容，這只能當「點擊跳轉提示」用
-        document.getElementById('marginUpdateInfo').innerHTML = '⚠️ 期交所 CORS 限制無法直接抓網頁。請至 <a href="https://www.taifex.com.tw/cht/5/indexFutsRBMargining" target="_blank" style="color:var(--accent)">期交所保證金頁</a> 查最新數值，再手動修改本頁 PRODUCTS 常數。';
+        const resp = await fetch('/api/taifex-margin');
+        if (!resp.ok) throw new Error(resp.status);
+        const j = await resp.json();
+        if (!j.items || !j.items.length) throw new Error('解析無結果');
+        const codeMap = { TX: 'TXF', MTX: 'MXF', MXF: 'MXF', TMF: 'TMF' };
+        let updated = 0;
+        for (const it of j.items) {
+            const ourKey = codeMap[it.product];
+            if (ourKey && PRODUCTS[ourKey]) {
+                saveMarginSpec(ourKey, 'original', it.original);
+                saveMarginSpec(ourKey, 'maintenance', it.maintenance);
+                updated++;
+            }
+        }
+        info.innerHTML = `<span style="color:var(--green)">✅ 已從期交所更新 ${updated} 個商品（${j.updatedAt || '日期未知'}）</span> · 數值仍可手動微調`;
     } catch (e) {
-        document.getElementById('marginUpdateInfo').textContent = '抓取失敗：' + e.message;
+        info.innerHTML = `<span style="color:var(--red)">⚠️ 自動抓失敗：${e.message}</span> · 請至 <a href="https://www.taifex.com.tw/cht/5/indexFutsRBMargining" target="_blank" style="color:var(--accent)">期交所保證金頁</a> 手動查並編輯下方欄位`;
     }
-    btn.disabled = false;
-    btn.textContent = '🔄 抓最新';
 }
 
 window.addPosition = addPosition;
@@ -503,8 +548,11 @@ window.recalcAll = recalcAll;
 window.updateStressTest = updateStressTest;
 window.loadMarginsFromTaifex = loadMarginsFromTaifex;
 window.fetchLivePrices = fetchLivePrices;
+window.saveMarginSpec = saveMarginSpec;
+window.resetMarginSpecs = resetMarginSpecs;
 
 // 初始化
+loadCustomMargins(); // 先讀使用者自訂的保證金（覆蓋預設）
 renderMarginSpecs();
 renderPositions();
 recalcAll();
