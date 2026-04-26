@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📊 期貨保證金監控 · 風險壓力測試</title>
+<style>
+    :root {
+        --bg: #1a1916; --paper: #f5f3ed; --ink1: #e8e5dc; --ink2: #c8c4b8;
+        --ink3: #8a877e; --ink4: #65625a; --gold: #c8b89a; --green: #4aad6e;
+        --red: #d95353; --border: rgba(255,255,255,.08); --accent: #c8b89a;
+        --mono: 'Cascadia Code','Consolas',monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, '微軟正黑體', sans-serif; background: var(--bg); color: var(--ink1); min-height: 100vh; padding: 16px; }
+
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: #2c2b27; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; }
+    .header h1 { font-size: 18px; font-weight: 700; color: var(--paper); }
+    .header-right { display: flex; gap: 8px; }
+    .btn { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--ink2); font-family: inherit; }
+    .btn:hover { background: rgba(255,255,255,.05); color: var(--paper); }
+    .btn.primary { background: var(--accent); color: #1a1916; border-color: var(--accent); }
+    .btn.danger { background: var(--red); color: #fff; border-color: var(--red); }
+    .btn.green { background: var(--green); color: #fff; border-color: var(--green); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .card { background: #2c2b27; border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .card h2 { font-size: 14px; font-weight: 700; color: var(--paper); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    .card .desc { font-size: 11px; color: var(--ink3); margin-bottom: 10px; line-height: 1.6; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+    .stat { background: #1f1e1b; border-radius: 8px; padding: 10px 12px; text-align: center; }
+    .stat .label { font-size: 10px; color: var(--ink3); margin-bottom: 4px; }
+    .stat .val { font-size: 18px; font-weight: 700; font-family: var(--mono); color: var(--paper); }
+    .stat .val.up { color: var(--green); }
+    .stat .val.down { color: var(--red); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { font-size: 10px; color: var(--ink3); padding: 6px 4px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; }
+    td { padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,.04); font-family: var(--mono); }
+    td.r { text-align: right; }
+    td input[type=number] { background: #1f1e1b; border: 1px solid var(--border); border-radius: 4px; color: var(--paper); padding: 4px 6px; font-family: var(--mono); font-size: 12px; width: 80px; }
+    td select { background: #1f1e1b; border: 1px solid var(--border); border-radius: 4px; color: var(--paper); padding: 4px 6px; font-family: inherit; font-size: 11px; }
+
+    .slider-wrap { padding: 8px 0; }
+    .slider-wrap input[type=range] { width: 100%; }
+    .slider-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink3); margin-bottom: 4px; }
+    .slider-label b { color: var(--paper); font-family: var(--mono); font-size: 14px; }
+
+    .alert { padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.6; margin-top: 10px; }
+    .alert.safe { background: rgba(74,173,110,.12); border: 1px solid rgba(74,173,110,.3); color: #b8e1c5; }
+    .alert.warn { background: rgba(232,184,76,.12); border: 1px solid rgba(232,184,76,.3); color: #ffd585; }
+    .alert.danger { background: rgba(217,83,79,.12); border: 1px solid rgba(217,83,79,.3); color: #ff9c97; }
+
+    .inline-input { background: #1f1e1b; border: 1px solid var(--border); border-radius: 5px; color: var(--paper); padding: 6px 10px; font-family: var(--mono); font-size: 14px; width: 160px; }
+
+    .stress-row { display: grid; grid-template-columns: 70px 1fr 1fr 1fr; gap: 6px; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 11px; align-items: center; }
+    .stress-row.head { color: var(--ink3); font-weight: 600; border-bottom: 1px solid var(--border); }
+    .stress-row .pts { font-family: var(--mono); font-weight: 700; color: var(--paper); }
+
+    .ok { color: var(--green); }
+    .bad { color: var(--red); }
+    .warn { color: #e8b84c; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>📊 期貨保證金監控 · 風險壓力測試</h1>
+    <div class="header-right">
+        <a href="futures-trading.html" class="btn">← 回交易系統</a>
+        <a href="index.html" class="btn">回主頁</a>
+    </div>
+</div>
+
+<!-- 帳戶與保證金規格 -->
+<div class="grid-2">
+    <div class="card">
+        <h2>💰 帳戶資訊</h2>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+            <label style="font-size:12px;color:var(--ink3)">帳戶權益金</label>
+            <input type="number" id="accountEquity" class="inline-input" value="1000000" oninput="recalcAll()">
+        </div>
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="label">已用保證金</div>
+                <div class="val" id="usedMargin">$0</div>
+            </div>
+            <div class="stat">
+                <div class="label">可用保證金</div>
+                <div class="val" id="availMargin">$0</div>
+            </div>
+            <div class="stat">
+                <div class="label">浮動損益</div>
+                <div class="val" id="floatPnl">$0</div>
+            </div>
+            <div class="stat">
+                <div class="label">維持保證金合計</div>
+                <div class="val" id="totalMaintenance">$0</div>
+            </div>
+        </div>
+        <div id="marginAlert" class="alert safe">尚無持倉</div>
+    </div>
+
+    <div class="card">
+        <h2>📋 期交所保證金規格 <button class="btn" onclick="loadMarginsFromTaifex()" id="fetchBtn" style="margin-left:auto;font-size:10px;padding:3px 8px">🔄 抓最新</button></h2>
+        <div class="desc" id="marginUpdateInfo">資料：手動維護（期交所每季調整）。按右上「🔄 抓最新」嘗試從期交所更新。</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>商品</th>
+                    <th class="r">點值</th>
+                    <th class="r">原始保證金</th>
+                    <th class="r">維持保證金</th>
+                </tr>
+            </thead>
+            <tbody id="marginSpecsBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 持倉編輯 -->
+<div class="card">
+    <h2>📈 持倉設定 <button class="btn primary" onclick="addPosition()" style="margin-left:auto;font-size:11px;padding:4px 10px">+ 新增持倉</button></h2>
+    <div class="desc">編輯每筆持倉：選商品 → 多/空 → 口數 → 進場價 → 當前價。下方「壓力測試」會套用這些持倉。</div>
+    <table>
+        <thead>
+            <tr>
+                <th>商品</th>
+                <th>方向</th>
+                <th class="r">口數</th>
+                <th class="r">進場價</th>
+                <th class="r">當前價</th>
+                <th class="r">浮動損益</th>
+                <th class="r">已用保證金</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="positionsBody">
+            <tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:20px">尚無持倉，按右上「+ 新增持倉」開始</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- 壓力測試 -->
+<div class="card">
+    <h2>⚠️ 壓力測試 · 台指期下跌情境</h2>
+    <div class="desc">假設台指期當前價下跌 N 點（同步影響 大台/小台/微台；台積期不受指數直接影響、需自行調整）。模擬權益金變化與保證金警示。</div>
+
+    <div class="slider-wrap">
+        <div class="slider-label">
+            <span>下跌點數</span>
+            <b id="dropPtsLabel">3000 點</b>
+        </div>
+        <input type="range" id="dropPts" min="0" max="10000" value="3000" step="100" oninput="updateStressTest()">
+    </div>
+
+    <div class="stat-grid" style="margin-top:10px">
+        <div class="stat">
+            <div class="label">情境後浮動</div>
+            <div class="val" id="stressFloat">$0</div>
+        </div>
+        <div class="stat">
+            <div class="label">情境後權益</div>
+            <div class="val" id="stressEquity">$0</div>
+        </div>
+        <div class="stat">
+            <div class="label">權益／維持保證金</div>
+            <div class="val" id="stressRatio">—</div>
+        </div>
+    </div>
+
+    <div id="stressAlert" class="alert safe">調整滑桿模擬不同跌幅</div>
+
+    <h2 style="margin-top:14px;font-size:13px">📊 多檔位情境表</h2>
+    <div class="stress-row head">
+        <div>跌幅</div>
+        <div>浮動損益</div>
+        <div>剩餘權益</div>
+        <div>狀態</div>
+    </div>
+    <div id="stressTable"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+const app = initializeApp({
+    apiKey: "AIzaSyAt8QWDrmdYxnIsjEWX6DJ5tHXnDPDSwdM",
+    authDomain: "rebecca-financial-platform.firebaseapp.com",
+    projectId: "rebecca-financial-platform"
+});
+const auth = getAuth(app);
+onAuthStateChanged(auth, user => {
+    if (user) window.currentUser = user;
+});
+</script>
+
+<script>
+// ================== 商品規格（期交所 2025 Q2 大致數值，可手動更新）==================
+const PRODUCTS = {
+    TXF:  { name: '大台 (TXF)',   pointValue: 200, original: 184000, maintenance: 142000, indexLink: true },
+    MXF:  { name: '小台 (MXF)',   pointValue: 50,  original: 46000,  maintenance: 35500,  indexLink: true },
+    TMF:  { name: '微台 (TMF)',   pointValue: 10,  original: 9200,   maintenance: 7100,   indexLink: true },
+    STX:  { name: '台積期 (STX)', pointValue: 2000, original: 250000, maintenance: 200000, indexLink: false },
+    SXF:  { name: '小台積期 (SXF)', pointValue: 100, original: 12500, maintenance: 10000, indexLink: false }
+};
+
+// 持倉清單（localStorage 永久保存）
+let positions = [];
+try { positions = JSON.parse(localStorage.getItem('marginMonitorPositions') || '[]'); } catch {}
+
+function savePositions() {
+    localStorage.setItem('marginMonitorPositions', JSON.stringify(positions));
+}
+
+function fmtMoney(n) {
+    const s = Math.abs(Math.round(n)).toLocaleString();
+    return (n >= 0 ? '+$' : '-$') + s;
+}
+function fmtMoneyPlain(n) { return '$' + Math.round(n).toLocaleString(); }
+function fmtInt(n) { return Math.round(n).toLocaleString(); }
+
+function renderMarginSpecs() {
+    const body = document.getElementById('marginSpecsBody');
+    body.innerHTML = Object.entries(PRODUCTS).map(([k, p]) => `
+        <tr>
+            <td>${p.name}</td>
+            <td class="r">${p.pointValue} 元</td>
+            <td class="r">${fmtMoneyPlain(p.original)}</td>
+            <td class="r">${fmtMoneyPlain(p.maintenance)}</td>
+        </tr>
+    `).join('');
+}
+
+function renderPositions() {
+    const body = document.getElementById('positionsBody');
+    if (!positions.length) {
+        body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:20px">尚無持倉，按右上「+ 新增持倉」開始</td></tr>';
+        return;
+    }
+    body.innerHTML = positions.map((p, i) => {
+        const spec = PRODUCTS[p.product];
+        if (!spec) return '';
+        const diff = p.side === 'long' ? p.current - p.entry : p.entry - p.current;
+        const pnl = Math.round(diff * spec.pointValue * p.lots);
+        const used = spec.original * p.lots;
+        return `
+        <tr>
+            <td>
+                <select onchange="updatePosition(${i}, 'product', this.value)">
+                    ${Object.entries(PRODUCTS).map(([k, v]) => `<option value="${k}" ${k===p.product?'selected':''}>${v.name}</option>`).join('')}
+                </select>
+            </td>
+            <td>
+                <select onchange="updatePosition(${i}, 'side', this.value)">
+                    <option value="long" ${p.side==='long'?'selected':''}>多</option>
+                    <option value="short" ${p.side==='short'?'selected':''}>空</option>
+                </select>
+            </td>
+            <td class="r"><input type="number" value="${p.lots}" min="1" oninput="updatePosition(${i}, 'lots', this.value)"></td>
+            <td class="r"><input type="number" value="${p.entry}" oninput="updatePosition(${i}, 'entry', this.value)"></td>
+            <td class="r"><input type="number" value="${p.current}" oninput="updatePosition(${i}, 'current', this.value)"></td>
+            <td class="r ${pnl>=0?'ok':'bad'}">${fmtMoney(pnl)}</td>
+            <td class="r">${fmtMoneyPlain(used)}</td>
+            <td class="r"><button class="btn danger" onclick="deletePosition(${i})" style="font-size:10px;padding:3px 8px">✕</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function updatePosition(i, key, value) {
+    if (key === 'lots' || key === 'entry' || key === 'current') value = parseFloat(value) || 0;
+    positions[i][key] = value;
+    savePositions();
+    recalcAll();
+}
+
+function addPosition() {
+    positions.push({ product: 'TXF', side: 'long', lots: 1, entry: 22000, current: 22000 });
+    savePositions();
+    renderPositions();
+    recalcAll();
+}
+
+function deletePosition(i) {
+    positions.splice(i, 1);
+    savePositions();
+    renderPositions();
+    recalcAll();
+}
+
+function calcEquity() {
+    return parseFloat(document.getElementById('accountEquity').value) || 0;
+}
+
+function calcCurrentStats() {
+    let used = 0, maintenance = 0, floatPnl = 0;
+    for (const p of positions) {
+        const spec = PRODUCTS[p.product];
+        if (!spec) continue;
+        const diff = p.side === 'long' ? p.current - p.entry : p.entry - p.current;
+        floatPnl += diff * spec.pointValue * p.lots;
+        used += spec.original * p.lots;
+        maintenance += spec.maintenance * p.lots;
+    }
+    return { used, maintenance, floatPnl };
+}
+
+function recalcAll() {
+    const eq = calcEquity();
+    const { used, maintenance, floatPnl } = calcCurrentStats();
+    const equity = eq + floatPnl;
+    const avail = equity - used;
+
+    document.getElementById('usedMargin').textContent = fmtMoneyPlain(used);
+    document.getElementById('availMargin').textContent = fmtMoneyPlain(avail);
+    const floatEl = document.getElementById('floatPnl');
+    floatEl.textContent = fmtMoney(floatPnl);
+    floatEl.className = 'val ' + (floatPnl >= 0 ? 'up' : 'down');
+    document.getElementById('totalMaintenance').textContent = fmtMoneyPlain(maintenance);
+
+    // 警示
+    const alertEl = document.getElementById('marginAlert');
+    if (!positions.length) {
+        alertEl.className = 'alert safe';
+        alertEl.textContent = '尚無持倉';
+    } else if (equity <= 0) {
+        alertEl.className = 'alert danger';
+        alertEl.innerHTML = `🚨 <b>權益已破產</b> ${fmtMoneyPlain(equity)} — 應立即停止交易`;
+    } else if (equity < maintenance) {
+        alertEl.className = 'alert danger';
+        alertEl.innerHTML = `⚠️ <b>追繳保證金</b>：權益 ${fmtMoneyPlain(equity)} < 維持保證金 ${fmtMoneyPlain(maintenance)}，需補足 ${fmtMoneyPlain(maintenance - equity)} 或減倉`;
+    } else if (equity < used) {
+        alertEl.className = 'alert warn';
+        alertEl.innerHTML = `⚠️ <b>權益低於原始保證金</b>：${fmtMoneyPlain(equity)} < ${fmtMoneyPlain(used)}（差 ${fmtMoneyPlain(used - equity)}），尚未追繳但需密切監控`;
+    } else {
+        alertEl.className = 'alert safe';
+        alertEl.innerHTML = `✅ 權益 ${fmtMoneyPlain(equity)}（已用保證金 ${fmtMoneyPlain(used)}、可用 ${fmtMoneyPlain(avail)}）— 安全`;
+    }
+
+    updateStressTest();
+}
+
+// 壓力測試：假設指數下跌 N 點，影響所有指數型期貨（大台/小台/微台）
+function calcStressFloat(dropPts) {
+    let total = 0;
+    for (const p of positions) {
+        const spec = PRODUCTS[p.product];
+        if (!spec) continue;
+        // 指數型期貨：current 下跌 dropPts；台積類：current 不變（保守不計）
+        const newCurrent = spec.indexLink ? p.current - dropPts : p.current;
+        const diff = p.side === 'long' ? newCurrent - p.entry : p.entry - newCurrent;
+        total += diff * spec.pointValue * p.lots;
+    }
+    return total;
+}
+
+function updateStressTest() {
+    const dropPts = parseInt(document.getElementById('dropPts').value) || 0;
+    document.getElementById('dropPtsLabel').textContent = dropPts.toLocaleString() + ' 點';
+    const eq = calcEquity();
+    const { maintenance } = calcCurrentStats();
+    const stressFloat = calcStressFloat(dropPts);
+    const stressEquity = eq + stressFloat;
+    const ratio = maintenance > 0 ? (stressEquity / maintenance) : null;
+
+    const sf = document.getElementById('stressFloat');
+    sf.textContent = fmtMoney(stressFloat);
+    sf.className = 'val ' + (stressFloat >= 0 ? 'up' : 'down');
+
+    const se = document.getElementById('stressEquity');
+    se.textContent = fmtMoney(stressEquity).replace('+', '');
+    se.className = 'val ' + (stressEquity >= 0 ? 'up' : 'down');
+
+    const sr = document.getElementById('stressRatio');
+    sr.textContent = ratio !== null ? (ratio * 100).toFixed(0) + '%' : '—';
+    sr.className = 'val ' + (ratio === null ? '' : ratio >= 1.5 ? 'up' : ratio >= 1 ? '' : 'down');
+
+    const alertEl = document.getElementById('stressAlert');
+    if (!positions.length) {
+        alertEl.className = 'alert safe';
+        alertEl.textContent = '無持倉，無風險';
+    } else if (stressEquity <= 0) {
+        alertEl.className = 'alert danger';
+        alertEl.innerHTML = `🚨 跌 ${dropPts.toLocaleString()} 點 → <b>權益破產</b>（${fmtMoneyPlain(stressEquity)}），保證金強制平倉`;
+    } else if (ratio !== null && ratio < 1) {
+        alertEl.className = 'alert danger';
+        alertEl.innerHTML = `⚠️ 跌 ${dropPts.toLocaleString()} 點 → <b>觸發追繳</b>，權益 ${fmtMoneyPlain(stressEquity)} < 維持保證金 ${fmtMoneyPlain(maintenance)}，需補 ${fmtMoneyPlain(maintenance - stressEquity)}`;
+    } else if (ratio !== null && ratio < 1.5) {
+        alertEl.className = 'alert warn';
+        alertEl.innerHTML = `⚠️ 跌 ${dropPts.toLocaleString()} 點 → 權益 ${fmtMoneyPlain(stressEquity)}（維持保證金的 ${(ratio*100).toFixed(0)}%），距離追繳邊緣`;
+    } else {
+        alertEl.className = 'alert safe';
+        alertEl.innerHTML = `✅ 跌 ${dropPts.toLocaleString()} 點 → 權益 ${fmtMoneyPlain(stressEquity)}（維持保證金的 ${ratio !== null ? (ratio*100).toFixed(0) : '—'}%），仍安全`;
+    }
+
+    // 多檔位情境表
+    const tableEl = document.getElementById('stressTable');
+    const ladders = [500, 1000, 2000, 3000, 5000, 7000, 10000];
+    tableEl.innerHTML = ladders.map(d => {
+        const f = calcStressFloat(d);
+        const e = eq + f;
+        const r = maintenance > 0 ? e / maintenance : null;
+        let status, statusClass;
+        if (e <= 0) { status = '🚨 破產'; statusClass = 'bad'; }
+        else if (r !== null && r < 1) { status = '⚠️ 追繳'; statusClass = 'bad'; }
+        else if (r !== null && r < 1.5) { status = '⚠️ 接近追繳'; statusClass = 'warn'; }
+        else { status = '✅ 安全'; statusClass = 'ok'; }
+        return `<div class="stress-row">
+            <div class="pts">-${d.toLocaleString()}</div>
+            <div class="${f>=0?'ok':'bad'}">${fmtMoney(f)}</div>
+            <div class="${e>=0?'ok':'bad'}">${fmtMoneyPlain(e)}</div>
+            <div class="${statusClass}">${status} ${r !== null ? `(${(r*100).toFixed(0)}%)` : ''}</div>
+        </div>`;
+    }).join('');
+}
+
+// 嘗試從期交所抓最新保證金（備援：保留現有規格）
+async function loadMarginsFromTaifex() {
+    const btn = document.getElementById('fetchBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    try {
+        const resp = await fetch('https://www.taifex.com.tw/cht/5/indexFutsRBMargining', { mode: 'no-cors' });
+        // no-cors 不能讀內容，這只能當「點擊跳轉提示」用
+        document.getElementById('marginUpdateInfo').innerHTML = '⚠️ 期交所 CORS 限制無法直接抓網頁。請至 <a href="https://www.taifex.com.tw/cht/5/indexFutsRBMargining" target="_blank" style="color:var(--accent)">期交所保證金頁</a> 查最新數值，再手動修改本頁 PRODUCTS 常數。';
+    } catch (e) {
+        document.getElementById('marginUpdateInfo').textContent = '抓取失敗：' + e.message;
+    }
+    btn.disabled = false;
+    btn.textContent = '🔄 抓最新';
+}
+
+window.addPosition = addPosition;
+window.deletePosition = deletePosition;
+window.updatePosition = updatePosition;
+window.recalcAll = recalcAll;
+window.updateStressTest = updateStressTest;
+window.loadMarginsFromTaifex = loadMarginsFromTaifex;
+
+// 初始化
+renderMarginSpecs();
+renderPositions();
+recalcAll();
+</script>
+
+</body>
+</html>
