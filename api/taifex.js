@@ -9,6 +9,7 @@ export default async function handler(req, res) {
   const range = (req.query.range || '5d').toString();
   const period1 = req.query.period1 ? parseInt(req.query.period1) : null;
   const period2 = req.query.period2 ? parseInt(req.query.period2) : null;
+  const symbol = (req.query.symbol || 'WTX').toString().toUpperCase();
 
   try {
     if (type === 'bars') {
@@ -17,7 +18,7 @@ export default async function handler(req, res) {
       res.status(200).json(result);
       return;
     }
-    const result = await fetchQuote();
+    const result = await fetchQuote(symbol);
     res.setHeader('Cache-Control', 's-maxage=1, stale-while-revalidate=5');
     res.status(200).json(result);
   } catch (e) {
@@ -25,9 +26,10 @@ export default async function handler(req, res) {
   }
 }
 
-// 從 Yahoo TW /future/WTX& SSR HTML 抓 JSON 取得真實台指期報價
-async function fetchYahooTwFuture() {
-  const url = 'https://tw.stock.yahoo.com/future/WTX%26?_=' + Date.now();
+// 從 Yahoo TW /future/<symbol>& SSR HTML 抓 JSON 取得期貨即時報價
+// symbol: WTX (大台) / WMX (小台) / WMT (微台) etc.
+async function fetchYahooTwFuture(symbol = 'WTX') {
+  const url = `https://tw.stock.yahoo.com/future/${symbol}%26?_=${Date.now()}`;
   const resp = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
@@ -140,12 +142,16 @@ async function fetchYahooTwiiQuote() {
   };
 }
 
-async function fetchQuote() {
-  try { return await fetchYahooTwFuture(); }
-  catch (e) { console.log('Yahoo TW TXF failed:', e.message); }
-  try { return await fetchTwseQuote(); }
-  catch (e) { console.log('TWSE failed:', e.message); }
-  return await fetchYahooTwiiQuote();
+async function fetchQuote(symbol = 'WTX') {
+  try { return await fetchYahooTwFuture(symbol); }
+  catch (e) { console.log(`Yahoo TW ${symbol} failed:`, e.message); }
+  // 大台失敗才走 TWSE / TWII 備援；小台/微台失敗就直接報錯（避免回傳大台價）
+  if (symbol === 'WTX') {
+    try { return await fetchTwseQuote(); }
+    catch (e) { console.log('TWSE failed:', e.message); }
+    return await fetchYahooTwiiQuote();
+  }
+  throw new Error(`Yahoo TW ${symbol} unavailable`);
 }
 
 // Yahoo ^TWII K 線，再套用當前 TXF-TAIEX 價差 offset
