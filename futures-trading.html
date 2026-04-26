@@ -122,6 +122,19 @@
         .param-label { color: var(--ink4); }
         .param-val { color: var(--paper); font-family: var(--mono); font-weight: 600; }
 
+        /* 線圖上方緊湊技術指標列 */
+        .ind-bar { display: flex; align-items: center; gap: 6px; padding: 4px 12px; background: #1f1e1b; border-bottom: 1px solid var(--border); flex-wrap: wrap; font-family: var(--mono); }
+        .ind-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #2c2b27; border-radius: 4px; font-size: 10px; color: var(--ink3); white-space: nowrap; }
+        .ind-pill b { color: var(--paper); font-weight: 700; }
+        .ind-pill .dot { display: inline-block; width: 8px; height: 2px; border-radius: 1px; }
+        .ind-pill .dot.dashed { background: repeating-linear-gradient(to right, rgba(200,184,154,.7) 0 3px, transparent 3px 5px); width: 10px; }
+        .ind-pill .sub { color: var(--ink3); font-size: 9px; margin-left: 2px; }
+        .ind-signal { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; background: #2c2b27; border-radius: 4px; font-size: 10px; margin-left: auto; max-width: 50%; }
+        .ind-dot-sig { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--ink3); }
+        .ind-dot-sig.buy { background: var(--green); box-shadow: 0 0 6px rgba(74,173,110,.5); }
+        .ind-dot-sig.sell { background: var(--red); box-shadow: 0 0 6px rgba(217,83,79,.5); }
+        .ind-dot-sig.neutral { background: var(--ink3); }
+
         /* Indicator dashboard */
         .ind-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
         .ind-card { background: #2c2b27; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; text-align: center; }
@@ -328,6 +341,17 @@
                 <span style="margin-left:auto;font-size:10px;color:var(--ink3);font-family:var(--mono)" id="simTime"></span>
             </div>
 
+            <!-- 線圖上方緊湊技術指標列 -->
+            <div class="ind-bar" id="indBar">
+                <span class="ind-pill"><span class="dot" style="background:#f0c040"></span>MA5 <b id="indMA5">—</b></span>
+                <span class="ind-pill"><span class="dot" style="background:#6495ed"></span>MA20 <b id="indMA20">—</b></span>
+                <span class="ind-pill"><span class="dot" style="background:#e8675a"></span>MA60 <b id="indMA60">—</b></span>
+                <span class="ind-pill">RSI <b id="indRSI">—</b><span class="sub" id="indRSISub"></span></span>
+                <span class="ind-pill">MACD <b id="indMACD">—</b></span>
+                <span class="ind-pill"><span class="dot dashed"></span>BB <b id="indBB">—</b></span>
+                <span class="ind-signal" id="signalBar"><span class="ind-dot-sig" id="signalDot"></span><span id="signalText">等待訊號…</span></span>
+            </div>
+
             <div class="chart-wrap" id="chartContainer"></div>
 
             <!-- 🤖 AI 對戰區塊 -->
@@ -502,109 +526,63 @@
                 </div>
             </div>
 
-            <!-- Toggle -->
+            <!-- 💼 交易控制 (合併自動交易 + 手動交易 + 績效) -->
             <div class="rp-section">
-                <div class="auto-toggle">
-                    <label class="toggle-switch">
+                <div class="rp-title">💼 交易控制</div>
+                <!-- 自動交易 toggle -->
+                <div class="auto-toggle" style="padding:8px 10px;margin-bottom:8px">
+                    <label class="toggle-switch" style="width:40px;height:22px">
                         <input type="checkbox" id="autoToggle" onchange="toggleAutoTrade()">
                         <span class="toggle-slider"></span>
                     </label>
-                    <span class="toggle-label">自動交易</span>
+                    <span class="toggle-label" style="font-size:13px">自動交易</span>
                     <span class="toggle-status off" id="autoStatus">OFF</span>
                 </div>
+                <!-- 自動策略參數 -->
                 <div class="param-grid">
-                    <div class="param-item"><span class="param-label">商品</span><span class="param-val">TX 大台</span></div>
-                    <div class="param-item editable" onclick="editSetting('lots')" title="點擊編輯"><span class="param-label">每次口數 ✎</span><span class="param-val" id="paramLots">1 口</span></div>
+                    <div class="param-item editable" onclick="editSetting('lots')" title="點擊編輯"><span class="param-label">口數 ✎</span><span class="param-val" id="paramLots">1 口</span></div>
+                    <div class="param-item editable" onclick="editSetting('minSignals')" title="點擊編輯"><span class="param-label">進場訊號 ✎</span><span class="param-val" id="paramMinSig">≥ 2</span></div>
                     <div class="param-item editable" onclick="editSetting('stopLoss')" title="點擊編輯"><span class="param-label">停損 ✎</span><span class="param-val" id="paramSL">-100 點</span></div>
                     <div class="param-item editable" onclick="editSetting('takeProfit')" title="點擊編輯"><span class="param-label">停利 ✎</span><span class="param-val" id="paramTP">+150 點</span></div>
-                    <div class="param-item editable" onclick="editSetting('trailingStop')" title="點擊編輯"><span class="param-label">移動停損 ✎</span><span class="param-val" id="paramTrail">關閉</span></div>
-                    <div class="param-item editable" onclick="editSetting('minSignals')" title="點擊編輯"><span class="param-label">進場訊號數 ✎</span><span class="param-val" id="paramMinSig">≥ 2</span></div>
+                    <div class="param-item editable" onclick="editSetting('trailingStop')" title="點擊編輯" style="grid-column:1/-1"><span class="param-label">移動停損 ✎</span><span class="param-val" id="paramTrail">關閉</span></div>
                 </div>
-                <div style="margin-top:8px;font-size:10px;color:var(--ink3);line-height:1.5">💡 進場訊號數越低越容易進場（1=任一訊號即進場、2=需兩種訊號同時出現）；歷史勝率過濾已關閉，所有符合訊號都會進場累積樣本</div>
-            </div>
-
-            <!-- Indicators -->
-            <div class="rp-section">
-                <div class="rp-title">📊 技術指標</div>
-                <div class="ind-grid">
-                    <div class="ind-card">
-                        <div class="ind-label"><span class="ind-dot" style="background:#f0c040"></span>MA5</div>
-                        <div class="ind-val" id="indMA5">—</div>
-                    </div>
-                    <div class="ind-card">
-                        <div class="ind-label"><span class="ind-dot" style="background:#6495ed"></span>MA20</div>
-                        <div class="ind-val" id="indMA20">—</div>
-                    </div>
-                    <div class="ind-card">
-                        <div class="ind-label"><span class="ind-dot" style="background:#e8675a"></span>MA60</div>
-                        <div class="ind-val" id="indMA60">—</div>
-                    </div>
-                    <div class="ind-card">
-                        <div class="ind-label">RSI(14)</div>
-                        <div class="ind-val" id="indRSI">—</div>
-                        <div class="ind-sub" id="indRSISub"></div>
-                    </div>
-                    <div class="ind-card">
-                        <div class="ind-label">MACD</div>
-                        <div class="ind-val" id="indMACD">—</div>
-                        <div class="ind-sub" id="indMACDSub"></div>
-                    </div>
-                    <div class="ind-card">
-                        <div class="ind-label"><span class="ind-dot dashed"></span>布林帶</div>
-                        <div class="ind-val" id="indBB">—</div>
-                        <div class="ind-sub" id="indBBSub"></div>
-                    </div>
-                </div>
-                <!-- Current Signal -->
-                <div class="signal-bar" id="signalBar">
-                    <div class="signal-dot neutral" id="signalDot"></div>
-                    <div class="signal-text" id="signalText">等待訊號...</div>
-                </div>
-            </div>
-
-            <!-- Manual Trading -->
-            <div class="rp-section">
-                <div class="rp-title">✋ 手動交易</div>
-                <div class="manual-trade">
-                    <div class="mt-info">
-                        <div><span class="k">當前價</span><span class="v" id="mtPrice">—</span></div>
-                        <div><span class="k">下單口數</span><span class="v" id="mtLots">1 口</span></div>
+                <!-- 手動下單 -->
+                <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;color:var(--ink3)">
+                        <span>✋ 手動下單</span>
+                        <span>口數 <b id="mtLots" style="color:var(--paper)">1 口</b> · 價 <b id="mtPrice" style="color:var(--paper);font-family:var(--mono)">—</b></span>
                     </div>
                     <div class="mt-buttons">
-                        <button class="mt-btn long" onclick="manualOpen('long')">📈 做多</button>
-                        <button class="mt-btn short" onclick="manualOpen('short')">📉 做空</button>
+                        <button class="mt-btn long" onclick="manualOpen('long')" style="padding:8px;font-size:13px">📈 做多</button>
+                        <button class="mt-btn short" onclick="manualOpen('short')" style="padding:8px;font-size:13px">📉 做空</button>
                     </div>
-                    <div id="mtPosBox" class="mt-pos-box" style="display:none">
-                        <div class="mt-pos-line" id="mtPosDetail"></div>
-                        <button class="mt-btn close" onclick="manualCloseAll()">⬛ 平倉所有持倉</button>
+                    <div id="mtPosBox" class="mt-pos-box" style="display:none;margin-top:6px;padding:8px">
+                        <div class="mt-pos-line" id="mtPosDetail" style="font-size:11px"></div>
+                        <button class="mt-btn close" onclick="manualCloseAll()" style="padding:6px;font-size:11px;margin-top:4px">⬛ 全部平倉</button>
                     </div>
                 </div>
-            </div>
-
-            <!-- Stats -->
-            <div class="rp-section">
-                <div class="rp-title">📈 績效統計</div>
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <div class="stat-card-label">交易次數</div>
-                        <div class="stat-card-val" id="stTrades">0</div>
+                <!-- 績效統計（精簡 4 格） -->
+                <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">
+                    <div style="font-size:11px;color:var(--ink3);margin-bottom:6px">📈 績效</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;font-family:var(--mono)">
+                        <div style="background:#2c2b27;border-radius:5px;padding:6px;text-align:center">
+                            <div style="font-size:9px;color:var(--ink4)">交易</div>
+                            <div style="font-size:13px;font-weight:700;color:var(--paper)" id="stTrades">0</div>
+                        </div>
+                        <div style="background:#2c2b27;border-radius:5px;padding:6px;text-align:center">
+                            <div style="font-size:9px;color:var(--ink4)">勝率</div>
+                            <div style="font-size:13px;font-weight:700;color:var(--paper)" id="stWinRate">—</div>
+                        </div>
+                        <div style="background:#2c2b27;border-radius:5px;padding:6px;text-align:center">
+                            <div style="font-size:9px;color:var(--ink4)">已實現</div>
+                            <div style="font-size:11px;font-weight:700;color:var(--paper)" id="stPnl">$0</div>
+                        </div>
+                        <div style="background:#2c2b27;border-radius:5px;padding:6px;text-align:center">
+                            <div style="font-size:9px;color:var(--ink4)">獲利因子</div>
+                            <div style="font-size:13px;font-weight:700;color:var(--paper)" id="stPF">—</div>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-card-label">勝率</div>
-                        <div class="stat-card-val" id="stWinRate">—</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-label">已實現損益</div>
-                        <div class="stat-card-val" id="stPnl">$0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-label">獲利因子</div>
-                        <div class="stat-card-val" id="stPF">—</div>
-                    </div>
-                    <div class="stat-card stat-card-full">
-                        <div class="stat-card-label">權益曲線</div>
-                        <div id="equityCurve" style="height:80px;margin-top:6px"></div>
-                    </div>
+                    <div id="equityCurve" style="height:60px;margin-top:6px;background:#2c2b27;border-radius:5px"></div>
                 </div>
             </div>
         </div>
@@ -4449,21 +4427,21 @@ function updateIndicatorsUI() {
 function updateSignalBar() {
     const dot = document.getElementById('signalDot');
     const text = document.getElementById('signalText');
-
+    if (!dot || !text) return;
     if (!autoTrading) {
-        dot.className = 'signal-dot neutral';
-        text.textContent = '自動交易未啟動';
+        dot.className = 'ind-dot-sig neutral';
+        text.textContent = '自動交易 OFF';
         return;
     }
     if (account.positions.length > 0) {
         const pos = account.positions[0];
         const pnl = calcPnl(pos);
-        dot.className = 'signal-dot ' + (pos.direction === 'long' ? 'buy' : 'sell');
-        text.innerHTML = `持有<strong>${pos.direction === 'long' ? '多' : '空'}單</strong> | 損益 ${fmtMoney(pnl)}`;
+        dot.className = 'ind-dot-sig ' + (pos.direction === 'long' ? 'buy' : 'sell');
+        text.innerHTML = `${pos.direction === 'long' ? '多' : '空'} ${fmtInt(pnl)}`;
         return;
     }
-    dot.className = 'signal-dot neutral';
-    text.textContent = '監控中，等待進場訊號...';
+    dot.className = 'ind-dot-sig neutral';
+    text.textContent = '等待訊號';
 }
 
 function updateStatsUI() {
