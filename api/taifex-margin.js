@@ -2,7 +2,7 @@
 // /api/taifex-margin
 // 回傳：{ updatedAt, items: [{ product, original, maintenance, settlement }] }
 //
-// 來源：https://www.taifex.com.tw/cht/5/indexFutsRBMargining
+// 來源：https://www.taifex.com.tw/cht/5/indexMarging
 // 期交所頁面是 HTML 表格，這邊用簡單 regex 抓主要列（大台/小台/微台）
 
 export default async function handler(req, res) {
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const resp = await fetch('https://www.taifex.com.tw/cht/5/indexFutsRBMargining', {
+    const resp = await fetch('https://www.taifex.com.tw/cht/5/indexMarging', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
         'Accept-Language': 'zh-TW,zh;q=0.9'

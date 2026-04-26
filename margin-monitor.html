@@ -110,7 +110,7 @@
     <div class="card">
         <h2>📋 期交所保證金規格
             <button class="btn green" onclick="loadMarginsFromTaifex()" style="margin-left:auto;font-size:10px;padding:3px 8px">🔄 抓期交所最新</button>
-            <a href="https://www.taifex.com.tw/cht/5/indexFutsRBMargining" target="_blank" class="btn" style="font-size:10px;padding:3px 8px">📄 查官方</a>
+            <a href="https://www.taifex.com.tw/cht/5/indexMarging" target="_blank" class="btn" style="font-size:10px;padding:3px 8px">📄 查官方</a>
             <button class="btn" onclick="resetMarginSpecs()" style="font-size:10px;padding:3px 8px">↺ 還原預設</button>
         </h2>
         <div class="desc" id="marginUpdateInfo">數值可直接點欄位編輯（自動存本機）。期交所每季調整、請依官方頁為準。</div>
@@ -537,7 +537,7 @@ async function loadMarginsFromTaifex() {
         }
         info.innerHTML = `<span style="color:var(--green)">✅ 已從期交所更新 ${updated} 個商品（${j.updatedAt || '日期未知'}）</span> · 數值仍可手動微調`;
     } catch (e) {
-        info.innerHTML = `<span style="color:var(--red)">⚠️ 自動抓失敗：${e.message}</span> · 請至 <a href="https://www.taifex.com.tw/cht/5/indexFutsRBMargining" target="_blank" style="color:var(--accent)">期交所保證金頁</a> 手動查並編輯下方欄位`;
+        info.innerHTML = `<span style="color:var(--red)">⚠️ 自動抓失敗：${e.message}</span> · 請至 <a href="https://www.taifex.com.tw/cht/5/indexMarging" target="_blank" style="color:var(--accent)">期交所保證金頁</a> 手動查並編輯下方欄位`;
     }
 }
 
