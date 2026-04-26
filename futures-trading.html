@@ -4085,13 +4085,17 @@ function updateSimTime() {
     if (synthetic) { el.textContent = '模擬中'; return; }
     if (!lastQuoteAt) { el.textContent = '等待首筆報價…'; return; }
     const ago = Math.floor((Date.now() - lastQuoteAt) / 1000);
-    const status = isMarketOpen() ? '🟢 開盤中' : '🔴 休市';
-    el.textContent = `${status} · 最後更新 ${ago}s 前`;
+    if (!isMarketOpen()) { el.textContent = `🔴 休市（不更新）`; return; }
+    el.textContent = `🟢 開盤中 · 最後更新 ${ago}s 前`;
 }
 
 // 定期從 proxy 抓取即時報價，更新當前 K 線
 async function pollLiveQuote() {
     if (simPaused) return;
+    // 休市時不再打報價 API（省流量），但每分鐘還是試一次以偵測夜盤開始
+    if (!isMarketOpen()) {
+        if (Date.now() - (lastQuoteAt || 0) < 60000) return;
+    }
     try {
         const resp = await fetch('/api/taifex?type=quote');
         if (!resp.ok) throw new Error('proxy ' + resp.status);
