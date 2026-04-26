@@ -413,7 +413,19 @@ function deletePosition(i) {
 }
 
 function calcEquity() {
-    return parseFloat(document.getElementById('accountEquity').value) || 0;
+    const v = parseFloat(document.getElementById('accountEquity').value) || 0;
+    try { localStorage.setItem('marginAccountEquity', String(v)); } catch {}
+    return v;
+}
+
+function loadSavedEquity() {
+    try {
+        const v = localStorage.getItem('marginAccountEquity');
+        if (v != null) {
+            const el = document.getElementById('accountEquity');
+            if (el) el.value = v;
+        }
+    } catch {}
 }
 
 function calcCurrentStats() {
@@ -574,6 +586,7 @@ window.saveMarginSpec = saveMarginSpec;
 window.resetMarginSpecs = resetMarginSpecs;
 
 // 初始化
+loadSavedEquity();   // 先還原帳戶權益金（重整不掉）
 loadCustomMargins(); // 先讀使用者自訂的保證金（覆蓋預設）
 renderMarginSpecs();
 renderPositions();
