@@ -471,9 +471,8 @@
                         </select>
                     </span>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px">
-                    <button class="header-btn" onclick="downloadBarsToLocal()" id="btDlBtn" style="font-size:10px;padding:5px" title="下載當前時間框架">📥 下載</button>
-                    <button class="header-btn" onclick="downloadAllHistoricalBars()" id="btDlAllBtn" style="font-size:10px;padding:5px" title="全載 4 個時間框架">📦 全載歷史</button>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:6px">
+                    <button class="header-btn" onclick="downloadAllHistoricalBars()" id="btDlAllBtn" style="font-size:10px;padding:5px" title="一次下載日 K 5 年、1h 2 年、15m/5m 60 天">📦 全載歷史</button>
                     <button class="header-btn" onclick="document.getElementById('taifexFileInput').click()" id="btImportBtn" style="font-size:10px;padding:5px">📁 匯入 CSV</button>
                     <button class="header-btn" onclick="autoFetchTaifexHistory()" id="btAutoFetchBtn" style="font-size:10px;padding:5px;background:#4aad6e">🚀 爬 5 年</button>
                 </div>
@@ -485,8 +484,20 @@
                     <button class="header-btn" onclick="aiFindBestExit()" id="btAiExitBtn" style="font-size:11px;padding:6px;background:#d97757;font-weight:600" title="測試多種出場策略 + AI 推薦最佳出場 TOP 3">🚪 出場 TOP3</button>
                 </div>
                 <div id="btCacheStatus" style="font-size:10px;color:var(--ink3);padding:6px 8px;background:#2c2b27;border-radius:4px;line-height:1.5">　</div>
-                <div id="backtestBody" style="margin-top:8px;font-size:11px;color:var(--ink3);max-height:280px;overflow-y:auto;padding:6px;background:#1a1916;border-radius:4px">
-                    結果會顯示於此。複雜結果（AI 推薦、TOP 排行）會跳出視窗。
+                <div id="backtestBody" style="margin-top:8px;font-size:11px;color:var(--ink3);max-height:160px;overflow-y:auto;padding:6px;background:#1a1916;border-radius:4px">
+                    執行回測結果會顯示於此。
+                </div>
+            </div>
+
+            <!-- 🤖 AI 最佳策略結果（恆久顯示） -->
+            <div class="rp-section" style="border-top:4px solid #d97757;background:#1f1e1b">
+                <div class="rp-title">🤖 AI 最佳策略 · 進出場 TOP 3</div>
+                <div id="aiStrategyResults" style="font-size:11px;color:var(--ink3);line-height:1.6">
+                    <div style="text-align:center;padding:20px;color:var(--ink4)">
+                        按「🎯 進場 TOP」或「🚪 出場 TOP3」<br>
+                        結果會永久顯示於此（重整不消失）<br>
+                        方便對照後調整自訂策略
+                    </div>
                 </div>
             </div>
 
@@ -708,6 +719,7 @@ async function initApp() {
     learnedRules = analyzeTradeHistory();
     renderCustomCard();
     renderCacheStatus();
+    renderAiResultsPanel();
 
     // 同步「每日自動更新」勾選狀態
     const chk = document.getElementById('btAutoUpdateChk');
@@ -3358,6 +3370,55 @@ ${top10.map((s, i) => `${i+1}. ${s.name}
     renderAiBestStrategyModal(top10, aiResult, chosen, periodFirst, periodLast);
 }
 
+// 把 AI 結果寫入恆久結果區（aiStrategyResults div），按時間戳記排序、覆蓋同類型結果
+function writeAiResult(kind, htmlBlock) {
+    try {
+        const stored = JSON.parse(localStorage.getItem('btAiResults') || '{}');
+        stored[kind] = { html: htmlBlock, at: Date.now() };
+        localStorage.setItem('btAiResults', JSON.stringify(stored));
+    } catch {}
+    renderAiResultsPanel();
+}
+
+function renderAiResultsPanel() {
+    const el = document.getElementById('aiStrategyResults');
+    if (!el) return;
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem('btAiResults') || '{}'); } catch {}
+    const entries = Object.entries(stored).sort((a, b) => b[1].at - a[1].at);
+    if (!entries.length) {
+        el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--ink4)">
+            按「🎯 進場 TOP」或「🚪 出場 TOP3」<br>
+            結果會永久顯示於此（重整不消失）<br>
+            方便對照後調整自訂策略
+        </div>`;
+        return;
+    }
+    el.innerHTML = entries.map(([k, v]) => {
+        const ago = Math.round((Date.now() - v.at) / 60000);
+        const ageTxt = ago < 1 ? '剛剛' : ago < 60 ? `${ago} 分前` : `${Math.round(ago/60)} 小時前`;
+        return `<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #3a3a33">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-size:11px;color:var(--ink4)">${ageTxt}</span>
+                <button class="header-btn" onclick="clearAiResult('${k}')" style="font-size:10px;padding:3px 8px;background:#3a1e1e;color:#ff9980" title="清除這筆結果">✕</button>
+            </div>
+            ${v.html}
+        </div>`;
+    }).join('');
+}
+
+function clearAiResult(kind) {
+    try {
+        const stored = JSON.parse(localStorage.getItem('btAiResults') || '{}');
+        delete stored[kind];
+        localStorage.setItem('btAiResults', JSON.stringify(stored));
+    } catch {}
+    renderAiResultsPanel();
+}
+
+window.clearAiResult = clearAiResult;
+window.renderAiResultsPanel = renderAiResultsPanel;
+
 function renderAiBestStrategyModal(top10, aiResult, source, periodFirst, periodLast) {
     const wrColor = wr => wr >= 0.6 ? '#4aad6e' : wr >= 0.5 ? '#8bc34a' : wr >= 0.4 ? '#e8b84c' : '#d95353';
     const pnlColor = n => n >= 0 ? '#4aad6e' : '#d95353';
@@ -3413,7 +3474,9 @@ function renderAiBestStrategyModal(top10, aiResult, source, periodFirst, periodL
             ${cards}
         </div>
     `;
-    showModal('🤖 AI 找最佳策略', html);
+    // 改成寫入恆久面板，不開 modal
+    const headerLine = `<div style="font-size:13px;font-weight:700;color:#9c5fd9;margin-bottom:8px">🎯 進場 TOP 排行</div>`;
+    writeAiResult('entry', headerLine + html);
 }
 
 window.aiFindBestStrategy = aiFindBestStrategy;
@@ -3633,7 +3696,8 @@ function renderAiBestExitModal(top3, aiResult, bestEntry, interval, periodFirst,
             ${cards}
         </div>
     `;
-    showModal('🚪 找最佳出場 TOP 3', html);
+    const headerLine = `<div style="font-size:13px;font-weight:700;color:#d97757;margin-bottom:8px">🚪 出場 TOP 3 排行</div>`;
+    writeAiResult('exit', headerLine + html);
 }
 
 window.aiFindBestExit = aiFindBestExit;
