@@ -476,7 +476,8 @@
                     <button class="header-btn" onclick="document.getElementById('taifexFileInput').click()" id="btImportBtn" style="font-size:10px;padding:5px">📁 匯入 CSV</button>
                     <button class="header-btn" onclick="autoFetchTaifexHistory()" id="btAutoFetchBtn" style="font-size:10px;padding:5px;background:#4aad6e">🚀 爬 5 年</button>
                 </div>
-                <label style="font-size:10px;color:var(--ink3);display:flex;align-items:center;gap:4px;margin-bottom:6px"><input type="checkbox" id="btAutoUpdateChk" onchange="setAutoUpdateEnabled(this.checked)" style="margin:0"> 每日開頁自動補抓今日 K</label>
+                <label style="font-size:10px;color:var(--ink3);display:flex;align-items:center;gap:4px;margin-bottom:4px"><input type="checkbox" id="btAutoUpdateChk" onchange="setAutoUpdateEnabled(this.checked)" style="margin:0"> 每日開頁自動補抓今日 K</label>
+                <label style="font-size:10px;color:var(--ink3);display:flex;align-items:center;gap:4px;margin-bottom:6px" title="勾選後 AI 找最佳策略時，每個進場會自動測 10 種出場（固定 SL/TP、移動停損、條件出場），挑該進場最賺的版本"><input type="checkbox" id="btAutoSLTP" style="margin:0"> 🧠 AI 找最佳策略時自動挑 SL/TP（忽略上方停損停利）</label>
                 <input type="file" id="taifexFileInput" accept=".csv,.txt" multiple style="display:none" onchange="importTaifexFiles(this.files)">
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px">
                     <button class="header-btn" onclick="runBacktest()" id="btRunBtn" style="background:var(--accent);font-size:11px;padding:6px;font-weight:700">▶ 執行回測</button>
@@ -3283,6 +3284,9 @@ async function aiFindBestStrategy() {
     btn.disabled = true;
     btn.textContent = '⏳ 找資料…';
 
+    const sl = Math.max(0, parseInt(document.getElementById('btSL').value) || 100);
+    const tp = Math.max(0, parseInt(document.getElementById('btTP').value) || 150);
+
     // 用使用者目前下拉選的時間框架；若該時間框架沒快取就現抓
     const tfSel = document.getElementById('btTimeframe').value || '15m|180d';
     const [pickedInterval, pickedRangeTag] = tfSel.split('|');
@@ -3315,15 +3319,27 @@ async function aiFindBestStrategy() {
 
     const indSnaps = buildIndSnapshots(chosen.bars);
     const strategies = generateCandidateStrategies();
-    btn.textContent = `⏳ 跑 ${strategies.length} 組策略…`;
+    const useAutoSLTP = !!document.getElementById('btAutoSLTP')?.checked;
+    btn.textContent = useAutoSLTP ? `⏳ 跑 ${strategies.length} 組 × 10 出場…` : `⏳ 跑 ${strategies.length} 組策略…`;
     await new Promise(r => setTimeout(r, 30));
 
     const ranked = strategies.map(strat => {
-        const r = backtestCandidate(chosen.bars, indSnaps, strat, 100, 150);
-        return { ...strat, ...r };
-    }).filter(r => r.trades >= 10) // 樣本至少 10 筆才算
+        if (useAutoSLTP) {
+            // 對每個進場跑 10 種出場，挑最賺的版本
+            const variants = EXIT_VARIANTS.map(exit => {
+                const r = backtestEntryWithExit(chosen.bars, indSnaps, strat, exit);
+                return { exit, ...r };
+            }).filter(v => v.trades >= 10)
+              .sort((a, b) => b.totalPnl - a.totalPnl);
+            const best = variants[0];
+            if (!best) return null;
+            return { ...strat, ...best, bestExit: best.exit };
+        } else {
+            const r = backtestCandidate(chosen.bars, indSnaps, strat, sl, tp);
+            return { ...strat, ...r };
+        }
+    }).filter(r => r && r.trades >= 10)
       .sort((a, b) => {
-          // 排序：勝率 × 樣本權重 + 平均 PnL 權重
           const sa = a.winRate * Math.log(1 + a.trades) + (a.avgPnl / 1000);
           const sb = b.winRate * Math.log(1 + b.trades) + (b.avgPnl / 1000);
           return sb - sa;
@@ -3335,17 +3351,20 @@ async function aiFindBestStrategy() {
     // 組 prompt 給 Gemini
     const periodFirst = new Date(chosen.bars[0].time * 1000).toISOString().slice(0, 10);
     const periodLast = new Date(chosen.bars[chosen.bars.length - 1].time * 1000).toISOString().slice(0, 10);
-    const prompt = `你是台指期量化分析師。我已用 ${chosen.interval} K 線在 ${periodFirst} ~ ${periodLast} 期間（${chosen.bars.length} 根 K）回測 ${strategies.length} 組候選策略，停損 100 點、停利 150 點，1 點 = 200 元。
+    const sltpDesc = useAutoSLTP
+        ? '每個進場都已自動測 10 種出場（5 組固定 SL/TP + 2 種移動停損 + 3 種條件出場），下面顯示的是該進場最佳的版本'
+        : `固定停損 ${sl} 點、停利 ${tp} 點`;
+    const prompt = `你是台指期量化分析師。我已用 ${chosen.interval} K 線在 ${periodFirst} ~ ${periodLast} 期間（${chosen.bars.length} 根 K）回測 ${strategies.length} 組候選策略，${sltpDesc}，1 點 = 200 元。
 
 以下是按「勝率 × 樣本數 + 平均損益」加權後的 TOP 10 策略：
 
-${top10.map((s, i) => `${i+1}. ${s.name}
+${top10.map((s, i) => `${i+1}. ${s.name}${s.bestExit ? `（出場：${s.bestExit.name}）` : ''}
    交易 ${s.trades} 筆 · 勝 ${s.wins} 敗 ${s.losses} · 勝率 ${Math.round(s.winRate*100)}% · 平均單筆 ${s.avgPnl>=0?'+':''}${s.avgPnl} · 總損益 ${s.totalPnl>=0?'+':''}${s.totalPnl}`).join('\n\n')}
 
 請以中文回覆 JSON：
 {
   "best": "推薦哪一個（用上面編號 1-10）",
-  "reason": "推薦理由（為何這個比其他好，考量勝率、穩定性、樣本量、平均盈虧）",
+  "reason": "推薦理由（為何這個比其他好，考量勝率、穩定性、樣本量、平均盈虧；若有 AI 自選出場也評論該出場為何適合此進場）",
   "warning": "可能的風險或這策略的限制",
   "alt": "備選第二名（編號）+ 簡短說明"
 }`;
@@ -3455,6 +3474,9 @@ function renderAiBestStrategyModal(top10, aiResult, source, periodFirst, periodL
         const rank = i + 1;
         const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
         const wrPct = Math.round(s.winRate * 100);
+        const exitLine = s.bestExit
+            ? `<div style="grid-column:span 3;color:#e8b84c">🚪 AI 自選出場：<b>${s.bestExit.name}</b></div>`
+            : '';
         return `
         <div style="background:#1f1e1b;border-left:3px solid ${pnlColor(s.totalPnl)};border-radius:6px;padding:8px 10px;margin-bottom:6px">
             <div style="font-size:12px;color:var(--ink1);font-weight:600;margin-bottom:4px;line-height:1.4;word-break:break-all">
@@ -3465,6 +3487,7 @@ function renderAiBestStrategyModal(top10, aiResult, source, periodFirst, periodL
                 <div>💰 <b style="color:${pnlColor(s.totalPnl)}">${s.totalPnl>=0?'+':''}${fmtInt(s.totalPnl)}</b></div>
                 <div>📈 ${s.trades} 筆 (${s.wins}/${s.losses})</div>
                 <div style="grid-column:span 3">⌀ 平均 <b style="color:${pnlColor(s.avgPnl)}">${s.avgPnl>=0?'+':''}${s.avgPnl}</b> 元/筆</div>
+                ${exitLine}
             </div>
         </div>
     `;}).join('');
