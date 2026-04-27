@@ -3387,14 +3387,69 @@ ${top10.map((s, i) => `${i+1}. ${s.name}${s.bestExit ? `（出場：${s.bestExit
 }
 
 // 把 AI 結果寫入恆久結果區（aiStrategyResults div），按時間戳記排序、覆蓋同類型結果
-function writeAiResult(kind, htmlBlock) {
+function writeAiResult(kind, htmlBlock, structured) {
     try {
         const stored = JSON.parse(localStorage.getItem('btAiResults') || '{}');
-        stored[kind] = { html: htmlBlock, at: Date.now() };
+        stored[kind] = { html: htmlBlock, at: Date.now(), structured: structured || null };
         localStorage.setItem('btAiResults', JSON.stringify(stored));
     } catch {}
+    // 自動套用第一名（如果使用者勾了）
+    if (kind === 'entry' && structured && localStorage.getItem('autoApplyTop1') === '1') {
+        applyTop1ToCustomStrategy(true);
+    }
     renderAiResultsPanel();
 }
+
+// 把 AI 找到的第一名套用到自訂策略
+function applyTop1ToCustomStrategy(silent = false) {
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem('btAiResults') || '{}'); } catch {}
+    const entry = stored.entry;
+    if (!entry || !entry.structured || !entry.structured.top1) {
+        if (!silent) toast('沒有可套用的 AI 結果，請先按「🎯 進場 TOP」', 'warn');
+        return;
+    }
+    const top1 = entry.structured.top1;
+    if (!top1.conditions || !top1.conditions.length) {
+        if (!silent) toast('AI 結果格式異常', 'error');
+        return;
+    }
+    // mode='all' → required；mode='any' → alternative
+    const condSet = top1.mode === 'all'
+        ? { required: [...top1.conditions], alternative: [] }
+        : { required: [], alternative: [...top1.conditions] };
+    const cfg = customStrategy.config;
+    if (top1.side === 'long') {
+        cfg.longEntry = condSet;
+        cfg.shortEntry = { required: [], alternative: [] }; // 清空空方
+    } else {
+        cfg.shortEntry = condSet;
+        cfg.longEntry = { required: [], alternative: [] };
+    }
+    // 套用 AI 自選的最佳出場（若有）
+    if (top1.bestExit) {
+        const e = top1.bestExit;
+        if (e.type === 'fixed' || !e.type) {
+            cfg.stopLoss = e.sl || cfg.stopLoss;
+            cfg.takeProfit = e.tp || cfg.takeProfit;
+        } else {
+            // trailing/condition 類型映射不易，先設停損為 e.sl
+            cfg.stopLoss = e.sl || cfg.stopLoss;
+            cfg.takeProfit = 0; // 條件出場讓條件決定
+        }
+    }
+    saveCustomStrategy();
+    renderCustomCard();
+    if (!silent) toast(`✅ 已套用第一名「${top1.name}」到自訂策略`, 'success');
+}
+
+window.applyTop1ToCustomStrategy = applyTop1ToCustomStrategy;
+window.toggleAutoApplyTop1 = function() {
+    const cur = localStorage.getItem('autoApplyTop1') === '1';
+    localStorage.setItem('autoApplyTop1', cur ? '0' : '1');
+    renderAiResultsPanel();
+    toast(`自動套用 TOP 1 已${cur ? '關閉' : '啟動'}`, 'info');
+};
 
 function renderAiResultsPanel() {
     const el = document.getElementById('aiStrategyResults');
@@ -3402,6 +3457,26 @@ function renderAiResultsPanel() {
     let stored = {};
     try { stored = JSON.parse(localStorage.getItem('btAiResults') || '{}'); } catch {}
     const entries = Object.entries(stored).sort((a, b) => b[1].at - a[1].at);
+    const autoApply = localStorage.getItem('autoApplyTop1') === '1';
+    const hasEntry = stored.entry && stored.entry.structured && stored.entry.structured.top1;
+    const top1Bar = hasEntry ? `
+        <div style="background:linear-gradient(90deg,#2d2440,#3d2855);border:1px solid #9c5fd9;border-radius:8px;padding:10px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="font-size:12px;font-weight:700;color:#fff">🥇 ${stored.entry.structured.top1.name}</span>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="header-btn" onclick="applyTop1ToCustomStrategy()" style="font-size:11px;padding:5px 10px;background:#9c5fd9;color:#fff;font-weight:700;flex:1">📥 套用第一名到自訂策略</button>
+                <label style="font-size:10px;color:var(--ink2);display:flex;align-items:center;gap:4px;background:#1f1e1b;padding:4px 8px;border-radius:4px;cursor:pointer">
+                    <input type="checkbox" ${autoApply?'checked':''} onchange="toggleAutoApplyTop1()" style="margin:0">
+                    自動套用
+                </label>
+            </div>
+            <div style="font-size:10px;color:var(--ink3);margin-top:6px;line-height:1.4">
+                💡 套用後會把第一名的進場條件 + AI 自選 SL/TP（若有）寫入自訂策略，反向方向會清空。<br>
+                自動套用：每次跑 AI 找最佳策略後自動覆蓋自訂策略設定。
+            </div>
+        </div>` : '';
+
     if (!entries.length) {
         el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--ink4)">
             按「🎯 進場 TOP」或「🚪 出場 TOP3」<br>
@@ -3410,7 +3485,7 @@ function renderAiResultsPanel() {
         </div>`;
         return;
     }
-    el.innerHTML = entries.map(([k, v]) => {
+    el.innerHTML = top1Bar + entries.map(([k, v]) => {
         const ago = Math.round((Date.now() - v.at) / 60000);
         const ageTxt = ago < 1 ? '剛剛' : ago < 60 ? `${ago} 分前` : `${Math.round(ago/60)} 小時前`;
         return `<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #3a3a33">
@@ -3500,7 +3575,17 @@ function renderAiBestStrategyModal(top10, aiResult, source, periodFirst, periodL
     `;
     // 改成寫入恆久面板，不開 modal
     const headerLine = `<div style="font-size:13px;font-weight:700;color:#9c5fd9;margin-bottom:8px">🎯 進場 TOP 排行</div>`;
-    writeAiResult('entry', headerLine + html);
+    const top1 = top10[0] ? {
+        name: top10[0].name,
+        side: top10[0].side,
+        conditions: top10[0].conditions,
+        mode: top10[0].mode,
+        bestExit: top10[0].bestExit || null,
+        winRate: top10[0].winRate,
+        trades: top10[0].trades,
+        totalPnl: top10[0].totalPnl
+    } : null;
+    writeAiResult('entry', headerLine + html, { top1 });
 }
 
 window.aiFindBestStrategy = aiFindBestStrategy;
