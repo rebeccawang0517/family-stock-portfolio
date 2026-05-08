@@ -1084,14 +1084,44 @@
 
         function populateYearFilter() {
             const years = new Set();
-            transactions.forEach(tx => { years.add(new Date(tx.date).getFullYear()); });
+            const platforms = new Set();
+            const holders = new Set();
+            transactions.forEach(tx => {
+                years.add(new Date(tx.date).getFullYear());
+                if (tx.platform) platforms.add(tx.platform);
+                if (tx.holder) holders.add(tx.holder);
+            });
             const yearFilter = document.getElementById('filterYear');
             yearFilter.innerHTML = '<option value="">全部年度</option>';
             Array.from(years).sort((a, b) => b - a).forEach(year => {
-                const option = document.createElement('option');
-                option.value = year; option.textContent = `${year} 年`;
-                yearFilter.appendChild(option);
+                const o = document.createElement('option');
+                o.value = year; o.textContent = `${year} 年`;
+                yearFilter.appendChild(o);
             });
+
+            const platFilter = document.getElementById('filterTransactionPlatform');
+            if (platFilter) {
+                const cur = platFilter.value;
+                platFilter.innerHTML = '<option value="">全部平台</option>';
+                Array.from(platforms).sort().forEach(p => {
+                    const o = document.createElement('option');
+                    o.value = p; o.textContent = p;
+                    platFilter.appendChild(o);
+                });
+                if (cur) platFilter.value = cur;
+            }
+
+            const holderFilter = document.getElementById('filterTransactionHolder');
+            if (holderFilter) {
+                const cur = holderFilter.value;
+                holderFilter.innerHTML = '<option value="">全部持有人</option>';
+                Array.from(holders).sort().forEach(h => {
+                    const o = document.createElement('option');
+                    o.value = h; o.textContent = h;
+                    holderFilter.appendChild(o);
+                });
+                if (cur) holderFilter.value = cur;
+            }
         }
 
         function renderTransactions() {
@@ -1099,9 +1129,13 @@
             tbody.innerHTML = '';
             const yearFilter = document.getElementById('filterYear').value;
             const typeFilter = document.getElementById('filterTransactionType').value;
+            const platFilter = (document.getElementById('filterTransactionPlatform') || {}).value || '';
+            const holderFilter = (document.getElementById('filterTransactionHolder') || {}).value || '';
             const filteredTransactions = transactions.filter(tx => {
                 if (yearFilter && new Date(tx.date).getFullYear().toString() !== yearFilter) return false;
                 if (typeFilter && tx.type !== typeFilter) return false;
+                if (platFilter && tx.platform !== platFilter) return false;
+                if (holderFilter && tx.holder !== holderFilter) return false;
                 return true;
             });
             const currentYear = new Date().getFullYear();
@@ -1119,42 +1153,43 @@
             document.getElementById('yearProfit').textContent = `TWD ${yearProfit.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
             document.getElementById('yearProfit').className = `text-2xl font-bold ${yearProfit >= 0 ? 'text-green-400' : 'text-red-400'}`;
             document.getElementById('yearTransactions').textContent = `${yearTransactionCount} 筆`;
-            if (filteredTransactions.length === 0) { tbody.innerHTML = '<tr><td colspan="13" class="px-4 py-8 text-center text-slate-500">暫無交易記錄</td></tr>'; return; }
+            if (filteredTransactions.length === 0) { tbody.innerHTML = '<tr><td colspan="13" class="px-4 py-8 text-center text-zinc-500">暫無交易記錄</td></tr>'; return; }
             filteredTransactions.forEach(tx => {
                 const tr = document.createElement('tr');
-                tr.className = 'border-b border-slate-700 hover:bg-slate-800 transition-colors';
+                tr.className = 'hover:bg-zinc-900 transition-colors';
                 const date = new Date(tx.date).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
-                const typeColor = tx.type === '買入' ? 'text-blue-400' : 'text-green-400';
+                // 台股慣例：買=紅、賣=綠
                 const typeBadge = tx.type === '買入'
-                    ? `<span style="display:inline-flex;align-items:center;gap:3px;background:#2d5a1b;color:#7ed957;border:1px solid #4a8a2a;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;letter-spacing:.04em"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M5 1L9 8H1L5 1Z" fill="#7ed957"/></svg>BUY</span>`
-                    : `<span style="display:inline-flex;align-items:center;gap:3px;background:#5a1b1b;color:#f05a7e;border:1px solid #8a2a3a;border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;letter-spacing:.04em"><svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M5 9L9 2H1L5 9Z" fill="#f05a7e"/></svg>SELL</span>`;
+                    ? `<span style="display:inline-flex;align-items:center;justify-content:center;background:rgba(244,63,94,.15);color:#fda4af;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;letter-spacing:.04em">B</span>`
+                    : `<span style="display:inline-flex;align-items:center;justify-content:center;background:rgba(16,185,129,.15);color:#6ee7b7;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;letter-spacing:.04em">S</span>`;
                 const profitCell = tx.type === '賣出' && tx.realizedProfit !== undefined
                     ? (() => {
                         const usdRate = parseFloat(document.getElementById('usdRate').value) || 31.5;
                         const profit = tx.realizedProfit;
-                        const profitColor = profit >= 0 ? 'text-green-400' : 'text-red-400';
+                        // 台股慣例：賺=紅、賠=綠
+                        const profitColor = profit >= 0 ? 'text-rose-300' : 'text-emerald-300';
                         const sign = profit >= 0 ? '+' : '';
                         if (tx.region === '美股') {
                             const profitTWD = profit * usdRate;
-                            return `<td class="px-3 py-3 text-center font-mono font-bold ${profitColor}"><div>${sign}USD ${profit.toLocaleString(undefined, {maximumFractionDigits: 2})}</div><div class="text-xs text-slate-400">${sign}TWD ${profitTWD.toLocaleString(undefined, {maximumFractionDigits: 0})}</div></td>`;
+                            return `<td class="px-3 py-2.5 text-right font-mono ${profitColor}"><div>${sign}USD ${profit.toLocaleString(undefined, {maximumFractionDigits: 2})}</div><div class="text-xs text-zinc-500">${sign}TWD ${profitTWD.toLocaleString(undefined, {maximumFractionDigits: 0})}</div></td>`;
                         } else {
-                            return `<td class="px-3 py-3 text-center font-mono font-bold ${profitColor}"><div>${sign}TWD ${profit.toLocaleString(undefined, {maximumFractionDigits: 2})}</div></td>`;
+                            return `<td class="px-3 py-2.5 text-right font-mono ${profitColor}">${sign}TWD ${profit.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>`;
                         }
                     })()
-                    : '<td class="px-3 py-3 text-center text-slate-500">-</td>';
+                    : '<td class="px-3 py-2.5 text-right text-zinc-600">—</td>';
                 tr.innerHTML = `
-                    <td class="px-3 py-3 text-center text-slate-300 text-xs">${date}</td>
-                    <td class="px-3 py-3 text-center ${typeColor} font-bold">${typeBadge}</td>
-                    <td class="px-3 py-3 text-center text-slate-100 font-mono font-semibold">${escHtml(tx.symbol)}</td>
-                    <td class="px-3 py-3 text-center text-slate-300">${escHtml(tx.companyName || tx.symbol)}</td>
-                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${tx.shares.toLocaleString()}</td>
-                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${tx.price.toFixed(2)}</td>
-                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${(tx.fee || 0).toFixed(2)}</td>
-                    <td class="px-3 py-3 text-center text-slate-300 font-mono">${(tx.tax || 0).toFixed(2)}</td>
-                    <td class="px-3 py-3 text-center text-slate-300 font-mono font-semibold">${tx.amount.toFixed(2)}</td>
+                    <td class="px-3 py-2.5 text-zinc-400 font-mono text-xs">${date}</td>
+                    <td class="px-3 py-2.5 text-center">${typeBadge}</td>
+                    <td class="px-3 py-2.5 text-zinc-100 font-mono">${escHtml(tx.symbol)}</td>
+                    <td class="px-3 py-2.5 text-zinc-400">${escHtml(tx.companyName || tx.symbol)}</td>
+                    <td class="px-3 py-2.5 text-right text-zinc-300 font-mono">${tx.shares.toLocaleString()}</td>
+                    <td class="px-3 py-2.5 text-right text-zinc-300 font-mono">${tx.price.toFixed(2)}</td>
+                    <td class="px-3 py-2.5 text-right text-zinc-500 font-mono text-xs">${(tx.fee || 0).toFixed(2)}</td>
+                    <td class="px-3 py-2.5 text-right text-zinc-500 font-mono text-xs">${(tx.tax || 0).toFixed(2)}</td>
+                    <td class="px-3 py-2.5 text-right text-zinc-100 font-mono">${tx.amount.toFixed(2)}</td>
                     ${profitCell}
-                    <td class="px-3 py-3 text-center text-slate-300">${tx.holder}</td>
-                    <td class="px-3 py-3 text-center text-slate-300">${tx.platform}</td>
+                    <td class="px-3 py-2.5 text-zinc-300 text-xs">${tx.holder}</td>
+                    <td class="px-3 py-2.5 text-zinc-400 text-xs">${tx.platform}</td>
                     <td class="px-3 py-3 text-center no-print">
                         <div class="flex gap-2 justify-center flex-wrap">
                             <button onclick="openEditTransactionModal('${tx.id}')" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:transparent;border:1px solid rgba(255,255,255,.15);border-radius:6px;cursor:pointer;padding:0" title="編輯">
@@ -1176,7 +1211,13 @@
         }
 
         window.applyTransactionFilters = function() { renderTransactions(); };
-        window.clearTransactionFilters = function() { document.getElementById('filterYear').value = ''; document.getElementById('filterTransactionType').value = ''; renderTransactions(); };
+        window.clearTransactionFilters = function() {
+            document.getElementById('filterYear').value = '';
+            document.getElementById('filterTransactionType').value = '';
+            const p = document.getElementById('filterTransactionPlatform'); if (p) p.value = '';
+            const h = document.getElementById('filterTransactionHolder'); if (h) h.value = '';
+            renderTransactions();
+        };
 
         // ===== 補登交易功能 =====
         window.updateImportTypeFields = function() {
