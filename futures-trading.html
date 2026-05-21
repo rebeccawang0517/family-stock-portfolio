@@ -896,21 +896,23 @@ window.switchTf = function(tf, el) {
 
 function sourceName() {
     if (dataSource === 'yahoo-tw-txf') return '台指期近月（即時）';
+    if (dataSource === 'cnyes-txf') return '台指期近月（鉅亨網，含真實口數）';
     if (dataSource === 'twse-realtime') return '加權指數（備援，非期貨）';
     if (dataSource === 'taifex') return '台指期近月';
     if (dataSource === 'yahoo-twii') return '台股加權指數（延遲，非期貨）';
     return '';
 }
 
-// 只有 yahoo-tw-txf 是真實台指期；其他是備援的加權指數，價值差約 18,000 點
+// 只有 yahoo-tw-txf / cnyes-txf / taifex 是真實台指期；其他是備援的加權指數，價值差約 18,000 點
 function isValidTxfSource() {
-    return dataSource === 'yahoo-tw-txf' || dataSource === 'taifex';
+    return dataSource === 'yahoo-tw-txf' || dataSource === 'cnyes-txf' || dataSource === 'taifex';
 }
 
 function updateSourceLabel() {
     const el = document.querySelector('.pb-name');
     if (el) {
         el.textContent = dataSource === 'yahoo-tw-txf' ? '台指期近月 · 即時'
+            : dataSource === 'cnyes-txf' ? '台指期近月 · 鉅亨網（真實口數）'
             : dataSource === 'taifex' ? '台指期近月 · 即時'
             : dataSource === 'twse-realtime' ? '加權指數 · 備援（非期貨）'
             : dataSource === 'yahoo-twii' ? '加權指數 · 延遲（非期貨）'

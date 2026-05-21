@@ -154,6 +154,61 @@ async function fetchQuote(symbol = 'WTX') {
   throw new Error(`Yahoo TW ${symbol} unavailable`);
 }
 
+// 鉅亨網 charting API — 真實台指期 1 分 K + 口數，**首選來源**
+// 回傳順序：t/o/h/l/c/v 都是「新→舊」陣列，需要 reverse 成「舊→新」
+async function fetchCnyesTxfBars(interval = '1m', range = '5d', period1 = null, period2 = null) {
+    // interval 對應 cnyes resolution
+    const resMap = { '1m':'1', '5m':'5', '15m':'15', '30m':'30', '60m':'60', '1h':'60', '1d':'D', 'D':'D', '1wk':'W', 'W':'W', '1mo':'M', 'M':'M' };
+    const resolution = resMap[interval] || '1';
+
+    // range → 秒數
+    const rangeSec = {
+        '1d': 86400, '2d': 172800, '5d': 5 * 86400,
+        '1mo': 30 * 86400, '3mo': 90 * 86400, '6mo': 180 * 86400,
+        '1y': 365 * 86400, '2y': 730 * 86400, '5y': 1825 * 86400, '10y': 3650 * 86400
+    }[range] || 5 * 86400;
+
+    let to, from;
+    if (period1 && period2) {
+        from = period1; to = period2;
+    } else {
+        to = Math.floor(Date.now() / 1000);
+        from = to - rangeSec;
+    }
+
+    const url = `https://ws.api.cnyes.com/ws/api/v1/charting/history?symbol=TWF:TXF:FUTURES&resolution=${resolution}&from=${from}&to=${to}`;
+    const resp = await fetch(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Origin': 'https://invest.cnyes.com',
+            'Referer': 'https://invest.cnyes.com/futures/TWF/TXF',
+            'Accept': 'application/json'
+        }
+    });
+    if (!resp.ok) throw new Error(`cnyes ${resp.status}`);
+    const json = await resp.json();
+    const d = json && json.data;
+    if (!d || !Array.isArray(d.t) || d.t.length === 0 || d.s !== 'ok') {
+        throw new Error('cnyes empty data');
+    }
+
+    // cnyes 是「新→舊」，這裡 reverse 成「舊→新」與 Yahoo bars 對齊
+    const n = d.t.length;
+    const bars = new Array(n);
+    for (let i = 0; i < n; i++) {
+        const j = n - 1 - i;   // 反序索引
+        bars[i] = {
+            time: d.t[j],
+            open:  Math.round(d.o[j]),
+            high:  Math.round(d.h[j]),
+            low:   Math.round(d.l[j]),
+            close: Math.round(d.c[j]),
+            volume: Math.round(d.v[j] || 0)
+        };
+    }
+    return bars;
+}
+
 // Yahoo ^TWII K 線，再套用當前 TXF-TAIEX 價差 offset
 async function fetchYahooBars(interval = '1m', range = '5d', period1 = null, period2 = null) {
   let url;
@@ -187,9 +242,18 @@ async function fetchYahooBars(interval = '1m', range = '5d', period1 = null, per
 }
 
 async function fetchBars(interval, range, period1 = null, period2 = null) {
+  // 首選：鉅亨網 — 真實台指期 OHLC + 口數，不需 offset、量能可信
+  try {
+    const bars = await fetchCnyesTxfBars(interval, range, period1, period2);
+    if (bars && bars.length >= 5) {
+      return { source: 'cnyes-txf', symbol: 'TWF:TXF:FUTURES', offset: 0, bars };
+    }
+  } catch (e) { console.log('cnyes-txf failed:', e.message); }
+
+  // 後援：Yahoo ^TWII（加權指數）+ TXF-TAIEX 即時價差 offset
+  // 注意：此來源的 volume 是「加權指數成份股股數」，不是期貨口數，量能比較會失真
   const bars = await fetchYahooBars(interval, range, period1, period2);
 
-  // 計算當前 TXF 與 TAIEX 價差，套用到歷史 bars 讓圖表對齊台指期尺度
   let offset = 0;
   let source = 'yahoo-twii';
   try {
