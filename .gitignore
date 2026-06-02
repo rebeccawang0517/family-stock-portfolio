@@ -3,3 +3,28 @@ node_modules/
 .env.local
 .DS_Store
 Thumbs.db
+_setup_secrets/
+
+# ingestion: runtime / private / sample data — never commit
+ingestion/secrets/
+ingestion/__pycache__/
+ingestion/backups/
+ingestion/pdfs_*/
+ingestion/samples_tw/
+ingestion/_recent_tw/
+ingestion/mail_run_*.log.json
+ingestion/*.xlsx
+ingestion/_debug_*
+ingestion/_inspect_*
+ingestion/_eric_test*
+ingestion/_test*
+ingestion/_to_groups*
+ingestion/_tw_test*
+ingestion/_h.json
+ingestion/_h2.json
+ingestion/_unknown_names.json
+ingestion/raw_dump.json
+ingestion/sample_trades.json
+
+# Next.js dev artifacts at family-finance/ level
+family-finance/dev-server.log

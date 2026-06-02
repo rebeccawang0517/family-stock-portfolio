@@ -648,13 +648,16 @@
             const lastYearTitleEl = document.getElementById('lastYearTitle');
             if (lastYearTitleEl) lastYearTitleEl.textContent = lastYear + ' 年報酬率（已實現損益）';
 
-            let thisYearNetInflow = 0, lastYearRealizedProfit = 0, lastYearBuyCost = 0;
+            let thisYearNetInflow = 0, thisYearRealizedProfit = 0, lastYearRealizedProfit = 0, lastYearBuyCost = 0;
             transactions.forEach(tx => {
                 const txYear = new Date(tx.date).getFullYear();
                 const amountTWD = tx.region === '美股' ? (tx.amount || 0) * usdRate : (tx.amount || 0);
                 if (txYear === thisYear) {
                     if (tx.type === '買入') thisYearNetInflow += amountTWD;
                     else if (tx.type === '賣出') thisYearNetInflow -= amountTWD;
+                    if (tx.type === '賣出' && tx.realizedProfit !== undefined && tx.realizedProfit !== null) {
+                        thisYearRealizedProfit += tx.region === '美股' ? tx.realizedProfit * usdRate : tx.realizedProfit;
+                    }
                 }
                 if (txYear === lastYear) {
                     if (tx.type === '賣出' && tx.realizedProfit !== undefined) {
@@ -665,12 +668,16 @@
             });
             if (baseValue > 0) {
                 const thisYearGain = totalValue - baseValue - thisYearNetInflow;
+                const thisYearUnrealizedDelta = thisYearGain - thisYearRealizedProfit;
                 const thisYearReturnRate = (thisYearGain / baseValue) * 100;
                 const thisYearColor = thisYearReturnRate >= 0 ? 'text-green-400' : 'text-red-400';
                 const thisYearSign = thisYearReturnRate >= 0 ? '+' : '';
+                const fmt = n => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
                 document.getElementById('thisYearReturn').textContent = thisYearSign + thisYearReturnRate.toFixed(2) + '%';
                 document.getElementById('thisYearReturn').className = 'text-2xl font-bold ' + thisYearColor;
-                document.getElementById('thisYearDetail').textContent = `目前市值 ${totalValue.toLocaleString(undefined,{maximumFractionDigits:0})} ｜ 今年淨投入 ${thisYearNetInflow.toLocaleString(undefined,{maximumFractionDigits:0})} ｜ 獲利 ${thisYearGain.toLocaleString(undefined,{maximumFractionDigits:0})}`;
+                document.getElementById('thisYearDetail').innerHTML =
+                    `已實現 ${fmt(thisYearRealizedProfit)}｜未實現變動 ${fmt(thisYearUnrealizedDelta)}<br>` +
+                    `目前市值 ${fmt(totalValue)}｜今年淨投入 ${fmt(thisYearNetInflow)}｜獲利 ${fmt(thisYearGain)}`;
             } else {
                 document.getElementById('thisYearReturn').textContent = '—';
                 document.getElementById('thisYearReturn').className = 'text-2xl font-bold text-slate-500';

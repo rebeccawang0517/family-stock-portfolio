@@ -1,0 +1,105 @@
+name: Ingest Taishin trades
+
+on:
+  schedule:
+    # 台北時間 週一~五 00:05（避開週日午夜整點 GH 排程擁塞）
+    # UTC = Sun~Thu 16:05
+    - cron: '5 16 * * 0-4'
+  workflow_dispatch:
+    inputs:
+      after:
+        description: '抓取起點日期 (YYYY/MM/DD)，留空則用 7 天前'
+        required: false
+        default: ''
+      mode:
+        description: '要跑哪個 mode'
+        type: choice
+        required: true
+        default: 'both'
+        options: ['both', 'overseas', 'tw']
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ingestion
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install Python deps
+        run: pip install pdfplumber google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2
+
+      - name: Materialize Gmail OAuth files from secrets
+        env:
+          GMAIL_TOKEN_B64: ${{ secrets.GMAIL_TOKEN_REBECCA_B64 }}
+          GMAIL_CLIENT_SECRET_B64: ${{ secrets.GMAIL_OAUTH_CLIENT_B64 }}
+        run: |
+          mkdir -p secrets
+          echo "$GMAIL_TOKEN_B64" | base64 -d > secrets/gmail_token_rebecca.json
+          echo "$GMAIL_CLIENT_SECRET_B64" | base64 -d > secrets/gmail_oauth_client.json
+          test -s secrets/gmail_token_rebecca.json
+          test -s secrets/gmail_oauth_client.json
+
+      - name: Compute --after window
+        id: window
+        run: |
+          if [ -n "${{ github.event.inputs.after }}" ]; then
+            echo "after=${{ github.event.inputs.after }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "after=$(date -u -d '7 days ago' +%Y/%m/%d)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ingest overseas (美股確認書)
+        if: ${{ github.event.inputs.mode == 'overseas' || github.event.inputs.mode == 'both' || github.event_name == 'schedule' }}
+        env:
+          BASE_URL: ${{ secrets.STOCK_TRADES_BASE_URL }}
+          SECRET: ${{ secrets.STOCK_TRADES_UPLOAD_SECRET }}
+        run: |
+          python mail_to_firestore.py \
+            --token secrets/gmail_token_rebecca.json \
+            --client-secret secrets/gmail_oauth_client.json \
+            --base-url "$BASE_URL" \
+            --user-email rebeccawang0517@gmail.com \
+            --holder Rebecca \
+            --secret "$SECRET" \
+            --pdf-passwords 4801 \
+            --targets supabase,firestore \
+            --mode overseas \
+            --after "${{ steps.window.outputs.after }}" \
+            --max 50
+
+      - name: Ingest tw (台股交割憑單)
+        if: ${{ github.event.inputs.mode == 'tw' || github.event.inputs.mode == 'both' || github.event_name == 'schedule' }}
+        env:
+          BASE_URL: ${{ secrets.STOCK_TRADES_BASE_URL }}
+          SECRET: ${{ secrets.STOCK_TRADES_UPLOAD_SECRET }}
+        run: |
+          python mail_to_firestore.py \
+            --token secrets/gmail_token_rebecca.json \
+            --client-secret secrets/gmail_oauth_client.json \
+            --base-url "$BASE_URL" \
+            --user-email rebeccawang0517@gmail.com \
+            --holder Rebecca \
+            --secret "$SECRET" \
+            --pdf-passwords 4801 \
+            --targets supabase,firestore \
+            --mode tw \
+            --after "${{ steps.window.outputs.after }}" \
+            --max 50
+
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mail-run-log
+          path: ingestion/mail_run_*.log.json
+          if-no-files-found: ignore
+          retention-days: 30

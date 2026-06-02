@@ -1,0 +1,9 @@
+# secrets and tokens (NEVER commit)
+secrets/
+backups/
+*.log
+
+# python
+__pycache__/
+*.pyc
+.venv/
