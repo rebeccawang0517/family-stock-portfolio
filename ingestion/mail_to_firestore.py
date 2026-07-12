@@ -54,6 +54,7 @@ from googleapiclient.discovery import build
 import parse_taishin_pdf       # 海外股「確認書」
 import parse_taishin_tw_pdf    # 台股「交割憑單」(PDF)
 import parse_taishin_tw_html   # 台股「交割憑單」(舊版 HTML in ZIP)
+import parse_kgi_monthly_pdf   # 凱基「有價證券月電子對帳單」(Eric)
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 ENDPOINTS = {
@@ -70,7 +71,14 @@ MODES = {
         "query": "from:service@billu.tssco.com.tw subject:交割憑單 has:attachment",
         "parser": "tw",
     },
+    "kgi": {
+        "query": "from:billhunter.kgieworld.com.tw 有價證券月電子對帳單 has:attachment",
+        "parser": "kgi",
+    },
 }
+
+# 凱基月對帳單主旨尾端的月份，例：「KGI凱基證券有價證券月電子對帳單202606」
+KGI_YM_RE = re.compile(r'(\d{6})\s*$')
 
 # 從台股 email 主旨抓日期，例：「台新證券 2026.5.6 交割憑單」
 TW_DATE_RE = re.compile(r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})')
@@ -460,6 +468,12 @@ def main() -> int:
                                 print(f"[error] 主旨抓不到日期: {subject}", file=sys.stderr)
                                 break
                             parsed = parse_taishin_tw_pdf.parse_pdf(file_path, pw, trade_date)
+                        elif parser_kind == "kgi":
+                            ym_m = KGI_YM_RE.search(subject)
+                            if not ym_m:
+                                print(f"[error] 主旨抓不到月份: {subject}", file=sys.stderr)
+                                break
+                            parsed = parse_kgi_monthly_pdf.parse_pdf(file_path, pw, ym_m.group(1))
                         else:
                             parsed = parse_taishin_pdf.parse_pdf(file_path, pw)
                         break

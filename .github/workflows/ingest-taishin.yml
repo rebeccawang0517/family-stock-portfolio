@@ -12,11 +12,11 @@ on:
         required: false
         default: ''
       mode:
-        description: '要跑哪個 mode'
+        description: '要跑哪個 mode（both = 全部）'
         type: choice
         required: true
         default: 'both'
-        options: ['both', 'overseas', 'tw']
+        options: ['both', 'overseas', 'tw', 'kgi']
 
 jobs:
   ingest:
@@ -52,14 +52,17 @@ jobs:
       - name: Materialize credential files from secrets
         env:
           GMAIL_TOKEN_B64: ${{ secrets.GMAIL_TOKEN_REBECCA_B64 }}
+          GMAIL_TOKEN_ERIC_B64: ${{ secrets.GMAIL_TOKEN_ERIC_B64 }}
           GMAIL_CLIENT_SECRET_B64: ${{ secrets.GMAIL_OAUTH_CLIENT_B64 }}
           FIREBASE_SA_B64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_B64 }}
         run: |
           mkdir -p secrets
           echo "$GMAIL_TOKEN_B64" | base64 -d > secrets/gmail_token_rebecca.json
+          echo "$GMAIL_TOKEN_ERIC_B64" | base64 -d > secrets/gmail_token_eric.json
           echo "$GMAIL_CLIENT_SECRET_B64" | base64 -d > secrets/gmail_oauth_client.json
           echo "$FIREBASE_SA_B64" | base64 -d > secrets/firebase-admin.json
           test -s secrets/gmail_token_rebecca.json
+          test -s secrets/gmail_token_eric.json
           test -s secrets/gmail_oauth_client.json
           test -s secrets/firebase-admin.json
 
@@ -72,6 +75,7 @@ jobs:
         if: ${{ github.event.inputs.mode == 'overseas' || github.event.inputs.mode == 'both' || github.event_name == 'schedule' }}
         env:
           MANUAL_AFTER: ${{ github.event.inputs.after }}
+          PDF_PW: ${{ secrets.TAISHIN_PDF_PASSWORDS }}
         run: |
           EXTRA=()
           if [ -n "$MANUAL_AFTER" ]; then EXTRA+=(--after "$MANUAL_AFTER"); fi
@@ -80,7 +84,7 @@ jobs:
             --client-secret secrets/gmail_oauth_client.json \
             --user-email rebeccawang0517@gmail.com \
             --holder Rebecca \
-            --pdf-passwords 4801 \
+            --pdf-passwords "$PDF_PW" \
             --targets firestore-direct \
             --service-account secrets/firebase-admin.json \
             --mode overseas \
@@ -93,6 +97,7 @@ jobs:
         if: ${{ github.event.inputs.mode == 'tw' || github.event.inputs.mode == 'both' || github.event_name == 'schedule' }}
         env:
           MANUAL_AFTER: ${{ github.event.inputs.after }}
+          PDF_PW: ${{ secrets.TAISHIN_PDF_PASSWORDS }}
         run: |
           EXTRA=()
           if [ -n "$MANUAL_AFTER" ]; then EXTRA+=(--after "$MANUAL_AFTER"); fi
@@ -101,13 +106,38 @@ jobs:
             --client-secret secrets/gmail_oauth_client.json \
             --user-email rebeccawang0517@gmail.com \
             --holder Rebecca \
-            --pdf-passwords 4801 \
+            --pdf-passwords "$PDF_PW" \
             --targets firestore-direct \
             --service-account secrets/firebase-admin.json \
             --mode tw \
             --state-file state/ingest_state.json \
             --default-after-days 7 \
             --max 50 \
+            "${EXTRA[@]}"
+
+      # Eric 的凱基月對帳單（每月 3 日左右寄達；增量狀態獨立一份，
+      # 無狀態時回看 40 天以涵蓋一個月週期）
+      - name: Ingest kgi (Eric 凱基月對帳單)
+        if: ${{ github.event.inputs.mode == 'kgi' || github.event.inputs.mode == 'both' || github.event_name == 'schedule' }}
+        env:
+          MANUAL_AFTER: ${{ github.event.inputs.after }}
+          PDF_PW: ${{ secrets.KGI_PDF_PASSWORD }}
+        run: |
+          EXTRA=()
+          if [ -n "$MANUAL_AFTER" ]; then EXTRA+=(--after "$MANUAL_AFTER"); fi
+          python mail_to_firestore.py \
+            --token secrets/gmail_token_eric.json \
+            --client-secret secrets/gmail_oauth_client.json \
+            --user-email sclu.eric@gmail.com \
+            --holder Eric \
+            --platform 凱基證券 \
+            --pdf-passwords "$PDF_PW" \
+            --targets firestore-direct \
+            --service-account secrets/firebase-admin.json \
+            --mode kgi \
+            --state-file state/ingest_state_eric.json \
+            --default-after-days 40 \
+            --max 10 \
             "${EXTRA[@]}"
 
       - name: Upload run log
