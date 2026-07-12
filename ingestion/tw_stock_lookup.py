@@ -77,6 +77,8 @@ OVERRIDES: dict[str, str] = {
     '台表科技': '6278',
     '晶豪科技': '3006',
     '欣興電子': '3037',
+    '群聯電子': '8299',
+    '瑞昱半導': '2379',
 }
 
 
@@ -109,10 +111,11 @@ def resolve_ticker(pdf_name: str) -> str | None:
     if name in _NAME_TO_TICKER:
         return _NAME_TO_TICKER[name]
 
-    # 3. fuzzy：PDF name contains 標準名 (e.g., 緯穎科技 contains 緯穎)
+    # 3. fuzzy：PDF name 以標準名開頭 (e.g., 緯穎科技 startswith 緯穎)
+    #    ※ 不能用 in：「群聯電子」包含「聯電」會誤判成 2303
     candidates: list[tuple[str, str]] = []
     for std_name, ticker in _NAME_TO_TICKER.items():
-        if std_name in name:
+        if name.startswith(std_name):
             candidates.append((std_name, ticker))
     if candidates:
         # 取最長相符的
