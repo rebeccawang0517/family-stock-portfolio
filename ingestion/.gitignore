@@ -3,6 +3,9 @@ secrets/
 backups/
 *.log
 
+# 增量抓信檢查點（本機執行產生；CI 用 actions/cache 保存）
+state/
+
 # python
 __pycache__/
 *.pyc

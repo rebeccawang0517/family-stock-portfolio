@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       after:
-        description: '抓取起點日期 (YYYY/MM/DD)，留空則用 7 天前'
+        description: '抓取起點日期 (YYYY/MM/DD)，留空則增量抓取（只抓上次之後的新信）'
         required: false
         default: ''
       mode:
@@ -29,71 +29,85 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 增量抓信檢查點：記錄已抓過的信，下次執行只抓新信。
+      # key 含 run_id 所以每次都是 miss，restore-keys 會還原「最近一次」的狀態，
+      # 工作成功結束時再以新 key 存回，形成滾動狀態。
+      - name: Restore ingest state (增量抓信檢查點)
+        uses: actions/cache@v4
+        with:
+          path: ingestion/state
+          key: taishin-ingest-state-${{ github.run_id }}
+          restore-keys: |
+            taishin-ingest-state-
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: 'pip'
 
       - name: Install Python deps
-        run: pip install pdfplumber google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2
+        run: pip install pdfplumber google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 google-cloud-firestore
 
-      - name: Materialize Gmail OAuth files from secrets
+      - name: Materialize credential files from secrets
         env:
           GMAIL_TOKEN_B64: ${{ secrets.GMAIL_TOKEN_REBECCA_B64 }}
           GMAIL_CLIENT_SECRET_B64: ${{ secrets.GMAIL_OAUTH_CLIENT_B64 }}
+          FIREBASE_SA_B64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_B64 }}
         run: |
           mkdir -p secrets
           echo "$GMAIL_TOKEN_B64" | base64 -d > secrets/gmail_token_rebecca.json
           echo "$GMAIL_CLIENT_SECRET_B64" | base64 -d > secrets/gmail_oauth_client.json
+          echo "$FIREBASE_SA_B64" | base64 -d > secrets/firebase-admin.json
           test -s secrets/gmail_token_rebecca.json
           test -s secrets/gmail_oauth_client.json
+          test -s secrets/firebase-admin.json
 
-      - name: Compute --after window
-        id: window
-        run: |
-          if [ -n "${{ github.event.inputs.after }}" ]; then
-            echo "after=${{ github.event.inputs.after }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "after=$(date -u -d '7 days ago' +%Y/%m/%d)" >> "$GITHUB_OUTPUT"
-          fi
-
+      # 手動指定 after 時才加 --after（回補用）；平常留給狀態檔決定起點：
+      # 有狀態檔 → 從上次最新信件時間往前 3 天（重疊防漏，已抓過的會跳過）
+      # 無狀態檔（初次 / cache 過期）→ 退回抓 7 天
+      # 註：改用服務帳號直寫 Firestore（firestore-direct），不再依賴 Vercel API 與
+      #     Supabase（Supabase 專案 2026-07 確認已消失）
       - name: Ingest overseas (美股確認書)
         if: ${{ github.event.inputs.mode == 'overseas' || github.event.inputs.mode == 'both' || github.event_name == 'schedule' }}
         env:
-          BASE_URL: ${{ secrets.STOCK_TRADES_BASE_URL }}
-          SECRET: ${{ secrets.STOCK_TRADES_UPLOAD_SECRET }}
+          MANUAL_AFTER: ${{ github.event.inputs.after }}
         run: |
+          EXTRA=()
+          if [ -n "$MANUAL_AFTER" ]; then EXTRA+=(--after "$MANUAL_AFTER"); fi
           python mail_to_firestore.py \
             --token secrets/gmail_token_rebecca.json \
             --client-secret secrets/gmail_oauth_client.json \
-            --base-url "$BASE_URL" \
             --user-email rebeccawang0517@gmail.com \
             --holder Rebecca \
-            --secret "$SECRET" \
             --pdf-passwords 4801 \
-            --targets supabase,firestore \
+            --targets firestore-direct \
+            --service-account secrets/firebase-admin.json \
             --mode overseas \
-            --after "${{ steps.window.outputs.after }}" \
-            --max 50
+            --state-file state/ingest_state.json \
+            --default-after-days 7 \
+            --max 50 \
+            "${EXTRA[@]}"
 
       - name: Ingest tw (台股交割憑單)
         if: ${{ github.event.inputs.mode == 'tw' || github.event.inputs.mode == 'both' || github.event_name == 'schedule' }}
         env:
-          BASE_URL: ${{ secrets.STOCK_TRADES_BASE_URL }}
-          SECRET: ${{ secrets.STOCK_TRADES_UPLOAD_SECRET }}
+          MANUAL_AFTER: ${{ github.event.inputs.after }}
         run: |
+          EXTRA=()
+          if [ -n "$MANUAL_AFTER" ]; then EXTRA+=(--after "$MANUAL_AFTER"); fi
           python mail_to_firestore.py \
             --token secrets/gmail_token_rebecca.json \
             --client-secret secrets/gmail_oauth_client.json \
-            --base-url "$BASE_URL" \
             --user-email rebeccawang0517@gmail.com \
             --holder Rebecca \
-            --secret "$SECRET" \
             --pdf-passwords 4801 \
-            --targets supabase,firestore \
+            --targets firestore-direct \
+            --service-account secrets/firebase-admin.json \
             --mode tw \
-            --after "${{ steps.window.outputs.after }}" \
-            --max 50
+            --state-file state/ingest_state.json \
+            --default-after-days 7 \
+            --max 50 \
+            "${EXTRA[@]}"
 
       - name: Upload run log
         if: always()

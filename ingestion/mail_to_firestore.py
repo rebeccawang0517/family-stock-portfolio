@@ -21,7 +21,15 @@ Usage:
         [--max 200] \\
         [--save-pdfs ./pdfs] \\
         [--targets supabase,firestore] \\
+        [--state-file state/ingest_state.json] \\
         [--dry-run]
+
+Incremental mode (--state-file):
+  記錄每個 mode 已處理過的 Gmail message id 與最新信件時間。
+  下次執行時：
+    1. 查詢起點自動從「上次最新信件時間 - overlap-days」開始（除非手動給 --after）
+    2. 已抓過的信直接跳過，不再下載附件、不再解析、不再上傳
+  狀態檔不存在時退回 --default-after-days（若有給）或不加日期限制。
 """
 
 from __future__ import annotations
@@ -33,7 +41,7 @@ import json
 import re
 import sys
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.header import decode_header, make_header
 from pathlib import Path
 from urllib import request as urlrequest
@@ -66,6 +74,31 @@ MODES = {
 
 # 從台股 email 主旨抓日期，例：「台新證券 2026.5.6 交割憑單」
 TW_DATE_RE = re.compile(r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})')
+
+_MERGE_SUM_FIELDS = ("shares", "gross_amount", "commission_fee", "trade_fee",
+                     "settle_fee", "stamp_tax", "exchange_levy", "frc_ptp_fee",
+                     "net_amount")
+
+
+def merge_identical_fills(trades: list[dict]) -> list[dict]:
+    """同一份確認書內完全相同的成交（同代號/方向/日期/單價）合併為一筆。
+
+    上傳端點以交易內容當去重 key（Firestore doc id / Supabase onConflict），
+    兩筆一模一樣的分批成交會被誤判成重複而丟掉一筆，先在來源端合併。
+    """
+    merged: dict[tuple, dict] = {}
+    order: list[tuple] = []
+    for t in trades:
+        k = (t.get("ticker"), t.get("side"), t.get("trade_date"), t.get("unit_price"))
+        if k in merged:
+            m = merged[k]
+            for f in _MERGE_SUM_FIELDS:
+                if t.get(f) is not None:
+                    m[f] = (m.get(f) or 0) + t[f]
+        else:
+            merged[k] = dict(t)
+            order.append(k)
+    return [merged[k] for k in order]
 
 
 def extract_tw_trade_date(subject: str) -> str | None:
@@ -100,6 +133,28 @@ def load_holders_config(path: Path) -> dict:
     }
     """
     return json.loads(path.read_text(encoding='utf-8'))
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Incremental state（增量抓信檢查點）
+# ─────────────────────────────────────────────────────────────────────
+MAX_PROCESSED_IDS = 2000  # 每個 mode 最多保留的已處理 id 數
+
+
+def load_state(path: Path) -> dict:
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"[warn] 狀態檔無法讀取，視為全新狀態: {path} ({e})", file=sys.stderr)
+    return {}
+
+
+def save_state(path: Path, state: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -209,12 +264,18 @@ def post_json(url: str, body: bytes, secret: str) -> tuple[int, str]:
         return 0, f"network error: {e}"
 
 
-def upload_trades(payload: dict, base_url: str, secret: str, targets: list[str]) -> dict:
+def upload_trades(payload: dict, base_url: str, secret: str, targets: list[str],
+                  direct_db=None) -> dict:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     out = {}
     for tgt in targets:
-        url = base_url.rstrip("/") + ENDPOINTS[tgt]
-        status, text = post_json(url, body, secret)
+        if tgt == "firestore-direct":
+            # 服務帳號直寫 Firestore（CI 用，免架 API 伺服器）
+            import firestore_direct
+            status, text = firestore_direct.upload_payload(direct_db, payload)
+        else:
+            url = base_url.rstrip("/") + ENDPOINTS[tgt]
+            status, text = post_json(url, body, secret)
         out[tgt] = {"status": status, "body": text}
     return out
 
@@ -234,7 +295,10 @@ def main() -> int:
     ap.add_argument("--platform", default="台新證券")
     ap.add_argument("--broker", default="taishin")
     ap.add_argument("--account-no", default=None)
-    ap.add_argument("--secret", required=True)
+    ap.add_argument("--secret", default="",
+                    help="HTTP 上傳端點的 Bearer secret（targets 含 supabase/firestore 時必填）")
+    ap.add_argument("--service-account", type=Path, default=None,
+                    help="Firebase 服務帳號 JSON（targets 含 firestore-direct 時必填）")
     ap.add_argument("--holders-config", type=Path, default=None,
                     help="JSON 對照檔：to_name → {holder, user_email, passwords, ...}")
     ap.add_argument("--mode", choices=list(MODES.keys()), default="overseas",
@@ -249,11 +313,25 @@ def main() -> int:
     ap.add_argument("--save-pdfs", type=Path, default=None,
                     help="if set, persist downloaded PDFs to this dir")
     ap.add_argument("--targets", default="supabase,firestore")
+    ap.add_argument("--state-file", type=Path, default=None,
+                    help="增量抓信狀態檔：記錄已處理的信，已抓過的直接跳過")
+    ap.add_argument("--overlap-days", type=int, default=3,
+                    help="由狀態檔推算查詢起點時往前重疊的天數（防漏信；重複的信會被跳過）")
+    ap.add_argument("--default-after-days", type=int, default=None,
+                    help="狀態檔不存在時的預設抓取視窗天數；未指定則不加日期限制")
     ap.add_argument("--dry-run", action="store_true",
-                    help="parse only, do not POST")
+                    help="parse only, do not POST（也不會更新狀態檔）")
     args = ap.parse_args()
 
     targets = [t.strip() for t in args.targets.split(",") if t.strip()]
+    direct_db = None
+    if "firestore-direct" in targets:
+        if not args.service_account:
+            raise SystemExit("--targets firestore-direct 需要 --service-account")
+        from google.cloud import firestore as _firestore
+        direct_db = _firestore.Client.from_service_account_json(str(args.service_account))
+    if any(t in ENDPOINTS for t in targets) and not args.secret and not args.dry_run:
+        raise SystemExit("HTTP targets (supabase/firestore) 需要 --secret")
     default_passwords = [p.strip() for p in args.pdf_passwords.split(",") if p.strip()]
     holders_cfg = load_holders_config(args.holders_config) if args.holders_config else {}
     if not holders_cfg and (not args.user_email or not args.holder):
@@ -261,14 +339,39 @@ def main() -> int:
     creds = load_creds(args.token, args.client_secret)
     svc = build("gmail", "v1", credentials=creds, cache_discovery=False)
 
+    # 載入增量狀態
+    state = load_state(args.state_file) if args.state_file else {}
+    mode_state = state.setdefault(args.mode, {})
+    processed_ids: list[str] = list(mode_state.get("processed_ids", []))
+    processed_set = set(processed_ids)
+
+    def mark_processed(msg_id: str, internal_ms: int) -> None:
+        """記錄此信已抓過，下次不再抓"""
+        if args.state_file is None or args.dry_run or msg_id in processed_set:
+            return
+        processed_set.add(msg_id)
+        processed_ids.append(msg_id)
+        if internal_ms > int(mode_state.get("last_internal_date_ms", 0)):
+            mode_state["last_internal_date_ms"] = internal_ms
+
     mode_cfg = MODES[args.mode]
     query = args.gmail_query or mode_cfg["query"]
     parser_kind = mode_cfg["parser"]
+    # 查詢起點優先序：手動 --after > 狀態檔（上次最新信件時間 - overlap）> --default-after-days
     if args.after:
         query = f"{query} after:{args.after}"
+    elif mode_state.get("last_internal_date_ms"):
+        epoch = int(mode_state["last_internal_date_ms"]) // 1000 - args.overlap_days * 86400
+        query = f"{query} after:{epoch}"
+    elif args.default_after_days:
+        since = datetime.now() - timedelta(days=args.default_after_days)
+        query = f"{query} after:{since:%Y/%m/%d}"
     print(f"[gmail] mode={args.mode} query: {query}")
     msg_ids = list_message_ids(svc, query, args.max)
-    print(f"[gmail] matched messages: {len(msg_ids)}")
+    new_ids = [m for m in msg_ids if m not in processed_set]
+    skipped = len(msg_ids) - len(new_ids)
+    print(f"[gmail] matched messages: {len(msg_ids)}"
+          + (f"（已抓過而跳過 {skipped} 封，只處理 {len(new_ids)} 封新信）" if skipped else ""))
 
     if args.save_pdfs:
         args.save_pdfs.mkdir(parents=True, exist_ok=True)
@@ -278,14 +381,17 @@ def main() -> int:
     total_trades_parsed = 0
     summary = []
 
-    for msg_id in msg_ids:
+    for msg_id in new_ids:
         msg = get_message(svc, msg_id)
+        internal_ms = int(msg.get("internalDate", 0))
         payload = msg.get("payload", {})
         subject = decode_mime(get_header(payload, "Subject") or "")
         date_hdr = get_header(payload, "Date") or ""
         to_name = extract_to_name(payload)
         atts = list(iter_useful_attachments(payload))
         if not atts:
+            # 沒有可處理附件的信永遠不會有交易，直接記為已抓
+            mark_processed(msg_id, internal_ms)
             continue
         total_emails += 1
 
@@ -293,6 +399,7 @@ def main() -> int:
         if holders_cfg:
             cfg = holders_cfg.get(to_name)
             if not cfg:
+                # 不記為已抓：holders-config 補上該收件人後，下次可重抓
                 print(f"[skip] 收件人 '{to_name}' 不在 holders-config 裡", file=sys.stderr)
                 continue
             this_holder      = cfg["holder"]
@@ -304,6 +411,8 @@ def main() -> int:
             this_user_email  = args.user_email
             this_account_no  = args.account_no
             this_passwords   = default_passwords
+
+        msg_ok = True  # 此信所有附件都成功處理才記為已抓，失敗的下次會重試
 
         for filename, att_id, kind in atts:
             data = fetch_attachment(svc, msg_id, att_id)
@@ -327,16 +436,19 @@ def main() -> int:
                 trade_date = extract_tw_trade_date(subject)
                 if not trade_date:
                     print(f"[error] 主旨抓不到日期: {subject}", file=sys.stderr)
+                    msg_ok = False
                 else:
                     extracted = extract_html_from_zip(data, this_passwords)
                     if extracted is None:
                         print(f"[error] 無法解 zip: {filename} ({msg_id})", file=sys.stderr)
+                        msg_ok = False
                     else:
                         _inner_name, html = extracted
                         try:
                             trades = parse_taishin_tw_html.parse_html(html, trade_date)
                         except Exception as e:
                             print(f"[error] HTML parse 失敗 {filename}: {e}", file=sys.stderr)
+                            msg_ok = False
             else:
                 # PDF
                 parsed = None
@@ -356,6 +468,7 @@ def main() -> int:
                         continue
                 if parsed is None:
                     print(f"[error] all passwords failed for {filename} ({msg_id}): {last_err}", file=sys.stderr)
+                    msg_ok = False
                 else:
                     trades = parsed["trades"]
 
@@ -364,6 +477,7 @@ def main() -> int:
                     file_path.unlink()
                 continue
 
+            trades = merge_identical_fills(trades)
             total_trades_parsed += len(trades)
 
             payload_obj = {
@@ -381,8 +495,10 @@ def main() -> int:
             if args.dry_run:
                 print(f"[dry] {msg_id} {tag}")
             else:
-                results = upload_trades(payload_obj, args.base_url, args.secret, targets)
+                results = upload_trades(payload_obj, args.base_url, args.secret, targets, direct_db)
                 ok = all(200 <= r["status"] < 300 for r in results.values())
+                if not ok:
+                    msg_ok = False
                 marker = "[ok]" if ok else "[fail]"
                 summary_line = f"{marker} {msg_id} {tag} | " + " | ".join(
                     f"{t}={results[t]['status']}" for t in targets
@@ -396,7 +512,15 @@ def main() -> int:
             if not args.save_pdfs and file_path.exists():
                 file_path.unlink()
 
+        if msg_ok:
+            mark_processed(msg_id, internal_ms)
+
     print(f"\n[done] emails={total_emails} attachments={total_pdfs} trades_parsed={total_trades_parsed}")
+    if args.state_file is not None and not args.dry_run:
+        mode_state["processed_ids"] = processed_ids[-MAX_PROCESSED_IDS:]
+        mode_state["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        save_state(args.state_file, state)
+        print(f"[state] 已更新狀態檔 {args.state_file}（{args.mode} 累計已抓 {len(processed_ids)} 封）")
     if not args.dry_run and summary:
         log_path = Path.cwd() / f"mail_run_{datetime.now().strftime('%Y%m%dT%H%M%S')}.log.json"
         log_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
