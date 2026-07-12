@@ -1,1181 +1,273 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>家族股票投資組合管理系統</title>
-    <!-- 優化：預先建立 CDN / Firebase 連線，縮短後續下載延遲 -->
-    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="dns-prefetch" href="https://unpkg.com">
-    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 優化：移除 xlsx（約 900KB），改為按下「匯出 Excel」時才動態載入（見頁尾 lazyExportToExcel） -->
-    <!-- 優化：chart.js 加上 defer，不阻擋 HTML 解析；與頁尾 defer 腳本保持原有執行順序 -->
-    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-    <script type="module" src="js/firebase.js"></script>
-    <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家族資產管理平台</title>
+<style>
+:root{
+  --bg:#0a0a0a; --bg2:#111; --band:#c9c9c9;
+  --ink:#f5f5f5; --ink-dim:#9a9a9a; --ink-faint:#5c5c5c;
+  --card:#f2f2f2; --card-ink:#111; --card-dim:#555;
+  --line:rgba(255,255,255,.14);
+  --sans:"Segoe UI","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+/* ── Hero ── */
+.hero{display:grid;grid-template-columns:5fr 6fr;min-height:420px;border-bottom:1px solid var(--line)}
+.hero-art{position:relative;overflow:hidden;background:#000;min-height:280px}
+.skyline{position:absolute;inset:auto 0 0 0;height:82%;display:flex;align-items:flex-end;gap:6px;padding:0 18px;filter:grayscale(1)}
+.skyline span{flex:1;background:linear-gradient(180deg,#3a3a3a 0%,#161616 100%);border-radius:2px 2px 0 0;position:relative}
+.skyline span::after{content:"";position:absolute;inset:8px 25% auto 25%;height:60%;
+  background:repeating-linear-gradient(180deg,rgba(255,255,255,.14) 0 2px,transparent 2px 9px);opacity:.5}
+.hero-art::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 20% 0%,rgba(255,255,255,.10),transparent 55%)}
+.hero-txt{display:flex;flex-direction:column;justify-content:center;gap:18px;padding:64px 48px;background:#000}
+.mark{width:44px;height:44px;color:#fff}
+.hero-kicker{font-size:12px;letter-spacing:.42em;color:var(--ink-dim);text-transform:uppercase}
+.hero h1{font-size:clamp(30px,4.6vw,52px);font-weight:800;letter-spacing:.06em;line-height:1.15}
+.hero-sub{color:var(--ink-dim);font-size:15px;letter-spacing:.08em}
+.date-chip{display:inline-block;border:1px solid var(--line);border-radius:999px;
+  padding:6px 18px;font-size:12px;letter-spacing:.18em;color:var(--ink-dim);width:max-content}
+
+/* ── Section title ── */
+.sec-head{padding:72px 0 36px}
+.sec-head h2{font-size:clamp(22px,3vw,32px);font-weight:800;letter-spacing:.14em}
+.sec-head .en{display:block;font-size:11px;letter-spacing:.4em;color:var(--ink-faint);margin-top:8px;text-transform:uppercase}
+
+/* ── Pillars ── */
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;padding-bottom:88px}
+.pillar{background:var(--card);color:var(--card-ink);border-radius:14px;overflow:hidden;
+  display:flex;flex-direction:column;transition:transform .18s ease,box-shadow .18s ease}
+.pillar:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(0,0,0,.55)}
+.thumb{height:150px;background:#0d0d0d;position:relative;overflow:hidden}
+.thumb svg{position:absolute;inset:0;width:100%;height:100%}
+.p-body{padding:22px 22px 26px;display:flex;flex-direction:column;gap:10px;flex:1}
+.p-num{font-size:11px;letter-spacing:.32em;color:var(--card-dim)}
+.p-body h3{font-size:20px;font-weight:800;letter-spacing:.05em;border-bottom:2px solid #111;padding-bottom:10px}
+.p-body ul{list-style:none;color:var(--card-dim);font-size:13.5px;line-height:2;flex:1}
+.p-body li::before{content:"·  ";font-weight:900;color:#111}
+.p-go{font-size:12px;letter-spacing:.24em;font-weight:700;color:#111;margin-top:6px}
+.p-go::after{content:" →"}
+
+/* ── Gray band：自動化流程 ── */
+.band{background:var(--band);color:#111}
+.band .sec-head h2{color:#111}
+.band .sec-head .en{color:#666}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding-bottom:80px;position:relative}
+.step{background:#1c1c1c;color:#eee;border-radius:10px;padding:20px 14px 18px;text-align:center;position:relative}
+.step::before{content:"";position:absolute;top:-7px;left:50%;transform:translateX(-50%);
+  width:12px;height:12px;border-radius:50%;background:#f2f2f2;border:3px solid #1c1c1c}
+.step b{display:block;font-size:11px;letter-spacing:.22em;margin-bottom:8px;color:#fff;text-transform:uppercase}
+.step span{font-size:12.5px;color:#a8a8a8;line-height:1.7;display:block}
+
+/* ── 下一步 ── */
+.next{padding-bottom:96px}
+.next-grid{display:flex;flex-direction:column;gap:18px}
+.next-row{display:grid;grid-template-columns:5fr 7fr;gap:22px}
+.next-cta{background:#f2f2f2;color:#111;border-radius:12px;padding:26px 26px;
+  font-size:19px;font-weight:800;letter-spacing:.08em;display:flex;align-items:center;
+  transition:transform .15s ease}
+.next-cta:hover{transform:translateX(6px)}
+.next-desc{background:#161616;border:1px solid var(--line);border-radius:12px;padding:20px 24px}
+.next-desc b{font-size:13.5px;letter-spacing:.1em;display:block;margin-bottom:8px}
+.next-desc ul{list-style:none;color:var(--ink-dim);font-size:13px;line-height:2}
+.next-desc li::before{content:"·  "}
+
+/* ── Footer ── */
+footer{background:#000;border-top:1px solid var(--line);text-align:center;padding:72px 24px 64px}
+footer h2{font-size:clamp(26px,3.6vw,40px);font-weight:800;letter-spacing:.2em;margin-bottom:10px}
+footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
+.f-chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:5px 16px;
+  font-size:11px;letter-spacing:.2em;color:var(--ink-dim);margin:26px 0 10px}
+.f-val{font-size:14px;letter-spacing:.06em;color:#ddd}
+.f-note{margin-top:34px;font-size:11px;color:var(--ink-faint);letter-spacing:.2em}
+
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr}
+  .hero-txt{padding:48px 28px}
+  .pillars{grid-template-columns:1fr}
+  .flow{grid-template-columns:1fr;gap:20px}
+  .step::before{top:50%;left:-7px;transform:translateY(-50%)}
+  .next-row{grid-template-columns:1fr}
+}
+</style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
-    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <h1 class="text-3xl font-bold text-slate-100 mb-2 text-center">家族股票管理系統</h1>
-            <p class="text-slate-400 text-center mb-8">Professional Portfolio Management</p>
-            <div class="space-y-4">
-                <button onclick="loginWithGoogle()" class="w-full bg-white hover:bg-gray-100 text-gray-900 font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-3 transition-colors">
-                    <svg class="w-6 h-6" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    使用 Google 帳號登入
-                </button>
-                <p class="text-sm text-slate-400 text-center">僅限 Rebecca、Eric 使用</p>
-            </div>
+<body>
+
+<!-- ═══ Hero ═══ -->
+<header class="hero">
+  <div class="hero-art">
+    <div class="skyline">
+      <span style="height:52%"></span><span style="height:78%"></span><span style="height:40%"></span>
+      <span style="height:92%"></span><span style="height:63%"></span><span style="height:100%"></span>
+      <span style="height:47%"></span><span style="height:84%"></span><span style="height:58%"></span>
+      <span style="height:70%"></span><span style="height:36%"></span>
+    </div>
+  </div>
+  <div class="hero-txt">
+    <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+      <path d="M12 3v18M4.2 6.9l15.6 10.2M19.8 6.9L4.2 17.1"/>
+    </svg>
+    <span class="hero-kicker">Family Wealth Management</span>
+    <h1>家族資產管理平台</h1>
+    <p class="hero-sub">總資產 · 投資 · 消費　三位一體的家族財務中樞</p>
+    <span class="date-chip" id="today"></span>
+  </div>
+</header>
+
+<!-- ═══ 三大支柱 ═══ -->
+<main>
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>三大支柱<span class="en">Three Pillars</span></h2>
+    </div>
+    <div class="pillars">
+
+      <a class="pillar" href="portfolio.html#assets">
+        <div class="thumb">
+          <svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
+            <rect width="300" height="150" fill="#0d0d0d"/>
+            <circle cx="95" cy="75" r="52" fill="#e8e8e8"/>
+            <circle cx="95" cy="75" r="52" fill="#0d0d0d" clip-path="inset(0 0 0 50%)"/>
+            <path d="M95 23 A52 52 0 0 1 95 127 Z" fill="#6e6e6e"/>
+            <rect x="185" y="38" width="76" height="10" fill="#4a4a4a"/>
+            <rect x="185" y="58" width="58" height="10" fill="#8a8a8a"/>
+            <rect x="185" y="78" width="68" height="10" fill="#2e2e2e"/>
+            <rect x="185" y="98" width="42" height="10" fill="#c4c4c4"/>
+          </svg>
         </div>
-    </div>
-
-    <div id="mainApp" class="hidden p-4 md:p-8">
-        <div class="max-w-7xl mx-auto">
-            <!-- 頂部標題列 -->
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl p-6 mb-6">
-                <div class="flex items-center justify-between flex-wrap gap-4">
-                    <div>
-                        <h1 class="text-3xl font-bold text-slate-100 mb-2">家族股票投資組合管理系統</h1>
-                        <p class="text-slate-400">已登入：<span id="userEmail" class="text-blue-400"></span></p>
-                    </div>
-                    <div class="flex items-center gap-3 flex-wrap no-print">
-                        <a href="futures-trading.html" style="background:#2c2b27;border:1px solid rgba(200,184,154,.3);color:#c8b89a;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;display:inline-flex;align-items:center;gap:6px;text-decoration:none" onmouseover="this.style.background='#3d3c38'" onmouseout="this.style.background='#2c2b27'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></svg>模擬交易</a>
-                        <button onclick="updateAllPricesAndRate()" style="background:#2c2b27;border:1px solid rgba(255,255,255,.12);color:#ccc9bf;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit;display:inline-flex;align-items:center;gap:6px" onmouseover="this.style.background='#3d3c38'" onmouseout="this.style.background='#2c2b27'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>更新</button>
-                        <button onclick="lazyExportToExcel()" style="background:#2c2b27;border:1px solid rgba(255,255,255,.12);color:#ccc9bf;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit;display:inline-flex;align-items:center;gap:6px" onmouseover="this.style.background='#3d3c38'" onmouseout="this.style.background='#2c2b27'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>匯出 Excel</button>
-                        <button onclick="window.print()" style="background:#2c2b27;border:1px solid rgba(255,255,255,.12);color:#ccc9bf;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit;display:inline-flex;align-items:center;gap:6px" onmouseover="this.style.background='#3d3c38'" onmouseout="this.style.background='#2c2b27'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>列印</button>
-                        <button onclick="logout()" style="background:#2c2b27;border:1px solid rgba(255,255,255,.12);color:#9a9890;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit;display:inline-flex;align-items:center;gap:6px" onmouseover="this.style.background='#3d3c38'" onmouseout="this.style.background='#2c2b27'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>登出</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 分頁標籤 -->
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 mb-6 no-print tab-scroll-wrap">
-                <div class="flex gap-2 tab-scroll-inner">
-                    <button onclick="switchTab('dashboard')" id="tabDashboard" class="tab-button active tab-item px-6 py-3 rounded-lg font-semibold text-lg transition-all">
-                        資產總覽
-                    </button>
-                    <button onclick="switchTab('overview')" id="tabOverview" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        持股總覽
-                    </button>
-                    <button onclick="switchTab('detail')" id="tabDetail" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        持股明細
-                    </button>
-                    <button onclick="switchTab('transactions')" id="tabTransactions" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        交易記錄
-                    </button>
-                    <button onclick="switchTab('cashflow')" id="tabCashflow" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        收支管理
-                    </button>
-                    <button onclick="switchTab('ai')" id="tabAi" class="tab-button tab-item px-6 py-3 rounded-lg font-semibold text-lg text-slate-400 transition-all">
-                        AI 分析
-                    </button>
-                </div>
-            </div>
-
-            <!-- 第一頁：資產總覽 -->
-            <div id="dashboardTab" class="tab-content active">
-              <div class="db-pro-wrap">
-                <!-- 標題區 -->
-                <div class="db-header">
-                  <div>
-                    <h2 class="db-title">資產總覽</h2>
-                    <p class="db-subtitle">整合股票市值 · 現金存款 · 固定資產 · 負債</p>
-                  </div>
-                  <div class="db-header-badges">
-                    <span class="db-badge" id="db-badge-ratio">負債比 —</span>
-                    <span class="db-badge" id="db-badge-saving">儲蓄率 —</span>
-                  </div>
-                </div>
-
-                <!-- 載入提示 -->
-                <div id="db-loading" style="text-align:center;padding:2rem 0;color:#9a9890;font-size:14px;display:none">
-                  <span class="loading-spinner" style="margin-right:8px"></span>正在載入資產數據...
-                </div>
-
-                <!-- 主要 KPI — 總淨資產 -->
-                <div class="db-hero-card">
-                  <div class="db-hero-label">總淨資產 NET WORTH</div>
-                  <div class="db-hero-val" id="db-net">$0</div>
-                  <div class="db-hero-sub">
-                    <span>資產總計 <strong id="db-hero-total-asset">$0</strong></span>
-                    <span class="db-hero-sep">-</span>
-                    <span>負債總計 <strong id="db-hero-total-debt" style="color:#e8675a">$0</strong></span>
-                  </div>
-                </div>
-
-                <!-- 5000 萬目標進度 -->
-                <div class="db-section-card" style="margin-top:1rem">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                    <div style="font-size:14px;font-weight:600;color:#f0ede6;letter-spacing:.03em">5,000 萬目標進度</div>
-                    <div style="font-size:13px;font-family:var(--mono);color:#c8b89a" id="db-goal-pct">0%</div>
-                  </div>
-                  <div style="background:rgba(255,255,255,.06);border-radius:8px;height:18px;overflow:hidden;position:relative">
-                    <div id="db-goal-bar" style="height:100%;border-radius:8px;background:linear-gradient(90deg,#2563eb,#0ea5e9,#10b981);width:0%;transition:width .6s ease"></div>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:#9a9890">
-                    <span>目前淨資產 <strong id="db-goal-current" style="color:#f0ede6">$0</strong></span>
-                    <span>距離目標 <strong id="db-goal-remain" style="color:#c8b89a">$50,000,000</strong></span>
-                  </div>
-                </div>
-
-                <!-- 資產 KPI 4 格 -->
-                <div class="db-kpi-grid" style="grid-template-columns:repeat(4,1fr)">
-                  <div class="db-kpi-card">
-                    <div class="db-kpi-icon" style="background:rgba(74,173,110,.12);color:#4aad6e">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-                    </div>
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">股票市值</div>
-                      <div class="db-kpi-value" id="db-stock">$0</div>
-                    </div>
-                  </div>
-                  <div class="db-kpi-card">
-                    <div class="db-kpi-icon" style="background:rgba(200,184,154,.12);color:#c8b89a">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                    </div>
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">固定資產</div>
-                      <div class="db-kpi-value" id="db-fixed">$0</div>
-                    </div>
-                  </div>
-                  <div class="db-kpi-card">
-                    <div class="db-kpi-icon" style="background:rgba(74,173,110,.08);color:#6bbf8a">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-                    </div>
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">現金存款</div>
-                      <div class="db-kpi-value" id="db-cash">$0</div>
-                    </div>
-                  </div>
-                  <div class="db-kpi-card">
-                    <div class="db-kpi-icon" style="background:rgba(217,83,79,.12);color:#d9534f">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
-                    </div>
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">負債合計</div>
-                      <div class="db-kpi-value" id="db-debt" style="color:#e8675a">$0</div>
-                    </div>
-                  </div>
-                </div>
-
-
-                <!-- 重要日期 -->
-                <div class="db-section-card" style="margin-top:.5rem">
-                  <div class="db-section-header">
-                    <h3 class="db-section-title">重要日期 DATES</h3>
-                  </div>
-                  <div id="db-dates-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:10px">
-                  </div>
-                  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
-                    <input id="db-rem-name" placeholder="提醒名稱" style="flex:1;min-width:120px;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
-                    <input id="db-rem-date" type="date" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
-                    <select id="db-rem-repeat" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
-                      <option value="once">單次</option>
-                      <option value="monthly">每月</option>
-                      <option value="yearly">每年</option>
-                    </select>
-                    <button onclick="dbAddReminder()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增提醒</button>
-                  </div>
-                </div>
-
-                <!-- 資產結構圖 -->
-                <div class="db-section-card">
-                  <div class="db-section-header">
-                    <h3 class="db-section-title">資產結構 ALLOCATION</h3>
-                  </div>
-                  <div class="db-alloc-wrap">
-                    <div class="db-donut-wrap">
-                      <canvas id="db-donut-chart" width="180" height="180"></canvas>
-                    </div>
-                    <div class="db-bars-wrap">
-                      <div class="db-bar-item">
-                        <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#2563eb"></span>
-                          <span class="db-bar-label">股票</span>
-                          <span class="db-bar-pct" id="db-pct-stock">0%</span>
-                          <span class="db-bar-amt" id="db-bar-stock-v">$0</span>
-                        </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-stock" style="width:0%;background:#2563eb"></div></div>
-                      </div>
-                      <div class="db-bar-item">
-                        <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#f59e0b"></span>
-                          <span class="db-bar-label">固定資產</span>
-                          <span class="db-bar-pct" id="db-pct-fixed">0%</span>
-                          <span class="db-bar-amt" id="db-bar-fixed-v">$0</span>
-                        </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-fixed" style="width:0%;background:#f59e0b"></div></div>
-                      </div>
-                      <div class="db-bar-item">
-                        <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#10b981"></span>
-                          <span class="db-bar-label">現金</span>
-                          <span class="db-bar-pct" id="db-pct-cash">0%</span>
-                          <span class="db-bar-amt" id="db-bar-cash-v">$0</span>
-                        </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-cash" style="width:0%;background:#10b981"></div></div>
-                      </div>
-                      <div class="db-bar-item">
-                        <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#ef4444"></span>
-                          <span class="db-bar-label">負債</span>
-                          <span class="db-bar-pct" id="db-pct-debt">0%</span>
-                          <span class="db-bar-amt" id="db-bar-debt-v">$0</span>
-                        </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-debt" style="width:0%;background:#ef4444"></div></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 現金存款 -->
-                <div class="db-section-card">
-                  <div class="db-section-header">
-                    <h3 class="db-section-title">現金存款 CASH DEPOSITS</h3>
-                    <span class="db-section-total" id="db-st-cash">—</span>
-                  </div>
-                  <table class="cf-tbl db-tbl">
-                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
-                    <thead><tr><th>帳戶名稱</th><th>類別</th><th>負責人</th><th class="r">金額（TWD）</th><th></th><th></th></tr></thead>
-                    <tbody id="db-cash-body"></tbody>
-                  </table>
-                  <button class="db-add-btn" onclick="dbAddCash()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    新增現金帳戶
-                  </button>
-                </div>
-
-                <!-- 固定資產 -->
-                <div class="db-section-card">
-                  <div class="db-section-header">
-                    <h3 class="db-section-title">固定資產 FIXED ASSETS</h3>
-                    <span class="db-section-total" id="db-st-asset">—</span>
-                  </div>
-                  <table class="cf-tbl db-tbl">
-                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:22%"><col style="width:4%"><col style="width:4%"></colgroup>
-                    <thead><tr><th>資產名稱</th><th>類別</th><th>負責人</th><th class="r">估值（TWD）</th><th></th><th></th></tr></thead>
-                    <tbody id="db-asset-body"></tbody>
-                  </table>
-                  <button class="db-add-btn" onclick="dbAddAsset()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    新增固定資產
-                  </button>
-                </div>
-
-                <!-- 負債明細 -->
-                <div class="db-section-card">
-                  <div class="db-section-header">
-                    <h3 class="db-section-title">負債明細 LIABILITIES</h3>
-                    <span class="db-section-total" id="db-st-debt" style="color:#e8675a">—</span>
-                  </div>
-                  <p class="db-hint">自動讀取收支管理 → 固定支出中的貸款項目</p>
-                  <table class="cf-tbl db-tbl">
-                    <colgroup><col style="width:35%"><col style="width:20%"><col style="width:15%"><col style="width:30%"></colgroup>
-                    <thead><tr><th>負債名稱</th><th>類別</th><th>負責人</th><th class="r">剩餘金額（TWD）</th></tr></thead>
-                    <tbody id="db-debt-body"></tbody>
-                  </table>
-                </div>
-
-                <p class="db-footer">資料同步至 Firebase 雲端 · 股票市值從持股總覽即時讀取</p>
-              </div>
-            </div>
-
-            <!-- 第二頁：持股總覽 -->
-            <div id="overviewTab" class="tab-content">
-                <!-- 匯率設定 -->
-                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-6">
-                    <div class="flex items-center justify-between flex-wrap gap-4">
-                        <div class="flex items-center gap-4">
-                            <span class="text-slate-300 font-medium">匯率 USD/TWD</span>
-                            <input type="number" id="usdRate" value="31.5" step="0.01" class="bg-slate-700 text-slate-100 px-3 py-1 rounded border border-slate-600 focus:border-blue-500 focus:outline-none w-24 text-right font-mono" onchange="updateStats()" />
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <label class="flex items-center gap-2 text-slate-300">
-                                <input type="checkbox" id="autoRefresh" class="rounded" checked onchange="toggleAutoRefresh(this.checked)">
-                                <span>自動更新 (每小時整點)</span>
-                            </label>
-                            <span id="lastUpdate" class="text-slate-500 text-sm"></span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 總投資統計 -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
-                        <div class="text-slate-400 text-sm mb-1">總投資成本</div>
-                        <div id="totalCost" class="text-2xl font-bold text-slate-100">TWD 0</div>
-                    </div>
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
-                        <div class="text-slate-400 text-sm mb-1">總市值</div>
-                        <div id="totalValue" class="text-2xl font-bold text-slate-100">TWD 0</div>
-                    </div>
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
-                        <div class="text-slate-400 text-sm mb-1">總損益</div>
-                        <div id="totalProfit" class="text-2xl font-bold">TWD 0</div>
-                    </div>
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
-                        <div class="text-slate-400 text-sm mb-1">總報酬率</div>
-                        <div id="totalReturn" class="text-2xl font-bold">0%</div>
-                    </div>
-                </div>
-
-                <!-- 年度報酬率 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div class="bg-slate-800 border border-blue-600 rounded-lg p-4">
-                        <div class="flex items-center justify-between mb-1">
-                            <div class="text-slate-400 text-sm" id="thisYearLabel">— 年報酬率</div>
-                            <div class="text-xs text-blue-400 font-mono" id="thisYearBase"></div>
-                        </div>
-                        <div id="thisYearReturn" class="text-2xl font-bold">-</div>
-                        <div id="thisYearDetail" class="text-xs text-slate-500 mt-1"></div>
-                    </div>
-                    <div class="bg-slate-800 border border-slate-600 rounded-lg p-4">
-                        <div class="flex items-center justify-between mb-1">
-                            <div class="text-slate-400 text-sm" id="lastYearTitle">— 年報酬率（已實現損益）</div>
-                            <div id="lastYearLabel" class="text-xs text-slate-400 font-mono"></div>
-                        </div>
-                        <div id="lastYearReturn" class="text-2xl font-bold">-</div>
-                        <div id="lastYearDetail" class="text-xs text-slate-500 mt-1"></div>
-                    </div>
-                </div>
-
-                <!-- 持股統計總覽 -->
-                <div class="bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-blue-500 rounded-lg shadow-xl p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
-                            <span>📊</span><span>持股統計總覽</span>
-                        </h2>
-                        <div class="text-sm text-slate-400">💡 點擊公司名稱查看歷史績效分析</div>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="bg-slate-900 border-b-2 border-blue-400">
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">地區</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">股票代號</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">公司名稱</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">總股數</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">平均成本價</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">總投資成本</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">現價</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">報酬率</th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">總現值<br/><span class="text-xs text-slate-400">(原幣別)</span></th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">總現值<br/><span class="text-xs text-slate-400">(TWD)</span></th>
-                                    <th class="px-4 py-3 text-center text-blue-300 font-semibold">佔比 (依TWD現值)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="summaryTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <!-- 圖表區塊 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                    <!-- 持股佔比圓餅圖 -->
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
-                        <h3 class="text-lg font-bold text-slate-100 mb-4">持股佔比分布</h3>
-                        <div style="position:relative;height:320px;max-width:400px;margin:0 auto">
-                            <canvas id="chartAllocation"></canvas>
-                        </div>
-                    </div>
-                    <!-- 持有人資產分布 -->
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
-                        <h3 class="text-lg font-bold text-slate-100 mb-4">持有人資產分布</h3>
-                        <div style="position:relative;height:320px;max-width:400px;margin:0 auto">
-                            <canvas id="chartHolder"></canvas>
-                        </div>
-                    </div>
-                    <!-- 台股 vs 美股配置 -->
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
-                        <h3 class="text-lg font-bold text-slate-100 mb-4">台股 vs 美股配置</h3>
-                        <div style="position:relative;height:320px;max-width:400px;margin:0 auto">
-                            <canvas id="chartRegion"></canvas>
-                        </div>
-                    </div>
-                    <!-- 報酬率排行 -->
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
-                        <h3 class="text-lg font-bold text-slate-100 mb-4">個股報酬率排行</h3>
-                        <div style="position:relative;height:320px">
-                            <canvas id="chartReturn"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-6 bg-gradient-to-r from-blue-900 to-purple-900 bg-opacity-30 border border-blue-700 border-opacity-50 rounded-lg text-sm text-blue-200">
-                    <button onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.hint-arrow').classList.toggle('rotate-180')" class="w-full flex items-center justify-between p-4 text-left cursor-pointer">
-                        <strong>📊 持股總覽功能說明</strong>
-                        <span class="hint-arrow transition-transform text-blue-300">▼</span>
-                    </button>
-                    <div class="hidden px-4 pb-4">
-                        <ul class="list-disc list-inside space-y-1">
-                            <li>查看整體投資組合表現：總投資成本、總市值、損益、報酬率</li>
-                            <li>本年度與上年度報酬率自動計算</li>
-                            <li>合併持股統計（不分持有人和平台），按現值由大到小排序</li>
-                            <li><strong class="text-yellow-300">點擊公司名稱可查看該股票的歷史績效分析</strong>（債券 ETF 除外）</li>
-                            <li>佔比欄顯示該股票現值在整體投資組合中的比重</li>
-                            <li><strong class="text-yellow-300">下方圖表自動更新：持股佔比、持有人分布、台美配置、報酬率排行</strong></li>
-                            <li>匯率自動更新（每小時整點），也可手動調整</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 第二頁：明細管理 -->
-            <div id="detailTab" class="tab-content">
-                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-6">
-                    <div class="flex items-center gap-4 flex-wrap">
-                        <span class="text-slate-300 font-medium">篩選：</span>
-                        <select id="filterRegion" onchange="applyFilters()" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600">
-                            <option value="">全部地區</option>
-                            <option value="台股">台股</option>
-                            <option value="美股">美股</option>
-                        </select>
-                        <select id="filterHolder" onchange="applyFilters()" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600">
-                            <option value="">全部持有人</option>
-                            <option value="Rebecca">Rebecca</option>
-                            <option value="Eric">Eric</option>
-                            <option value="Ian">Ian</option>
-                        </select>
-                        <select id="filterPlatform" onchange="applyFilters()" class="bg-slate-700 text-slate-100 px-3 py-1.5 rounded border border-slate-600">
-                            <option value="">全部平台</option>
-                            <option value="複委託">複委託</option>
-                            <option value="證券">證券</option>
-                            <option value="信託">信託</option>
-                        </select>
-                        <button onclick="clearFilters()" class="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1.5 rounded">清除篩選</button>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="bg-slate-900 border-b border-slate-700">
-                                    <th class="px-4 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" style="min-width: 60px;" onclick="sortTable('region')">地區 <span class="sort-indicator text-xs" id="sort-region">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('companyName')">公司 <span class="sort-indicator text-xs" id="sort-companyName">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('symbol')">代號 <span class="sort-indicator text-xs" id="sort-symbol">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('shares')">股數 <span class="sort-indicator text-xs" id="sort-shares">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('costPrice')">成本價 <span class="sort-indicator text-xs" id="sort-costPrice">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('investmentCost')">投資成本 <span class="sort-indicator text-xs" id="sort-investmentCost">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('currentPrice')">現價 <span class="sort-indicator text-xs" id="sort-currentPrice">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('currentValue')">現值 <span class="sort-indicator text-xs" id="sort-currentValue">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('returnRate')">報酬率 <span class="sort-indicator text-xs" id="sort-returnRate">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('holder')">持有人 <span class="sort-indicator text-xs" id="sort-holder">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 cursor-pointer hover:bg-slate-800 transition-colors" onclick="sortTable('platform')">平台 <span class="sort-indicator text-xs" id="sort-platform">↕</span></th>
-                                    <th class="px-3 py-3 text-center text-slate-300 no-print">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="stockTableBody">
-                                <tr class="desktop-add-row bg-blue-900 bg-opacity-20 border-b-2 border-blue-500 no-print">
-                                    <td colspan="12" class="px-4 py-3 text-center">
-                                        <button onclick="openAddStockModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
-                                            ➕ 新增股票
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="mt-6 bg-blue-900 bg-opacity-30 border border-blue-700 border-opacity-50 rounded-lg text-sm text-blue-200">
-                    <button onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.hint-arrow').classList.toggle('rotate-180')" class="w-full flex items-center justify-between p-4 text-left cursor-pointer">
-                        <strong>💡 使用說明</strong>
-                        <span class="hint-arrow transition-transform text-blue-300">▼</span>
-                    </button>
-                    <div class="hidden px-4 pb-4">
-                        <ul class="list-disc list-inside space-y-1">
-                            <li>此頁面顯示所有持股的詳細明細（包含持有人和平台資訊）</li>
-                            <li>輸入股票代號後會自動獲取公司名稱</li>
-                            <li>輸入成本價+股數會自動計算投資成本，或輸入投資成本+股數會自動計算成本價</li>
-                            <li>系統會自動獲取最新股價（若未開盤則顯示前一收盤價）</li>
-                            <li>可使用上方篩選功能查看特定地區、持有人或平台的股票</li>
-                            <li><strong class="text-yellow-300">💡 切換到「持股總覽」頁面查看整體投資組合統計與年度報酬率</strong></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 第三頁：交易記錄（含補登功能） -->
-            <div id="transactionsTab" class="tab-content">
-                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 mb-6">
-                    <h2 class="text-2xl font-bold text-slate-100 mb-2">📋 交易記錄</h2>
-                    <p class="text-slate-400">記錄所有買賣交易，並自動計算損益</p>
-                </div>
-
-                <!-- 篩選區 -->
-                <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 mb-6">
-                    <div class="flex items-center gap-4 flex-wrap">
-                        <div class="flex items-center gap-2">
-                            <label class="text-slate-300 font-medium">年度：</label>
-                            <select id="filterYear" onchange="applyTransactionFilters()" class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
-                                <option value="">全部年度</option>
-                            </select>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <label class="text-slate-300 font-medium">類型：</label>
-                            <select id="filterTransactionType" onchange="applyTransactionFilters()" class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
-                                <option value="">全部類型</option>
-                                <option value="買入">買入</option>
-                                <option value="賣出">賣出</option>
-                            </select>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <label class="text-slate-300 font-medium">平台：</label>
-                            <select id="filterTransactionPlatform" onchange="applyTransactionFilters()" class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
-                                <option value="">全部平台</option>
-                            </select>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <label class="text-slate-300 font-medium">持有人：</label>
-                            <select id="filterTransactionHolder" onchange="applyTransactionFilters()" class="bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
-                                <option value="">全部持有人</option>
-                            </select>
-                        </div>
-                        <button onclick="clearTransactionFilters()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors">清除篩選</button>
-                    </div>
-                </div>
-
-                <!-- 補登歷史交易（篩選區下方） -->
-                <div class="mb-6">
-                    <button onclick="toggleImportForm()" id="toggleImportBtn"
-                            class="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-between no-print">
-                        <span>＋ 補登歷史交易</span>
-                        <span id="toggleImportIcon" class="text-slate-400 text-base">▼</span>
-                    </button>
-
-                    <div id="importFormSection" class="hidden mt-4">
-                        <div class="bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded-lg p-4 mb-4">
-                            <div class="flex items-start gap-3">
-                                <span class="text-xl">⚠️</span>
-                                <div class="text-yellow-200 text-sm">
-                                    <strong>重要提醒：</strong>補登的交易<strong>不會</strong>自動更新「明細管理」中的持股數量和成本。如需調整目前持股，請使用「明細管理」頁面的買入/賣出功能。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6">
-                            <h3 class="text-lg font-bold text-slate-100 mb-5">📝 補登歷史交易</h3>
-                            <form id="importForm" class="space-y-4">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm text-slate-300 mb-2">交易日期 *</label>
-                                        <input type="date" id="importDate" required
-                                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm text-slate-300 mb-2">交易類型 *</label>
-                                        <select id="importType" required onchange="updateImportTypeFields()"
-                                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
-                                            <option value="買入">買入</option>
-                                            <option value="賣出">賣出</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm text-slate-300 mb-2">地區 *</label>
-                                        <select id="importRegion" required
-                                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
-                                            <option value="台股">台股</option>
-                                            <option value="美股">美股</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm text-slate-300 mb-2">股票代號 *</label>
-                                        <input type="text" id="importSymbol" required placeholder="例如：2330, TSLA"
-                                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none"
-                                               style="text-transform: uppercase;"
-                                               onchange="fetchImportCompanyName()" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm text-slate-300 mb-2">公司名稱</label>
-                                    <input type="text" id="importCompany" placeholder="輸入股票代號後會自動帶出公司名稱" readonly
-                                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600" />
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm text-slate-300 mb-2">股數 *</label>
-                                        <input type="number" id="importShares" required min="1" step="1" placeholder="1000"
-                                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm text-slate-300 mb-2">價格 *</label>
-                                        <input type="number" id="importPrice" required min="0" step="0.01" placeholder="150.50"
-                                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm text-slate-300 mb-2">手續費</label>
-                                        <input type="number" id="importFee" min="0" step="0.01" value="0"
-                                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
-                                        <div class="text-xs text-slate-500 mt-1">台股約 0.1425%，美股約 $1-$10</div>
-                                    </div>
-                                    <div id="importTaxField" class="hidden">
-                                        <label class="block text-sm text-slate-300 mb-2">交易稅</label>
-                                        <input type="number" id="importTax" min="0" step="0.01" value="0"
-                                               class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
-                                        <div class="text-xs text-slate-500 mt-1">台股約 0.3%，美股無交易稅</div>
-                                    </div>
-                                </div>
-                                <div id="importProfitField" class="hidden">
-                                    <label class="block text-sm text-slate-300 mb-2">已實現損益（選填）</label>
-                                    <input type="number" id="importProfit" step="0.01" placeholder="1250.00"
-                                           class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none" />
-                                    <div class="text-xs text-slate-500 mt-1">如果知道確切的損益金額可以填寫</div>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm text-slate-300 mb-2">持有人 *</label>
-                                        <select id="importHolder" required
-                                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
-                                            <option value="">選擇持有人</option>
-                                            <option value="Rebecca">Rebecca</option>
-                                            <option value="Eric">Eric</option>
-                                            <option value="Ian">Ian</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm text-slate-300 mb-2">交易平台 *</label>
-                                        <select id="importPlatform" required
-                                                class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-blue-500 focus:outline-none">
-                                            <option value="台新證券">台新證券</option>
-                                            <option value="台新信託">台新信託</option>
-                                            <option value="凱基證券">凱基證券</option>
-                                            <option value="複委託">複委託（舊）</option>
-                                            <option value="證券">證券（舊）</option>
-                                            <option value="信託">信託（舊）</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="pt-2">
-                                    <button type="button" onclick="importTransaction()"
-                                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors">
-                                        ✓ 新增交易記錄
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 年度統計 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
-                        <div class="text-slate-400 text-sm mb-1">本年度已實現損益</div>
-                        <div id="yearProfit" class="text-2xl font-bold">TWD 0</div>
-                    </div>
-                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
-                        <div class="text-slate-400 text-sm mb-1">本年度交易次數</div>
-                        <div id="yearTransactions" class="text-2xl font-bold text-slate-100">0 筆</div>
-                    </div>
-                </div>
-
-                <!-- 交易記錄表格 -->
-                <div class="bg-zinc-950 border border-zinc-800 rounded-lg shadow-xl overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="border-b border-zinc-800">
-                                    <th class="px-3 py-2.5 text-left text-xs uppercase tracking-wider text-zinc-500 font-medium">日期</th>
-                                    <th class="px-3 py-2.5 text-center text-xs uppercase tracking-wider text-zinc-500 font-medium">類型</th>
-                                    <th class="px-3 py-2.5 text-left text-xs uppercase tracking-wider text-zinc-500 font-medium">代號</th>
-                                    <th class="px-3 py-2.5 text-left text-xs uppercase tracking-wider text-zinc-500 font-medium">公司名稱</th>
-                                    <th class="px-3 py-2.5 text-right text-xs uppercase tracking-wider text-zinc-500 font-medium">股數</th>
-                                    <th class="px-3 py-2.5 text-right text-xs uppercase tracking-wider text-zinc-500 font-medium">價格</th>
-                                    <th class="px-3 py-2.5 text-right text-xs uppercase tracking-wider text-zinc-500 font-medium">手續費</th>
-                                    <th class="px-3 py-2.5 text-right text-xs uppercase tracking-wider text-zinc-500 font-medium">交易稅</th>
-                                    <th class="px-3 py-2.5 text-right text-xs uppercase tracking-wider text-zinc-500 font-medium">成交金額</th>
-                                    <th class="px-3 py-2.5 text-right text-xs uppercase tracking-wider text-zinc-500 font-medium">已實現損益</th>
-                                    <th class="px-3 py-2.5 text-left text-xs uppercase tracking-wider text-zinc-500 font-medium">持有人</th>
-                                    <th class="px-3 py-2.5 text-left text-xs uppercase tracking-wider text-zinc-500 font-medium">平台</th>
-                                    <th class="px-3 py-2.5 text-center text-xs uppercase tracking-wider text-zinc-500 font-medium no-print">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="transactionsTableBody" class="divide-y divide-zinc-800">
-                                <tr><td colspan="13" class="px-4 py-8 text-center text-zinc-500">載入中...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- 現金流分頁 -->
-            <div id="cashflowTab" class="tab-content">
-              <div class="db-pro-wrap">
-                <!-- 標題 -->
-                <div class="db-header">
-                  <div>
-                    <h2 class="db-title">收支管理</h2>
-                    <p class="db-subtitle">所有金額單位 TWD · 月均自動換算 · 投資交易連動</p>
-                  </div>
-                  <div style="flex-shrink:0">
-                    <select id="cf-year-select" onchange="cfSwitchYear(this.value)" style="background:#2c2b27;border:1px solid rgba(255,255,255,.15);color:#f0ede6;font-size:14px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer;font-family:var(--mono);outline:none"></select>
-                  </div>
-                </div>
-
-              <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 mb-6">
-                <!-- 年度 KPI -->
-                <div class="db-kpi-grid db-kpi-grid-4" style="margin-bottom:1.5rem">
-                  <div class="db-kpi-card db-kpi-card-sm">
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">年收入</div>
-                      <div class="db-kpi-value db-kpi-value-sm" id="cf-s-year-in" style="color:#4aad6e">$0</div>
-                    </div>
-                  </div>
-                  <div class="db-kpi-card db-kpi-card-sm">
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">年固定支出</div>
-                      <div class="db-kpi-value db-kpi-value-sm" id="cf-s-year-exp" style="color:#d9534f">$0</div>
-                    </div>
-                  </div>
-                  <div class="db-kpi-card db-kpi-card-sm">
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">信用卡年度累積</div>
-                      <div class="db-kpi-value db-kpi-value-sm" id="cf-s-year-card">$0</div>
-                    </div>
-                  </div>
-                  <div class="db-kpi-card db-kpi-card-sm">
-                    <div class="db-kpi-body">
-                      <div class="db-kpi-label">年度投資淨流出</div>
-                      <div class="db-kpi-value db-kpi-value-sm" id="cf-s-year-invest-net">$0</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="cf-sec" style="margin-top:0"><span class="cf-sec-lbl">家庭成員</span><div class="cf-sec-bar"></div></div>
-                <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:.5rem" id="cf-member-tags"></div>
-                <div style="display:flex;gap:6px">
-                  <input id="cf-new-member" placeholder="新增成員名稱" style="flex:1;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none" onkeydown="if(event.key==='Enter')cfAddMember()">
-                  <button onclick="cfAddMember()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增</button>
-                </div>
-
-                <!-- 單一表格確保欄位垂直對齊 -->
-                <table class="cf-tbl" id="cf-master-tbl">
-                  <colgroup><col style="width:22%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:16%"><col style="width:16%"><col style="width:12%"><col style="width:4%"></colgroup>
-
-                  <!-- ===== 收入 ===== -->
-                  <tbody>
-                    <tr class="cf-sec-row"><td colspan="8"><div class="cf-sec" style="margin-top:.8rem"><span class="cf-sec-lbl">收入（按月記錄）</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-income">—</span></div></td></tr>
-                    <tr class="cf-hdr-row"><th colspan="3">月份</th><th>筆數</th><th colspan="2" class="r">合計（TWD）</th><th></th><th></th></tr>
-                  </tbody>
-                  <tbody id="cf-income-body"></tbody>
-
-                  <!-- ===== 固定支出 ===== -->
-                  <tbody>
-                    <tr class="cf-sec-row"><td colspan="8"><div class="cf-sec"><span class="cf-sec-lbl">固定支出</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-expense">—</span></div><p style="font-size:11px;color:#9a9890;padding:0;margin:0">點擊項目名稱可編輯詳細資料</p></td></tr>
-                    <tr class="cf-hdr-row"><th colspan="5">項目名稱</th><th class="r">金額</th><th class="r">月均（TWD）</th><th></th></tr>
-                  </tbody>
-                  <tbody id="cf-expense-body"></tbody>
-                  <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfAddRow('expense')">+ 新增支出項目</button></td></tr></tbody>
-
-                  <!-- ===== 信用卡帳單 ===== -->
-                  <tbody>
-                    <tr class="cf-sec-row"><td colspan="8"><div class="cf-sec"><span class="cf-sec-lbl">信用卡帳單</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-card">—</span></div><p style="font-size:11px;color:#9a9890;padding:0;margin:0">點擊月份可輸入各家銀行金額</p></td></tr>
-                    <tr class="cf-hdr-row"><th colspan="3">帳單月份</th><th>筆數</th><th class="r" colspan="2">月合計（TWD）</th><th></th><th></th></tr>
-                  </tbody>
-                  <tbody id="cf-card-body"></tbody>
-                  <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfAddCard()">+ 新增帳單</button></td></tr></tbody>
-
-                  <!-- ===== 投資收支（交易連動） ===== -->
-                  <tbody>
-                    <tr class="cf-sec-row"><td colspan="8"><div class="cf-sec"><span class="cf-sec-lbl">投資收支</span><div class="cf-sec-bar"></div><span class="cf-sec-tot" id="cf-st-invest">—</span></div><p style="font-size:11px;color:#9a9890;padding:0;margin:0">自動從交易記錄連動，顯示各月買賣金額</p></td></tr>
-                    <tr class="cf-hdr-row"><th colspan="2" class="cf-invest-hdr-hide">月份</th><th class="cf-invest-hdr-hide">買入</th><th class="cf-invest-hdr-hide">賣出</th><th class="cf-invest-hdr-hide r">買入金額</th><th class="cf-invest-hdr-hide r">賣出金額</th><th class="r">淨流出</th><th></th></tr>
-                  </tbody>
-                  <tbody id="cf-invest-body"></tbody>
-                  <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfSyncTxInvest(this)" style="color:#c8b89a">↻ 更新交易連動</button></td></tr></tbody>
-                </table>
-
-                <!-- 年度結餘 -->
-                <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl" id="cf-annual-title">年度結餘</span><div class="cf-sec-bar"></div></div>
-                <div class="db-section-card" style="margin-bottom:12px" id="cf-annual-balance">
-                  <table style="width:100%;border-collapse:collapse">
-                    <thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)">
-                      <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 5px;font-weight:600;letter-spacing:.04em">項目</th>
-                      <th style="text-align:right;font-size:11px;color:#9a9890;padding:6px 5px;font-weight:600;letter-spacing:.04em">年合計</th>
-                    </tr></thead>
-                    <tbody id="cf-annual-body"></tbody>
-                  </table>
-                </div>
-
-                <!-- 彙總圖表 -->
-                <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl">收支結構</span><div class="cf-sec-bar"></div></div>
-                <div class="db-section-card" style="margin-bottom:12px">
-                  <div style="display:flex;flex-direction:column;gap:14px">
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">收入</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-in" style="width:0%;background:#10b981"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-in-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">固定支出</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-exp" style="width:0%;background:#ef4444"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-exp-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">信用卡</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-card" style="width:0%;background:#f59e0b"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-card-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">投資流出</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-inv" style="width:0%;background:#8b5cf6"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-inv-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">結餘率</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-fcf" style="width:0%;background:#f0ede6"></div></div><span style="font-size:14px;font-weight:700;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-fcf-p">0%</span></div>
-                  </div>
-                </div>
-                <p class="db-footer">資料同步至 Firebase 雲端 · 跨裝置共享</p>
-              </div>
-              </div>
-            </div>
-
-            <!-- 第六頁：AI 分析 -->
-            <div id="aiTab" class="tab-content">
-              <div class="ai-page">
-                <!-- 標題 -->
-                <div class="ai-pg-header">
-                  <div>
-                    <h2 class="db-title">AI 智慧分析</h2>
-                    <p class="db-subtitle">Claude · Gemini · Grok 三引擎獨立分析 · 股票 + 固定資產 + 現金 + 負債全面診斷</p>
-                  </div>
-                </div>
-
-                <!-- 資料驗證狀態列 -->
-                <div class="ai-data-status">
-                  <span class="ai-ds-title">資料來源驗證</span>
-                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">持股報價</span><span class="ai-ds-time" id="ai-ds-stock-time">--</span></div>
-                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">VIX/原油</span><span class="ai-ds-time" id="ai-ds-macro-time">--</span></div>
-                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">匯率</span><span class="ai-ds-time" id="ai-ds-fx-time">--</span></div>
-                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">固定資產</span><span class="ai-ds-time">手動</span></div>
-                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">現金存款</span><span class="ai-ds-time">手動</span></div>
-                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-ok"></span><span class="ai-ds-label">負債明細</span><span class="ai-ds-time">收支管理</span></div>
-                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-warn"></span><span class="ai-ds-label">FED 利率</span><span class="ai-ds-time" id="ai-ds-fed-time">--</span></div>
-                  <div class="ai-ds-item"><span class="ai-ds-dot ai-ds-warn"></span><span class="ai-ds-label">CPI</span><span class="ai-ds-time" id="ai-ds-cpi-time">--</span></div>
-                  <button class="ai-ds-refresh" onclick="aiRefreshAllData()">重新抓取全部</button>
-                </div>
-
-                <!-- 宏觀指標 -->
-                <div class="ai-macro-strip">
-                  <div class="ai-macro-chip"><div class="ai-macro-label">VIX 恐慌指數</div><div class="ai-macro-val" id="ai-macro-vix">--</div></div>
-                  <div class="ai-macro-chip"><div class="ai-macro-label">WTI 原油</div><div class="ai-macro-val" id="ai-macro-oil">--</div></div>
-                  <div class="ai-macro-chip"><div class="ai-macro-label">FED 利率</div><div class="ai-macro-val" id="ai-macro-fed">--</div></div>
-                  <div class="ai-macro-chip"><div class="ai-macro-label">CPI 通膨 YoY</div><div class="ai-macro-val" id="ai-macro-cpi">--</div></div>
-                </div>
-
-                <!-- 全面資產概況 -->
-                <div class="ai-asset-overview">
-                  <div class="ai-asset-card">
-                    <div class="ai-ac-head"><div class="ai-ac-icon ai-ac-icon-stock">📈</div><div class="ai-ac-title">股票投資</div></div>
-                    <div class="ai-ac-val ai-ac-green" id="ai-asset-stock">$0</div>
-                    <div class="ai-ac-detail" id="ai-asset-stock-detail"></div>
-                    <div class="ai-ac-source">來源：持股總覽 · 即時報價</div>
-                  </div>
-                  <div class="ai-asset-card">
-                    <div class="ai-ac-head"><div class="ai-ac-icon ai-ac-icon-prop">🏠</div><div class="ai-ac-title">固定資產</div></div>
-                    <div class="ai-ac-val ai-ac-blue" id="ai-asset-prop">$0</div>
-                    <div class="ai-ac-detail" id="ai-asset-prop-detail"></div>
-                    <div class="ai-ac-source">來源：資產總覽 · 手動估值</div>
-                  </div>
-                  <div class="ai-asset-card">
-                    <div class="ai-ac-head"><div class="ai-ac-icon ai-ac-icon-cash">💰</div><div class="ai-ac-title">現金存款</div></div>
-                    <div class="ai-ac-val ai-ac-gold" id="ai-asset-cash">$0</div>
-                    <div class="ai-ac-detail" id="ai-asset-cash-detail"></div>
-                    <div class="ai-ac-source">來源：資產總覽 · 手動更新</div>
-                  </div>
-                  <div class="ai-asset-card">
-                    <div class="ai-ac-head"><div class="ai-ac-icon ai-ac-icon-debt">🏦</div><div class="ai-ac-title">負債總額</div></div>
-                    <div class="ai-ac-val ai-ac-red" id="ai-asset-debt">$0</div>
-                    <div class="ai-ac-detail" id="ai-asset-debt-detail"></div>
-                    <div class="ai-ac-source">來源：收支管理 · 貸款明細</div>
-                  </div>
-                </div>
-
-                <!-- 5 年目標進度追蹤 + AI 策略 -->
-                <div class="ai-goal-section">
-                  <div class="ai-goal-header">
-                    <div class="ai-goal-title">5 年資產目標 — <span>$50,000,000</span></div>
-                    <span class="ai-goal-badge">2026 → 2031 · 三 AI 調整策略</span>
-                  </div>
-                  <div class="ai-goal-progress">
-                    <div class="ai-gp-stats">
-                      <div class="ai-gp-current">目前淨資產<br><strong id="ai-goal-current">$0</strong></div>
-                      <div style="text-align:center">
-                        <div style="font-size:10px;color:#7a7872;margin-bottom:2px">剩餘差額</div>
-                        <div style="font-size:1rem;font-weight:700;font-family:var(--mono);color:#e8675a" id="ai-goal-gap">$0</div>
-                      </div>
-                      <div class="ai-gp-target">5 年目標<br><strong id="ai-goal-target">$50,000,000</strong></div>
-                    </div>
-                    <div class="ai-gp-bar-wrap">
-                      <div class="ai-gp-bar-fill" id="ai-goal-bar" style="width:0%">
-                        <span class="ai-gp-bar-pct" id="ai-goal-pct">0%</span>
-                      </div>
-                    </div>
-                    <div class="ai-gp-timeline" id="ai-goal-timeline"></div>
-                  </div>
-                  <div class="ai-goal-ctrl">
-                    <span class="ai-goal-label">目標金額</span>
-                    <input class="ai-goal-input" id="ai-goal-amount-input" value="50,000,000" />
-                    <span class="ai-goal-label">年限</span>
-                    <input class="ai-goal-input" id="ai-goal-years-input" value="5" style="width:60px" />
-                    <span class="ai-goal-label">年</span>
-                    <span class="ai-goal-label" style="margin-left:12px">每月定期投入</span>
-                    <input class="ai-goal-input" id="ai-goal-monthly-input" value="50,000" style="width:100px" />
-                    <span class="ai-goal-label">TWD</span>
-                    <button class="ai-goal-btn" style="margin-left:auto" onclick="aiGenerateStrategy()">產生 AI 策略建議</button>
-                  </div>
-                  <!-- 三 AI 策略 -->
-                  <div class="ai-goal-grid">
-                    <div class="ai-goal-col" id="ai-strategy-claude"><div class="ai-goal-ai-head"><div class="ai-goal-logo logo-c">C</div><div class="ai-goal-ai-name">Claude</div></div><div class="ai-goal-placeholder">點擊「產生 AI 策略建議」開始分析</div></div>
-                    <div class="ai-goal-col" id="ai-strategy-gemini"><div class="ai-goal-ai-head"><div class="ai-goal-logo logo-g">G</div><div class="ai-goal-ai-name">Gemini</div></div><div class="ai-goal-placeholder">點擊「產生 AI 策略建議」開始分析</div></div>
-                    <div class="ai-goal-col" id="ai-strategy-grok"><div class="ai-goal-ai-head"><div class="ai-goal-logo logo-x">X</div><div class="ai-goal-ai-name">Grok</div></div><div class="ai-goal-placeholder">點擊「產生 AI 策略建議」開始分析</div></div>
-                  </div>
-                  <!-- 共識 vs 分歧 -->
-                  <div class="ai-consensus" id="ai-consensus" style="display:none"></div>
-                </div>
-
-                <!-- 主佈局：左持股 + 右分析 -->
-                <div class="ai-main-layout">
-                  <!-- 左側持股清單 -->
-                  <div class="ai-stock-sidebar">
-                    <div class="ai-sb-header">
-                      <div class="ai-sb-title">持股清單 <span style="font-size:9px;color:#c8b89a;font-weight:400;cursor:pointer" onclick="switchTab('overview')">← 持股總覽</span></div>
-                      <div class="ai-sb-summary" id="ai-sb-summary">共 0 檔 · 總市值 <strong>$0</strong></div>
-                    </div>
-                    <div class="ai-sb-list" id="ai-stock-list"></div>
-                  </div>
-                  <!-- 右側分析區 -->
-                  <div class="ai-analysis-main">
-                    <!-- TradingView -->
-                    <div class="ai-tv-wrap">
-                      <div class="ai-tv-header">
-                        <div class="ai-tv-stock-info">
-                          <div><span class="ai-tv-sym" id="ai-tv-symbol">--</span> <span class="ai-tv-name" id="ai-tv-name">請選擇股票</span></div>
-                          <div class="ai-tv-price" id="ai-tv-price">--</div>
-                        </div>
-                        <div style="display:flex;gap:6px">
-                          <select class="ai-tv-select" id="ai-tv-interval" onchange="aiChangeInterval()">
-                            <option value="D">日線</option><option value="W">週線</option><option value="M">月線</option><option value="5">5分</option><option value="15">15分</option><option value="60">1小時</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div class="ai-tv-chart" id="ai-tv-chart">選擇左側持股以載入圖表</div>
-                    </div>
-                    <!-- 分析按鈕 -->
-                    <div class="ai-analyze-bar">
-                      <button class="ai-analyze-btn" onclick="aiAnalyzeStock()">開始分析此股票</button>
-                      <span class="ai-analyze-status" id="ai-analyze-status">點擊左側持股自動切換圖表 · 按下按鈕觸發 AI 分析</span>
-                    </div>
-                    <!-- AI 三欄個股分析 -->
-                    <div class="ai-grid" id="ai-stock-analysis">
-                      <div class="ai-col">
-                        <div class="ai-head"><div class="ai-logo logo-c">C</div><div><div class="ai-name">Claude</div><div class="ai-model">claude-sonnet-4</div></div></div>
-                        <div class="ai-body" id="ai-stock-claude"><div class="ai-goal-placeholder">選擇股票後點擊分析</div></div>
-                      </div>
-                      <div class="ai-col">
-                        <div class="ai-head"><div class="ai-logo logo-g">G</div><div><div class="ai-name">Gemini</div><div class="ai-model">gemini-2.5-flash</div></div></div>
-                        <div class="ai-body" id="ai-stock-gemini"><div class="ai-goal-placeholder">選擇股票後點擊分析</div></div>
-                      </div>
-                      <div class="ai-col">
-                        <div class="ai-head"><div class="ai-logo logo-x">X</div><div><div class="ai-name">Grok</div><div class="ai-model">grok-3</div></div></div>
-                        <div class="ai-body" id="ai-stock-grok"><div class="ai-goal-placeholder">選擇股票後點擊分析</div></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <p class="ai-footer">AI 分析僅供參考，不構成投資建議 · 三 AI 獨立分析同一份驗證資料（含持股、固定資產、現金、負債明細）</p>
-              </div>
-            </div>
-
-            <!-- 手機端浮動新增按鈕 -->
-            <button class="mobile-fab no-print" onclick="openAddStockModal()">+</button>
-            
-            <!-- 手機端新增表單彈窗 -->
-            <!-- ⚠️ 優化備註：此彈窗與下方 addStockModal 功能重複。手機 FAB 目前呼叫的是 openAddStockModal()，
-                 若 js/stocks.js 中沒有任何地方開啟 mobileFormOverlay，這整段（含 addStockMobile 相關）可以刪除。
-                 為避免破壞現有 JS，先保留。 -->
-            <div id="mobileFormOverlay" class="mobile-form-overlay no-print" style="display: none;" onclick="closeMobileForm(event)">
-                <div class="mobile-form-container" onclick="event.stopPropagation()">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-lg font-bold text-slate-100">新增股票</h2>
-                        <button onclick="closeMobileForm()" class="text-slate-400 text-2xl">&times;</button>
-                    </div>
-                    <div class="space-y-3">
-                        <div>
-                            <label class="block text-slate-300 text-xs mb-1">購買日期 *</label>
-                            <input type="date" id="mobileDate" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm" />
-                        </div>
-                        <div>
-                            <label class="block text-slate-300 text-xs mb-1">地區 *</label>
-                            <select id="mobileRegion" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm">
-                                <option value="台股">台股</option><option value="美股">美股</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-slate-300 text-xs mb-1">股票代號 *</label>
-                            <input type="text" id="mobileSymbol" required placeholder="例如：2330 或 AAPL"
-                                   class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 font-mono text-sm"
-                                   style="text-transform: uppercase;" onchange="fetchCompanyNameMobile()" />
-                        </div>
-                        <div>
-                            <label class="block text-slate-300 text-xs mb-1">公司名稱</label>
-                            <input type="text" id="mobileCompany" placeholder="自動獲取" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm" readonly />
-                        </div>
-                        <div class="flex gap-3">
-                            <div class="flex-1">
-                                <label class="block text-slate-300 text-xs mb-1">股數 *</label>
-                                <input type="number" id="mobileShares" required placeholder="持有股數" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm" onchange="calculateCostMobile()" />
-                            </div>
-                            <div class="flex-1">
-                                <label class="block text-slate-300 text-xs mb-1">成本價</label>
-                                <input type="number" id="mobileCostPrice" placeholder="每股成本" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm" step="0.01" onchange="calculateCostMobile()" />
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-slate-300 text-xs mb-1">投資成本</label>
-                            <input type="number" id="mobileCost" placeholder="總投資金額" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm" onchange="calculateCostPriceMobile()" />
-                        </div>
-                        <div class="flex gap-3">
-                            <div class="flex-1">
-                                <label class="block text-slate-300 text-xs mb-1">持有人 *</label>
-                                <select id="mobileHolder" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm">
-                                    <option value="">請選擇</option>
-                                    <option>Rebecca</option><option>Eric</option><option>Ian</option>
-                                </select>
-                            </div>
-                            <div class="flex-1">
-                                <label class="block text-slate-300 text-xs mb-1">平台</label>
-                                <select id="mobilePlatform" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded-lg border border-slate-600 text-sm">
-                                    <option>複委託</option><option>證券</option><option>信託</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="pt-2 space-y-2">
-                            <button onclick="addStockMobile()" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-lg text-sm">新增股票</button>
-                            <button onclick="closeMobileForm()" class="w-full bg-slate-600 hover:bg-slate-500 text-white py-2.5 rounded-lg text-sm">取消</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="p-body">
+          <span class="p-num">01 — TOTAL ASSETS</span>
+          <h3>家族總資產管理</h3>
+          <ul>
+            <li>定存與現金存款</li>
+            <li>流動資產（股票市值）</li>
+            <li>固定資產（房產）</li>
+            <li>負債</li>
+            <li>年度花費 — 信用卡</li>
+            <li>年度花費 — 非信用卡支出</li>
+          </ul>
+          <span class="p-go">進入總覽</span>
         </div>
-    </div>
+      </a>
 
-    <div id="analysisModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='analysisModal') closeAnalysisModal()">
-        <div id="analysisContent" class="analysis-content bg-slate-800 border-2 border-blue-500 rounded-lg max-w-5xl w-full mx-4" onclick="event.stopPropagation()"></div>
-    </div>
-    
-    <!-- 買入模態框 -->
-    <div id="buyModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='buyModal') closeBuyModal()">
-        <div class="bg-slate-800 border-2 border-blue-500 rounded-lg max-w-md w-full mx-4 p-6" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold" style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;gap:5px;background:#2d5a1b;color:#7ed957;border:1px solid #4a8a2a;border-radius:7px;padding:4px 12px;font-size:14px;letter-spacing:.06em"><svg width="12" height="12" viewBox="0 0 10 10" fill="none"><path d="M5 1L9 8H1L5 1Z" fill="#7ed957"/></svg>BUY</span><span style="color:#ccc9bf">買入股票</span></h3><button onclick="closeBuyModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
-            <div class="space-y-4">
-                <div><label class="block text-sm text-slate-300 mb-1">股票</label><div id="buyStockInfo" class="text-lg font-semibold text-slate-100"></div></div>
-                <div><label class="block text-sm text-slate-300 mb-1">目前持有股數</label><div id="buyCurrentShares" class="text-lg font-bold text-blue-400"></div></div>
-                <div><label class="block text-sm text-slate-300 mb-1">目前平均成本價</label><div id="buyCurrentCost" class="text-lg font-bold text-yellow-400"></div></div>
-                <div><label for="buyDate" class="block text-sm text-slate-300 mb-1">買入日期 *</label><input type="date" id="buyDate" required class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600" /></div>
-                <div><label for="buyShares" class="block text-sm text-slate-300 mb-1">買入股數 *</label><input type="number" id="buyShares" min="1" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono" placeholder="輸入要買入的股數" /></div>
-                <div><label for="buyPrice" class="block text-sm text-slate-300 mb-1">買入價格 *</label><input type="number" id="buyPrice" min="0" step="0.01" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono" placeholder="輸入買入價格" /></div>
-                <div><label for="buyFee" class="block text-sm text-slate-300 mb-1">手續費</label><input type="number" id="buyFee" min="0" step="0.01" value="0" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono" /><div class="text-xs text-slate-400 mt-1">台股約 0.1425%，美股約 $1-$10</div></div>
-                <div class="bg-blue-900 bg-opacity-30 border border-blue-700 rounded-lg p-3"><div class="text-xs text-blue-300">💡 提示：買入後系統會自動重新計算平均成本價</div></div>
-                <div class="flex gap-3 mt-6"><button onclick="confirmBuy()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">確認買入</button><button onclick="closeBuyModal()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold">取消</button></div>
-            </div>
+      <a class="pillar" href="portfolio.html#invest">
+        <div class="thumb">
+          <svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
+            <rect width="300" height="150" fill="#0d0d0d"/>
+            <rect x="52" y="88" width="24" height="38" fill="#4a4a4a"/>
+            <rect x="92" y="66" width="24" height="60" fill="#8a8a8a"/>
+            <rect x="132" y="76" width="24" height="50" fill="#5e5e5e"/>
+            <rect x="172" y="46" width="24" height="80" fill="#c4c4c4"/>
+            <rect x="212" y="28" width="24" height="98" fill="#f0f0f0"/>
+            <polyline points="52,84 104,58 144,68 184,38 236,20" fill="none" stroke="#fff" stroke-width="3"/>
+          </svg>
         </div>
-    </div>
-    
-    <!-- 賣出模態框 -->
-    <div id="sellModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='sellModal') closeSellModal()">
-        <div class="bg-slate-800 border-2 border-green-500 rounded-lg max-w-md w-full mx-4 p-6" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold" style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;gap:5px;background:#5a1b1b;color:#f05a7e;border:1px solid #8a2a3a;border-radius:7px;padding:4px 12px;font-size:14px;letter-spacing:.06em"><svg width="12" height="12" viewBox="0 0 10 10" fill="none"><path d="M5 9L9 2H1L5 9Z" fill="#f05a7e"/></svg>SELL</span><span style="color:#ccc9bf">賣出股票</span></h3><button onclick="closeSellModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
-            <div class="space-y-4">
-                <div><label class="block text-sm text-slate-300 mb-1">股票</label><div id="sellStockInfo" class="text-lg font-semibold text-slate-100"></div></div>
-                <div><label class="block text-sm text-slate-300 mb-1">目前持有股數</label><div id="sellCurrentShares" class="text-lg font-bold text-blue-400"></div></div>
-                <div><label for="sellDate" class="block text-sm text-slate-300 mb-1">賣出日期 *</label><input type="date" id="sellDate" required class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600" /></div>
-                <div><label for="sellShares" class="block text-sm text-slate-300 mb-1">賣出股數 *</label><input type="number" id="sellShares" min="1" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono" placeholder="輸入要賣出的股數" /></div>
-                <div><label for="sellPrice" class="block text-sm text-slate-300 mb-1">賣出價格 *</label><input type="number" id="sellPrice" min="0" step="0.01" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono" placeholder="輸入賣出價格" /></div>
-                <div><label for="sellFee" class="block text-sm text-slate-300 mb-1">手續費</label><input type="number" id="sellFee" min="0" step="0.01" value="0" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono" /><div class="text-xs text-slate-400 mt-1">台股約 0.1425%，美股約 $1-$10</div></div>
-                <div><label for="sellTax" class="block text-sm text-slate-300 mb-1">交易稅</label><input type="number" id="sellTax" min="0" step="0.01" value="0" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 text-lg font-mono" /><div class="text-xs text-slate-400 mt-1">台股約 0.3%，美股無交易稅</div></div>
-                <div class="bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded-lg p-3"><div class="text-xs text-yellow-300">💡 提示：賣出後系統會自動計算已實現損益並記錄交易</div></div>
-                <div class="flex gap-3 mt-6"><button onclick="confirmSell()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold">確認賣出</button><button onclick="closeSellModal()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold">取消</button></div>
-            </div>
+        <div class="p-body">
+          <span class="p-num">02 — INVESTMENTS</span>
+          <h3>家族投資管理</h3>
+          <ul>
+            <li>台股持股與損益</li>
+            <li>美股持股與損益</li>
+            <li>交易記錄（券商信件自動匯入）</li>
+            <li>年度報酬率</li>
+            <li>AI 智慧分析</li>
+          </ul>
+          <span class="p-go">進入投資</span>
         </div>
-    </div>
+      </a>
 
-    <!-- 新增股票模態框 -->
-    <div id="addStockModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='addStockModal') closeAddStockModal()">
-        <div class="bg-slate-800 border-2 border-green-500 rounded-lg max-w-2xl w-full mx-4 p-6" style="max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-green-400">➕ 新增股票</h3><button onclick="closeAddStockModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
-            <form id="addStockForm" class="space-y-3">
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="block text-sm text-slate-300 mb-1">購買日期 *</label><input type="date" id="newDate" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm" /></div>
-                    <div><label class="block text-sm text-slate-300 mb-1">地區 *</label><select id="newRegion" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm"><option value="台股">台股</option><option value="美股">美股</option></select></div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="block text-sm text-slate-300 mb-1">股票代號 *</label><input type="text" id="newSymbol" required placeholder="例如：2330, TSLA" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm" style="text-transform: uppercase;" onchange="fetchNewCompanyName()" /></div>
-                    <div><label class="block text-sm text-slate-300 mb-1">公司名稱</label><input type="text" id="newCompany" placeholder="輸入代號後自動帶出" readonly class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 text-sm" /></div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="block text-sm text-slate-300 mb-1">股數 *</label><input type="number" id="newShares" required min="1" step="1" placeholder="1000" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm" oninput="calculateNewCost()" /></div>
-                    <div><label class="block text-sm text-slate-300 mb-1">購買價格 *</label><input type="number" id="newCostPrice" required min="0" step="0.01" placeholder="150.50" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm" oninput="calculateNewCost()" /></div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="block text-sm text-slate-300 mb-1">手續費</label><input type="number" id="newFee" min="0" step="0.01" value="0" class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm" oninput="calculateNewCost()" /><div class="text-xs text-slate-500 mt-1">台股約 0.1425%，美股約 $1-$10</div></div>
-                    <div><label class="block text-sm text-slate-300 mb-1">總投資成本</label><input type="number" id="newTotalCost" readonly class="w-full bg-slate-600 text-slate-300 px-3 py-2 rounded border border-slate-600 text-sm" /><div class="text-xs text-slate-500 mt-1">自動計算 = 股數 × 價格 + 手續費</div></div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="block text-sm text-slate-300 mb-1">持有人 *</label><select id="newHolder" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm"><option value="">選擇持有人</option><option value="Rebecca">Rebecca</option><option value="Eric">Eric</option><option value="Ian">Ian</option></select></div>
-                    <div><label class="block text-sm text-slate-300 mb-1">交易平台 *</label><select id="newPlatform" required class="w-full bg-slate-700 text-slate-100 px-3 py-2 rounded border border-slate-600 focus:border-green-500 focus:outline-none text-sm"><option value="複委託">複委託</option><option value="證券">證券</option><option value="信託">信託</option></select></div>
-                </div>
-                <div class="flex gap-3 pt-2"><button type="button" onclick="confirmAddStock(event)" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">確認新增</button><button type="button" onclick="closeAddStockModal()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold text-sm">取消</button></div>
-            </form>
+      <a class="pillar" href="portfolio.html#spend">
+        <div class="thumb">
+          <svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
+            <rect width="300" height="150" fill="#0d0d0d"/>
+            <rect x="70" y="34" width="160" height="96" rx="10" fill="#e8e8e8"/>
+            <rect x="70" y="52" width="160" height="16" fill="#111"/>
+            <rect x="86" y="86" width="60" height="9" fill="#8a8a8a"/>
+            <rect x="86" y="102" width="38" height="9" fill="#bdbdbd"/>
+            <circle cx="204" cy="98" r="12" fill="#4a4a4a"/>
+            <circle cx="188" cy="98" r="12" fill="#9a9a9a"/>
+          </svg>
         </div>
-    </div>
-
-    <!-- 編輯交易模態框 -->
-    <div id="editTransactionModal" class="analysis-modal" style="display: none;" onclick="if(event.target.id==='editTransactionModal') closeEditTransactionModal()">
-        <div class="bg-slate-800 border-2 border-purple-500 rounded-lg max-w-2xl w-full mx-4 p-6" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold" style="display:flex;align-items:center;gap:8px"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="11" y="1" width="6" height="3" rx="1" transform="rotate(45 11 1)" fill="#e05252"/><rect x="9.5" y="2.5" width="6" height="9" rx="0.5" transform="rotate(45 9.5 2.5)" fill="#f5a623"/><rect x="9.5" y="2.5" width="2" height="9" rx="0.5" transform="rotate(45 9.5 2.5)" fill="#f7c26b"/><path d="M3 14.5L4.5 17L2 18L3 14.5Z" fill="#7a7a7a"/><path d="M3 14.5L5.5 12L8 14.5L5.5 17L3 14.5Z" fill="#f5a623"/><line x1="2" y1="18.5" x2="8" y2="18.5" stroke="#ccc9bf" stroke-width="1" stroke-linecap="round"/></svg><span style="color:#ccc9bf">編輯交易記錄</span></h3><button onclick="closeEditTransactionModal()" class="text-slate-400 hover:text-slate-200 text-2xl leading-none">&times;</button></div>
-            <form id="editTransactionForm" class="space-y-4">
-                <input type="hidden" id="editTxId">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm text-slate-300 mb-2">交易日期 *</label><input type="date" id="editTxDate" required class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" /></div>
-                    <div><label class="block text-sm text-slate-300 mb-2">交易類型 *</label><select id="editTxType" required onchange="updateEditTypeFields()" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none"><option value="買入">買入</option><option value="賣出">賣出</option></select></div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm text-slate-300 mb-2">地區 *</label><input type="text" id="editTxRegion" readonly class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" /></div>
-                    <div><label class="block text-sm text-slate-300 mb-2">股票代號 *</label><input type="text" id="editTxSymbol" readonly class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" /></div>
-                </div>
-                <div><label class="block text-sm text-slate-300 mb-2">公司名稱</label><input type="text" id="editTxCompany" readonly class="w-full bg-slate-600 text-slate-300 px-4 py-2 rounded border border-slate-600" /></div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm text-slate-300 mb-2">股數 *</label><input type="number" id="editTxShares" required min="1" step="1" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" /></div>
-                    <div><label class="block text-sm text-slate-300 mb-2">價格 *</label><input type="number" id="editTxPrice" required min="0" step="0.01" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" /></div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm text-slate-300 mb-2">手續費</label><input type="number" id="editTxFee" min="0" step="0.01" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" /></div>
-                    <div id="editTxTaxField"><label class="block text-sm text-slate-300 mb-2">交易稅</label><input type="number" id="editTxTax" min="0" step="0.01" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" /></div>
-                </div>
-                <div id="editTxProfitField"><label class="block text-sm text-slate-300 mb-2">已實現損益（選填）</label><input type="number" id="editTxProfit" step="0.01" class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none" /></div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="block text-sm text-slate-300 mb-2">持有人 *</label><select id="editTxHolder" required class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none"><option value="Rebecca">Rebecca</option><option value="Eric">Eric</option><option value="Ian">Ian</option></select></div>
-                    <div><label class="block text-sm text-slate-300 mb-2">交易平台 *</label><select id="editTxPlatform" required class="w-full bg-slate-700 text-slate-100 px-4 py-2 rounded border border-slate-600 focus:border-purple-500 focus:outline-none"><option value="複委託">複委託</option><option value="證券">證券</option><option value="信託">信託</option></select></div>
-                </div>
-                <div class="flex gap-3 mt-6"><button type="button" onclick="saveEditTransaction()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold">✓ 儲存變更</button><button type="button" onclick="closeEditTransactionModal()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-semibold">取消</button></div>
-            </form>
+        <div class="p-body">
+          <span class="p-num">03 — SPENDING</span>
+          <h3>家族消費管理</h3>
+          <ul>
+            <li>信用卡支出總管理</li>
+            <li>各卡月帳單彙總</li>
+            <li>年度累積統計</li>
+            <li>收入與固定支出對照</li>
+            <li>結餘率追蹤</li>
+          </ul>
+          <span class="p-go">進入消費</span>
         </div>
-    </div>
+      </a>
 
-    <!-- 優化：xlsx 延遲載入 — 只有按下「匯出 Excel」時才下載約 900KB 的函式庫 -->
-    <script>
-    window.lazyExportToExcel = function () {
-        if (window.XLSX) { window.exportToExcel(); return; }
-        var s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-        s.onload = function () { window.exportToExcel(); };
-        s.onerror = function () { alert('Excel 匯出元件載入失敗，請檢查網路後再試一次'); };
-        document.head.appendChild(s);
-    };
-    </script>
-    <!-- 優化：全部加上 defer，不阻擋頁面渲染；defer 腳本依文件順序執行，
-         順序為 chart.js → lightweight-charts → cashflow → dashboard → ai-analysis → stocks(module)，
-         與原本的載入順序完全一致 -->
-    <script defer src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
-    <script defer src="js/cashflow.js"></script>
-    <script defer src="js/dashboard.js"></script>
-    <script defer src="js/ai-analysis.js"></script>
-    <script type="module" src="js/stocks.js"></script>
+    </div>
+  </div>
+
+  <!-- ═══ 自動化流程 ═══ -->
+  <section class="band">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>自動化流程<span class="en">Automated Pipeline</span></h2>
+      </div>
+      <div class="flow">
+        <div class="step"><b>Statement</b><span>券商寄送<br>交割對帳信件</span></div>
+        <div class="step"><b>Fetch</b><span>每交易日自動抓信<br>已抓過不重抓</span></div>
+        <div class="step"><b>Parse</b><span>解密 PDF<br>解析逐筆成交</span></div>
+        <div class="step"><b>Rebuild</b><span>交易入帳<br>持股自動重算</span></div>
+        <div class="step"><b>Report</b><span>資產彙總<br>即時呈現</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 下一步 ═══ -->
+  <div class="wrap next">
+    <div class="sec-head">
+      <h2>下一步<span class="en">Next Step</span></h2>
+    </div>
+    <div class="next-grid">
+      <div class="next-row">
+        <a class="next-cta" href="portfolio.html">進入管理系統</a>
+        <div class="next-desc">
+          <b>Google 帳號登入後使用</b>
+          <ul>
+            <li>總資產 / 投資 / 消費　三區一站管理</li>
+            <li>台股・美股報價自動更新</li>
+          </ul>
+        </div>
+      </div>
+      <div class="next-row">
+        <a class="next-cta" href="https://taifex-backtest.vercel.app" target="_blank" rel="noopener">台指期回測</a>
+        <div class="next-desc">
+          <b>獨立專案（模擬交易 + 保證金監控）</b>
+          <ul>
+            <li>已拆分至 taifex-backtest，不影響資產系統</li>
+            <li>策略回測・模擬下單・保證金水位監控</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ═══ Footer ═══ -->
+<footer>
+  <h2>家族專用</h2>
+  <p>僅限 Rebecca ・ Eric 使用</p>
+  <span class="f-chip">CONTACT</span>
+  <div class="f-val">rebeccawang0517@gmail.com</div>
+  <div class="f-note">FAMILY WEALTH PLATFORM — DATA SYNCED VIA FIREBASE</div>
+</footer>
+
+<script>
+document.getElementById('today').textContent =
+  new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+</script>
 </body>
 </html>
