@@ -80,17 +80,40 @@
     // 收入按月記錄，每項有 monthly: {"2026-01": "50000", ...}
     function cfIncomeMonthAmt(r,ym){return r.monthly?.[ym]??'';}
     function cfIncomeMonthTotal(ym){return cfIncome.reduce((s,r)=>s+(parseFloat(cfIncomeMonthAmt(r,ym))||0),0);}
+    // 單項的「整年支出」：單次項目直接計入當年，其餘依頻率換算
+    function expenseYearAmt(r){
+      const a=cfGetAmt(r);
+      return r.freq==='once'?(parseFloat(a)||0):toMo(a,r.freq)*12;
+    }
+    function cfExpenseYearTotal(){return cfExpense.reduce((s,r)=>s+expenseYearAmt(r),0);}
     function expenseRow(r){
-      const a=cfGetAmt(r);const mo=r.freq==='once'?'—':cfFmt(toMo(a,r.freq));
-      // 所有支出行都打開統一的編輯對話框
-      const nameCell=`<span onclick="cfOpenUnifiedExpenseModal('${r.id}')" style="cursor:pointer;color:#c8b89a;text-decoration:underline;font-size:12px;display:inline-block;padding:4px 0" title="點擊編輯">${r.name||'(未命名)'}</span>`;
+      const a=cfGetAmt(r);
+      const yr=expenseYearAmt(r);
+      // 原始輸入頻率備註（例：每月 $33,253），金額欄一律顯示整年
+      const freqNote=(r.freq&&r.freq!=='yearly')
+        ?`<span style="font-size:10px;color:#7a7872;margin-left:6px">${FREQS[r.freq]||''} ${cfFmt(parseFloat(a)||0)}</span>`:'';
+      const nameCell=`<span onclick="cfOpenUnifiedExpenseModal('${r.id}')" style="cursor:pointer;color:#c8b89a;text-decoration:underline;font-size:12px;display:inline-block;padding:4px 0" title="點擊編輯">${r.name||'(未命名)'}</span>${freqNote}`;
       return `<tr id="tr-${r.id}">
         <td colspan="5">${nameCell}</td>
-        <td><input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${a}" placeholder="0" oninput="cfSa('expense','${r.id}',this.value)"></td>
-        <td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td>
+        <td><input class="cf-te r" type="number" id="cf-amt-${r.id}" value="${Math.round(yr)}" placeholder="0" oninput="cfSaExpenseYear('${r.id}',this.value)"></td>
+        <td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${cfFmt(yr/12)}</td>
         <td><button class="cf-del" onclick="cfDelRow('expense','${r.id}')">×</button></td>
       </tr>`;
     }
+    // 金額欄輸入整年支出：改存年頻率，月均即時更新
+    window.cfSaExpenseYear=function(id,v){
+      const r=cfExpense.find(x=>x.id===id);if(!r)return;
+      r.freq='yearly';cfSetAmt(r,v);
+      const yr=parseFloat(v)||0;
+      const moEl=document.getElementById('cf-mo-'+id);if(moEl)moEl.textContent=cfFmt(yr/12);
+      const yrTot=cfExpenseYearTotal();
+      const sub=document.querySelector('#cf-expense-body .cf-sub');
+      if(sub){const vals=sub.querySelectorAll('.cf-sub-val');
+        if(vals[0])vals[0].textContent=cfFmt(yrTot);
+        if(vals[1])vals[1].textContent=cfFmt(yrTot/12);}
+      const st=document.getElementById('cf-st-expense');if(st)st.textContent=cfFmt(yrTot)+'/年';
+      cfCalc();cfSave();
+    };
     function investRow(r,type){
       const mo=r.freq==='once'?'—':cfFmt(toMo(r.amt,r.freq));
       return `<tr><td colspan="2"><input class="cf-te" value="${r.name}" placeholder="項目說明" oninput="cfSf('${type}','${r.id}','name',this.value)"></td><td><select class="cf-sel" onchange="cfSf('${type}','${r.id}','owner',this.value)">${mOpts(r.owner)}</select></td><td><select class="cf-sel" onchange="cfSfq('${type}','${r.id}',this.value)">${fOpts(r.freq)}</select></td><td><input class="cf-te r" type="number" value="${r.amt}" placeholder="0" oninput="cfSa('${type}','${r.id}',this.value)"></td><td style="text-align:right;font-size:12px;font-family:'Courier New',monospace;color:#9a9890;padding:7px 4px" id="cf-mo-${r.id}">${mo}</td><td></td><td><button class="cf-del" onclick="cfDelRow('${type}','${r.id}')">×</button></td></tr>`;
@@ -227,7 +250,7 @@
 
     function cfRenderExpense(){
       const el=document.getElementById('cf-expense-body');if(!el)return;
-      const tot=cfExpense.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
+      const yrTot=cfExpenseYearTotal();
       // 按類型排序：房貸→信貸→其他貸款→一般
       const order={loan_mortgage:0,loan_credit:1,loan_other:2,general:3};
       const sorted=[...cfExpense].sort((a,b)=>(order[a.etype||'general']??3)-(order[b.etype||'general']??3));
@@ -243,9 +266,9 @@
           </td></tr>`;
         }
       }
-      html+=subRow(tot,'月支出小計',5,'<td colspan="2"></td>');
+      html+=`<tr class="cf-sub"><td colspan="5" class="cf-sub-lbl">支出合計</td><td class="cf-sub-val">${cfFmt(yrTot)}</td><td class="cf-sub-val" style="font-size:12px;color:#9a9890">${cfFmt(yrTot/12)}</td><td></td></tr>`;
       el.innerHTML=html;
-      const st=document.getElementById('cf-st-expense');if(st)st.textContent=cfFmt(tot)+'/月';
+      const st=document.getElementById('cf-st-expense');if(st)st.textContent=cfFmt(yrTot)+'/年';
     }
     window.cfCopyExpenseFromYear=function(fromYr){
       cfExpense.forEach(r=>{
@@ -564,7 +587,8 @@
       let yrInTotal=0;
       for(let m=1;m<=12;m++){yrInTotal+=cfIncomeMonthTotal(yrStr+'-'+String(m).padStart(2,'0'));}
       const moIn=yrInTotal/12;
-      const moExp=cfExpense.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
+      const yrExpTotal=cfExpenseYearTotal(); // 含單次項目的整年固定支出
+      const moExp=yrExpTotal/12;
       // 信用卡：自動（消費明細彙總）+ 手動合併
       const ccEntries=cfCardCombined(yrStr);
       const yrCardTotal=ccEntries.reduce((s,e)=>s+e.amt,0);
@@ -582,7 +606,7 @@
       set('cf-s-year-in',cfFmt(yrInTotal),'#4aad6e');
       set('cf-s-year-fcf',cfFmt(fcf*12),fcf>0?'#4aad6e':fcf<0?'#e8675a':'#f0ede6');
       // 年度統計卡片 - 投資淨流出用實際交易計算
-      const yrExpense = moExp * 12;
+      const yrExpense = yrExpTotal;
       const yrCard = yrCardTotal;
       // 改用實際交易計算投資淨流出，與投資收支表一致
       const txs_calc=window._cfTransactions||[];
@@ -617,7 +641,7 @@
           if(t.type==='買入')yrBuy+=twd;else if(t.type==='賣出')yrSell+=twd;
         });
         const yrInvestNet=yrBuy-yrSell;
-        const yrIncome=yrInTotal, yrExpense=moExp*12;
+        const yrIncome=yrInTotal, yrExpense=yrExpTotal;
         const yrCard=yrCardTotal; // 自動 + 手動合併
         const yrBalance=yrIncome-yrExpense-yrCard-yrInvestNet;
         const savePct=yrIncome>0?Math.round((yrBalance/yrIncome)*100):0;
