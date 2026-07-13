@@ -282,6 +282,9 @@
       });
       return entries;
     }
+    // 折疊狀態：外層只顯示各月總額，點擊展開卡別明細
+    const cfCardOpen={};
+    window.cfToggleCardMonth=function(m){cfCardOpen[m]=!cfCardOpen[m];cfRenderCards();};
     function cfRenderCards(){
       const el=document.getElementById('cf-card-body');if(!el)return;
       const yrStr=String(cfYear);
@@ -292,21 +295,26 @@
       const months=Object.keys(byMonth).sort().reverse();
       let html=months.map(m=>{
         const items=byMonth[m];
+        const open=!!cfCardOpen[m];
         const mTot=items.reduce((s,r)=>s+r.amt,0);
         const label=m.length===7?(m.replace('-','年')+'月'):(m||'未分類');
         const autoAny=items.some(i=>i.auto);
-        const click=autoAny?`location.href='/spend?m=${m}'`:`cfOpenMonth('${m}')`;
-        const hint=autoAny?'點擊查看消費明細':'點擊編輯';
-        let rows=`<tr onclick="${click}" style="cursor:pointer" title="${hint}" onmouseover="this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.background=''">
-          <td colspan="3" style="padding:8px 5px;font-size:13px;color:#c8b89a;font-weight:500">${label}${autoAny?' <span style="font-size:10px;color:#4aad6e;border:1px solid rgba(74,173,110,.4);border-radius:4px;padding:1px 6px;margin-left:6px">自動</span>':''}</td>
-          <td style="font-size:12px;color:#9a9890;padding:8px 4px">${items.length} 卡</td>
-          <td colspan="2" style="text-align:right;font-size:13px;font-family:var(--mono);color:#f0ede6;padding:8px 4px">${cfFmt(mTot)}</td>
+        let rows=`<tr onclick="cfToggleCardMonth('${m}')" style="cursor:pointer" title="${open?'收合':'展開明細'}" onmouseover="this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.background=''">
+          <td colspan="3" style="padding:9px 5px;font-size:13px;color:#c8b89a;font-weight:500"><span style="display:inline-block;width:14px;color:#9a9890;transition:transform .15s;transform:rotate(${open?90:0}deg)">▸</span>${label}${autoAny?' <span style="font-size:10px;color:#4aad6e;border:1px solid rgba(74,173,110,.4);border-radius:4px;padding:1px 6px;margin-left:6px">自動</span>':''}</td>
+          <td style="font-size:12px;color:#9a9890;padding:9px 4px">${items.length} 卡</td>
+          <td colspan="2" style="text-align:right;font-size:13px;font-family:var(--mono);color:#f0ede6;padding:9px 4px">${cfFmt(mTot)}</td>
           <td></td><td></td></tr>`;
-        rows+=items.map(i=>`<tr>
-          <td colspan="3" style="padding:4px 5px 4px 22px;font-size:12px;color:#9a9890">${i.owner} · ${i.bank}${i.auto?'':' <span style="font-size:10px;color:#9a9890">(手動)</span>'}</td>
-          <td></td>
-          <td colspan="2" style="text-align:right;font-size:12px;font-family:var(--mono);color:#ccc9bf;padding:4px 4px">${cfFmt(i.amt)}</td>
-          <td></td><td></td></tr>`).join('');
+        if(open){
+          rows+=items.map(i=>`<tr style="background:rgba(255,255,255,.015)">
+            <td colspan="3" style="padding:4px 5px 4px 26px;font-size:12px;color:#9a9890">${i.owner} · ${i.bank}${i.auto?'':' <span style="font-size:10px;color:#9a9890">(手動)</span>'}</td>
+            <td></td>
+            <td colspan="2" style="text-align:right;font-size:12px;font-family:var(--mono);color:#ccc9bf;padding:4px 4px">${cfFmt(i.amt)}</td>
+            <td></td><td></td></tr>`).join('');
+          const action=autoAny
+            ?`<a href="/spend?m=${m}" style="color:#c8b89a;text-decoration:none">查看消費明細 →</a>`
+            :`<span onclick="event.stopPropagation();cfOpenMonth('${m}')" style="color:#c8b89a;cursor:pointer">編輯帳單 →</span>`;
+          rows+=`<tr style="background:rgba(255,255,255,.015)"><td colspan="8" style="padding:4px 5px 8px 26px;font-size:11px">${action}</td></tr>`;
+        }
         return rows;
       }).join('');
       if(!months.length) html=`<tr><td colspan="8" style="padding:12px 5px;font-size:12px;color:#9a9890;text-align:center">${yrStr} 年尚無帳單</td></tr>`;
@@ -600,15 +608,28 @@
         const yrIncome=yrInTotal, yrExpense=moExp*12;
         const yrCard=yrCardTotal; // 自動 + 手動合併
         const yrBalance=yrIncome-yrExpense-yrCard-yrInvestNet;
-        const row=(label,val,color)=>`<tr style="border-bottom:1px solid rgba(255,255,255,.06)"><td style="padding:7px 5px;font-size:13px;color:#ccc9bf">${label}</td><td style="text-align:right;padding:7px 5px;font-size:13px;font-family:var(--mono);color:${color||'#f0ede6'}">${cfFmt(val)}</td></tr>`;
+        const savePct=yrIncome>0?Math.round((yrBalance/yrIncome)*100):0;
         const titleEl=document.getElementById('cf-annual-title');
-        if(titleEl)titleEl.textContent=yrStr+' 年度結餘';
+        if(titleEl)titleEl.textContent=yrStr+' 收支結構與年度結餘';
+        // 合併呈現：年合計長條（單色量值，數值直接標示）+ 結餘列
+        const maxV=Math.max(yrIncome,yrExpense,yrCard,Math.abs(yrInvestNet),1);
+        const bar=(label,val,color)=>{
+          const w=Math.max(1,Math.round(Math.abs(val)/maxV*100));
+          return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:11px">
+            <span style="width:88px;font-size:13px;color:#ccc9bf;flex-shrink:0">${label}</span>
+            <div class="db-bar-track" style="flex:1"><div class="db-bar-fill" style="width:${w}%;background:${color}"></div></div>
+            <span style="min-width:110px;text-align:right;font-family:var(--mono);font-size:13px;color:${color}">${cfFmt(Math.abs(val))}</span></div>`;
+        };
         annEl.innerHTML=
-          row('年收入',yrIncome,'#4aad6e')+
-          row('年固定支出',yrExpense,'#e8675a')+
-          row('年信用卡',yrCard,'#e8675a')+
-          row('年投資淨流出',yrInvestNet,yrInvestNet>0?'#e8675a':'#4aad6e')+
-          `<tr style="border-top:2px solid rgba(255,255,255,.15)"><td style="padding:8px 5px;font-size:15px;font-weight:700;color:#f0ede6">年結餘</td><td style="text-align:right;padding:8px 5px;font-size:16px;font-weight:700;font-family:var(--mono);color:${yrBalance>=0?'#4aad6e':'#e8675a'}">${cfFmt(yrBalance)}</td></tr>`;
+          bar('年收入',yrIncome,'#4aad6e')+
+          bar('固定支出',yrExpense,'#e8675a')+
+          bar('信用卡',yrCard,'#e8675a')+
+          bar('投資淨流出',yrInvestNet,yrInvestNet>0?'#e8675a':'#4aad6e')+
+          `<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.12);padding-top:12px;margin-top:4px">
+            <span style="font-size:14px;font-weight:700;color:#f0ede6">年結餘</span>
+            <span><span style="font-family:var(--mono);font-size:17px;font-weight:700;color:${yrBalance>=0?'#4aad6e':'#e8675a'}">${cfFmt(yrBalance)}</span>
+            <span style="font-size:11px;color:#9a9890;margin-left:10px">結餘率 ${savePct}%</span></span>
+          </div>`;
       }
       // 年度現金流統計：供資產總覽的「年度現金流」區塊使用
       window.cfYearStats={

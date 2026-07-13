@@ -7,7 +7,7 @@
 <style>
 :root{
   --bg:#0a0a0a;--panel:#141414;--panel2:#1c1c1c;--line:rgba(255,255,255,.12);
-  --ink:#f0f0f0;--dim:#9a9a9a;--faint:#5c5c5c;
+  --ink:#f0f0f0;--dim:#9a9a9a;--faint:#5c5c5c;--bar:#c9c9c9;
   --sans:"Segoe UI","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
   --mono:Consolas,"SF Mono",monospace;
 }
@@ -33,6 +33,11 @@ header{border-bottom:1px solid var(--line);background:#000}
 .btn{background:var(--panel2);border:1px solid var(--line);color:#ccc;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:.04em}
 .btn:hover{background:#2a2a2a}
 
+/* 視圖切換 */
+.views{display:flex;gap:8px;margin-bottom:20px}
+.view-tab{background:var(--panel2);border:1px solid var(--line);color:var(--dim);padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.08em;font-family:inherit}
+.view-tab.on{background:#e8e8e8;color:#111;border-color:#e8e8e8}
+
 /* 篩選列 */
 .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
 .filters select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;cursor:pointer}
@@ -43,29 +48,48 @@ header{border-bottom:1px solid var(--line);background:#000}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
 .kpi b{display:block;font-size:11px;color:var(--dim);letter-spacing:.18em;margin-bottom:8px;font-weight:600}
 .kpi span{font-size:22px;font-weight:800;font-family:var(--mono)}
+.kpi small{display:block;font-size:11px;color:var(--faint);margin-top:4px}
 
-/* 類別彙總 chips */
+/* 區塊卡 */
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.sec h2{font-size:13px;letter-spacing:.2em;color:var(--dim);font-weight:700;margin-bottom:16px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:860px){.two-col{grid-template-columns:1fr}}
+
+/* 類別長條列 */
+.cat-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.cat-row .nm{width:76px;font-size:13px;color:#ccc;flex-shrink:0}
+.cat-row .track{flex:1;background:rgba(255,255,255,.06);border-radius:5px;height:14px;overflow:hidden}
+.cat-row .fill{height:100%;background:var(--bar);border-radius:0 4px 4px 0}
+.cat-row .val{min-width:96px;text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+.cat-row .pct{width:44px;text-align:right;font-size:11px;color:var(--dim)}
+
+/* 排行表 */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:10.5px;letter-spacing:.14em;color:var(--faint);padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600;white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,.025)}
+td.r,th.r{text-align:right}
+td.amt{font-family:var(--mono);font-weight:600;white-space:nowrap}
+td .rank{display:inline-block;width:24px;height:24px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--dim);font-size:11px;font-family:var(--mono);text-align:center;line-height:22px}
+td .rank.top{background:#e8e8e8;color:#111;border-color:#e8e8e8;font-weight:700}
+td .merchant{max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.pill{display:inline-block;font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:2px 10px;white-space:nowrap}
+
+/* 明細表 */
+.tbl-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:auto}
+.tbl-wrap table{min-width:760px;font-size:13.5px}
+.tbl-wrap th{padding:12px 14px;font-size:11px}
+.tbl-wrap td{padding:10px 14px}
+td select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:inherit;outline:none;cursor:pointer;min-width:96px}
+td select.edited{border-color:#8a8a8a;background:#242424}
 .cats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
 .cat-chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:12px;color:#ccc;cursor:pointer;user-select:none}
 .cat-chip small{color:var(--dim);font-family:var(--mono);margin-left:6px}
 .cat-chip.on{background:#f0f0f0;color:#111;font-weight:700}
 .cat-chip.on small{color:#555}
-
-/* 表格 */
-.tbl-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:auto}
-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
-th{text-align:left;font-size:11px;letter-spacing:.16em;color:var(--faint);padding:12px 14px;border-bottom:1px solid var(--line);font-weight:600;white-space:nowrap}
-td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
-tr:hover td{background:rgba(255,255,255,.025)}
-td.r,th.r{text-align:right}
-td.amt{font-family:var(--mono);font-weight:600;white-space:nowrap}
-td.amt.neg{color:#8a8a8a}
-td .merchant{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
-td select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:inherit;outline:none;cursor:pointer;min-width:96px}
-td select.edited{border-color:#8a8a8a;background:#242424}
-.pill{display:inline-block;font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:2px 10px;white-space:nowrap}
 .foot-note{color:var(--faint);font-size:11px;letter-spacing:.14em;text-align:center;padding:26px 0 8px}
-#status{font-size:12px;color:var(--dim);padding:8px 2px}
+#status,#statusD{font-size:12px;color:var(--dim);padding:8px 2px}
 .hidden{display:none!important}
 @media (max-width:700px){.wrap{padding:14px}}
 </style>
@@ -95,33 +119,84 @@ td select.edited{border-color:#8a8a8a;background:#242424}
   </header>
 
   <div class="wrap">
-    <div class="filters">
-      <span class="lbl">帳單月份</span><select id="fMonth"></select>
-      <span class="lbl">持卡人</span>
-      <select id="fPerson"><option value="">全部</option><option value="rebecca">Rebecca</option><option value="eric">Eric</option></select>
-      <span class="lbl">銀行</span><select id="fBank"><option value="">全部</option></select>
-      <span id="status"></span>
+    <div class="views">
+      <button class="view-tab on" id="tabOverview" onclick="switchView('overview')">年度總覽</button>
+      <button class="view-tab" id="tabDetail" onclick="switchView('detail')">消費明細</button>
     </div>
 
-    <div class="kpis">
-      <div class="kpi"><b>本月支出</b><span id="kTotal">$0</span></div>
-      <div class="kpi"><b>筆數</b><span id="kCount">0</span></div>
-      <div class="kpi"><b>最大單筆</b><span id="kMax">$0</span></div>
-      <div class="kpi"><b>手動調整分類</b><span id="kEdited">0</span></div>
+    <!-- ═══ 年度總覽 ═══ -->
+    <div id="viewOverview">
+      <div class="filters">
+        <span class="lbl">年度</span><select id="fYear"></select>
+        <span class="lbl">持卡人</span>
+        <select id="fPersonO"><option value="">全部</option><option value="rebecca">Rebecca</option><option value="eric">Eric</option></select>
+        <span id="status"></span>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><b>年度總花費</b><span id="oTotal">$0</span><small id="oMonths"></small></div>
+        <div class="kpi"><b>消費筆數</b><span id="oCount">0</span></div>
+        <div class="kpi"><b>月均支出</b><span id="oAvg">$0</span></div>
+        <div class="kpi"><b>最大單筆</b><span id="oMax">$0</span><small id="oMaxWho"></small></div>
+      </div>
+
+      <div class="sec">
+        <h2>各類別花費總額</h2>
+        <div id="oCats"></div>
+      </div>
+
+      <div class="two-col">
+        <div class="sec" style="margin-bottom:0">
+          <h2>年度 TOP 20 消費</h2>
+          <div style="overflow:auto">
+          <table>
+            <thead><tr><th></th><th>日期</th><th>商家</th><th>持卡人</th><th class="r">金額</th></tr></thead>
+            <tbody id="oTopSpend"></tbody>
+          </table>
+          </div>
+        </div>
+        <div class="sec" style="margin-bottom:0">
+          <h2>常去 TOP 20 店家</h2>
+          <div style="overflow:auto">
+          <table>
+            <thead><tr><th></th><th>店家</th><th class="r">次數</th><th class="r">總額</th></tr></thead>
+            <tbody id="oTopShop"></tbody>
+          </table>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="cats" id="catChips"></div>
+    <!-- ═══ 消費明細 ═══ -->
+    <div id="viewDetail" class="hidden">
+      <div class="filters">
+        <span class="lbl">帳單月份</span><select id="fMonth"></select>
+        <span class="lbl">持卡人</span>
+        <select id="fPerson"><option value="">全部</option><option value="rebecca">Rebecca</option><option value="eric">Eric</option></select>
+        <span class="lbl">銀行</span><select id="fBank"><option value="">全部</option></select>
+        <span id="statusD"></span>
+      </div>
 
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th>日期</th><th>商家</th><th class="r">金額</th><th>分類</th><th>持卡人</th><th>銀行</th>
-        </tr></thead>
-        <tbody id="tbody"><tr><td colspan="6" style="text-align:center;color:#666;padding:30px">載入中…</td></tr></tbody>
-      </table>
+      <div class="kpis">
+        <div class="kpi"><b>本月支出</b><span id="kTotal">$0</span></div>
+        <div class="kpi"><b>筆數</b><span id="kCount">0</span></div>
+        <div class="kpi"><b>最大單筆</b><span id="kMax">$0</span></div>
+        <div class="kpi"><b>手動調整分類</b><span id="kEdited">0</span></div>
+      </div>
+
+      <div class="cats" id="catChips"></div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>日期</th><th>商家</th><th class="r">金額</th><th>分類</th><th>持卡人</th><th>銀行</th>
+          </tr></thead>
+          <tbody id="tbody"><tr><td colspan="6" style="text-align:center;color:#666;padding:30px">載入中…</td></tr></tbody>
+        </table>
+      </div>
     </div>
 
-    <p class="foot-note">分類下拉可直接修改，會即時存回雲端（重抓帳單不會蓋掉手動分類）· 資料來源：各銀行電子帳單自動解析</p>
+    <p class="foot-note">分類下拉可直接修改，即時存回雲端（重抓帳單不會蓋掉手動分類）· 資料來源：各銀行電子帳單自動解析</p>
   </div>
 </div>
 
@@ -148,12 +223,24 @@ window.logout = () => signOut(auth);
 
 const CATEGORIES = ['餐飲','超市','購物','交通','加油','娛樂','旅遊','醫療','保險','繳費','訂閱','教育','其他'];
 const PERSON_LABEL = { rebecca: 'Rebecca', eric: 'Eric' };
-let ALL = [];          // 全部交易
-let catFilter = null;  // 點類別 chip 篩選
+let ALL = [];
+let catFilter = null;
 
 const $ = id => document.getElementById(id);
 const fmt = n => '$' + Math.round(n).toLocaleString();
 const ym = t => `${t.statementYear}-${String(t.statementMonth).padStart(2,'0')}`;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+// 店家分組：去空白、分期尾綴、/TW，減少同店不同寫法被拆開
+const normShop = s => String(s || '').replace(/\s+/g, '')
+  .replace(/第?\d+\/\d+期/g, '').replace(/\/TW$/, '').replace(/-[\d.]+$/, '');
+
+window.switchView = v => {
+  $('viewOverview').classList.toggle('hidden', v !== 'overview');
+  $('viewDetail').classList.toggle('hidden', v !== 'detail');
+  $('tabOverview').classList.toggle('on', v === 'overview');
+  $('tabDetail').classList.toggle('on', v === 'detail');
+};
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
@@ -170,19 +257,85 @@ async function loadAll() {
   $('status').textContent = '載入中…';
   const snap = await getDocs(collection(db, 'creditCardTransactions'));
   ALL = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  // 月份選單（新→舊）
+  // 明細：月份/銀行選單
   const months = [...new Set(ALL.map(ym))].sort().reverse();
   $('fMonth').innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
-  // 從收支管理點月份進來：?m=2026-06 預選該帳單月
-  const qm = new URLSearchParams(location.search).get('m');
-  if (qm && months.includes(qm)) $('fMonth').value = qm;
-  // 銀行選單
   const banks = [...new Set(ALL.map(t => t.bank))].sort();
   $('fBank').innerHTML = '<option value="">全部</option>' + banks.map(b => `<option>${b}</option>`).join('');
+  // 總覽：年度選單
+  const years = [...new Set(ALL.map(t => t.statementYear))].sort().reverse();
+  $('fYear').innerHTML = years.map(y => `<option value="${y}">${y} 年</option>`).join('');
   $('status').textContent = `共 ${ALL.length.toLocaleString()} 筆`;
+  $('statusD').textContent = `共 ${ALL.length.toLocaleString()} 筆`;
+  // 從收支管理點月份進來：直接切到明細並預選該月
+  const qm = new URLSearchParams(location.search).get('m');
+  if (qm && months.includes(qm)) { $('fMonth').value = qm; switchView('detail'); }
+  renderOverview();
   render();
 }
 
+/* ═══ 年度總覽 ═══ */
+function renderOverview() {
+  const y = parseInt($('fYear').value) || 0;
+  const p = $('fPersonO').value;
+  const rows = ALL.filter(t => t.statementYear === y && (!p || t.person === p));
+  const spend = rows.filter(t => t.amount > 0);
+  const total = spend.reduce((s, t) => s + t.amount, 0);
+  const monthsCovered = new Set(rows.map(t => t.statementMonth)).size || 1;
+
+  $('oTotal').textContent = fmt(total);
+  $('oMonths').textContent = `涵蓋 ${monthsCovered} 個帳單月`;
+  $('oCount').textContent = spend.length.toLocaleString();
+  $('oAvg').textContent = fmt(total / monthsCovered);
+  const maxT = spend.reduce((a, b) => (b.amount > (a?.amount || 0) ? b : a), null);
+  $('oMax').textContent = maxT ? fmt(maxT.amount) : '$0';
+  $('oMaxWho').textContent = maxT ? `${maxT.merchant.slice(0, 16)} · ${PERSON_LABEL[maxT.person] || ''}` : '';
+
+  // 各類別花費總額（單色量值長條，金額+占比直接標示）
+  const byCat = {};
+  for (const t of spend) byCat[t.category || '其他'] = (byCat[t.category || '其他'] || 0) + t.amount;
+  const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  const maxCat = cats.length ? cats[0][1] : 1;
+  $('oCats').innerHTML = cats.map(([c, v]) => `
+    <div class="cat-row">
+      <span class="nm">${esc(c)}</span>
+      <div class="track"><div class="fill" style="width:${Math.max(1, Math.round(v / maxCat * 100))}%"></div></div>
+      <span class="val">${fmt(v)}</span>
+      <span class="pct">${(v / total * 100).toFixed(1)}%</span>
+    </div>`).join('') || '<div style="color:#666;font-size:13px">尚無資料</div>';
+
+  // TOP20 消費（單筆金額）
+  const top = [...spend].sort((a, b) => b.amount - a.amount).slice(0, 20);
+  $('oTopSpend').innerHTML = top.map((t, i) => `
+    <tr>
+      <td><span class="rank${i < 3 ? ' top' : ''}">${i + 1}</span></td>
+      <td style="font-family:var(--mono);color:#bbb;white-space:nowrap">${t.date}</td>
+      <td><span class="merchant" title="${esc(t.merchant)}">${esc(t.merchant)}</span></td>
+      <td><span class="pill">${PERSON_LABEL[t.person] || t.person}</span></td>
+      <td class="amt r">${fmt(t.amount)}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">尚無資料</td></tr>';
+
+  // TOP20 店家（依消費次數；同店不同寫法先正規化合併）
+  const shops = {};
+  for (const t of spend) {
+    const k = normShop(t.merchant);
+    if (!shops[k]) shops[k] = { count: 0, total: 0, names: {} };
+    shops[k].count++; shops[k].total += t.amount;
+    shops[k].names[t.merchant] = (shops[k].names[t.merchant] || 0) + 1;
+  }
+  const topShops = Object.values(shops).sort((a, b) => b.count - a.count || b.total - a.total).slice(0, 20);
+  $('oTopShop').innerHTML = topShops.map((s, i) => {
+    const name = Object.entries(s.names).sort((a, b) => b[1] - a[1])[0][0];
+    return `<tr>
+      <td><span class="rank${i < 3 ? ' top' : ''}">${i + 1}</span></td>
+      <td><span class="merchant" title="${esc(name)}">${esc(name)}</span></td>
+      <td class="r" style="font-family:var(--mono)">${s.count}</td>
+      <td class="amt r">${fmt(s.total)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" style="color:#666;text-align:center;padding:20px">尚無資料</td></tr>';
+}
+
+/* ═══ 消費明細 ═══ */
 function currentRows() {
   const m = $('fMonth').value, p = $('fPerson').value, b = $('fBank').value;
   return ALL.filter(t => ym(t) === m && (!p || t.person === p) && (!b || t.bank === b));
@@ -190,34 +343,31 @@ function currentRows() {
 
 function render() {
   const rows = currentRows();
-  // KPI（不受類別 chip 篩選影響，反映整月）
   const spend = rows.filter(t => t.amount > 0);
   $('kTotal').textContent = fmt(spend.reduce((s,t) => s + t.amount, 0));
   $('kCount').textContent = rows.length.toLocaleString();
   $('kMax').textContent = fmt(Math.max(0, ...spend.map(t => t.amount)));
   $('kEdited').textContent = rows.filter(t => t.categoryEdited).length;
 
-  // 類別彙總 chips
   const byCat = {};
   for (const t of spend) byCat[t.category || '其他'] = (byCat[t.category || '其他'] || 0) + t.amount;
   const cats = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
   if (catFilter && !byCat[catFilter]) catFilter = null;
   $('catChips').innerHTML = cats.map(([c,v]) =>
-    `<span class="cat-chip${catFilter===c?' on':''}" data-cat="${c}">${c}<small>${fmt(v)}</small></span>`).join('');
+    `<span class="cat-chip${catFilter===c?' on':''}" data-cat="${c}">${esc(c)}<small>${fmt(v)}</small></span>`).join('');
   $('catChips').querySelectorAll('.cat-chip').forEach(el =>
     el.onclick = () => { catFilter = catFilter === el.dataset.cat ? null : el.dataset.cat; render(); });
 
-  // 明細表
   const list = (catFilter ? rows.filter(t => (t.category||'其他') === catFilter) : rows)
     .sort((a,b) => b.date.localeCompare(a.date) || b.amount - a.amount);
   const allCats = [...new Set([...CATEGORIES, ...Object.keys(byCat)])];
   $('tbody').innerHTML = list.length ? list.map(t => `
     <tr>
       <td style="font-family:var(--mono);color:#bbb;white-space:nowrap">${t.date}</td>
-      <td><span class="merchant" title="${esc(t.merchant)}">${esc(t.merchant)}</span></td>
-      <td class="amt r${t.amount < 0 ? ' neg' : ''}">${t.amount < 0 ? '−' + fmt(-t.amount) : fmt(t.amount)}</td>
+      <td><span class="merchant" style="max-width:340px" title="${esc(t.merchant)}">${esc(t.merchant)}</span></td>
+      <td class="amt r"${t.amount < 0 ? ' style="color:#8a8a8a"' : ''}>${t.amount < 0 ? '−' + fmt(-t.amount) : fmt(t.amount)}</td>
       <td><select data-id="${t.id}" class="${t.categoryEdited ? 'edited' : ''}">
-        ${allCats.map(c => `<option${c === (t.category||'其他') ? ' selected' : ''}>${c}</option>`).join('')}
+        ${allCats.map(c => `<option${c === (t.category||'其他') ? ' selected' : ''}>${esc(c)}</option>`).join('')}
       </select></td>
       <td><span class="pill">${PERSON_LABEL[t.person] || t.person}</span></td>
       <td><span class="pill">${esc(t.bank)}</span></td>
@@ -232,6 +382,7 @@ function render() {
       await updateDoc(doc(db, 'creditCardTransactions', t.id), { category: val, categoryEdited: true });
       t.category = val; t.categoryEdited = true;
       render();
+      renderOverview(); // 類別統計同步更新
     } catch (e) {
       alert('儲存失敗：' + e.message);
       sel.disabled = false;
@@ -239,12 +390,8 @@ function render() {
   });
 }
 
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c =>
-    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-}
-
 ['fMonth','fPerson','fBank'].forEach(id => $(id).onchange = () => { catFilter = null; render(); });
+['fYear','fPersonO'].forEach(id => $(id).onchange = renderOverview);
 </script>
 </body>
 </html>

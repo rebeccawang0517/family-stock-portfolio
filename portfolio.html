@@ -276,25 +276,6 @@
                   </table>
                 </div>
 
-                <!-- 重要日期 -->
-                <div class="db-section-card">
-                  <div class="db-section-header">
-                    <h3 class="db-section-title">重要日期 DATES</h3>
-                  </div>
-                  <div id="db-dates-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:10px">
-                  </div>
-                  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
-                    <input id="db-rem-name" placeholder="提醒名稱" style="flex:1;min-width:120px;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
-                    <input id="db-rem-date" type="date" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
-                    <select id="db-rem-repeat" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
-                      <option value="once">單次</option>
-                      <option value="monthly">每月</option>
-                      <option value="yearly">每年</option>
-                    </select>
-                    <button onclick="dbAddReminder()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增提醒</button>
-                  </div>
-                </div>
-
                 <p class="db-footer">資料同步至 Firebase 雲端 · 股票市值從持股總覽即時讀取 · 年度現金流自動彙整收支/信用卡/交易</p>
               </div>
             </div>
@@ -808,30 +789,12 @@
                   <tbody><tr><td colspan="8" style="padding:0"><button class="cf-add-btn" onclick="cfSyncTxInvest(this)" style="color:#c8b89a">↻ 更新交易連動</button></td></tr></tbody>
                 </table>
 
-                <!-- 年度結餘 -->
-                <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl" id="cf-annual-title">年度結餘</span><div class="cf-sec-bar"></div></div>
+                <!-- 收支結構與年度結餘（合併：年合計長條 + 結餘） -->
+                <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl" id="cf-annual-title">收支結構與年度結餘</span><div class="cf-sec-bar"></div></div>
                 <div class="db-section-card" style="margin-bottom:12px" id="cf-annual-balance">
-                  <table style="width:100%;border-collapse:collapse">
-                    <thead><tr style="border-bottom:1px solid rgba(255,255,255,.1)">
-                      <th style="text-align:left;font-size:11px;color:#9a9890;padding:6px 5px;font-weight:600;letter-spacing:.04em">項目</th>
-                      <th style="text-align:right;font-size:11px;color:#9a9890;padding:6px 5px;font-weight:600;letter-spacing:.04em">年合計</th>
-                    </tr></thead>
-                    <tbody id="cf-annual-body"></tbody>
-                  </table>
+                  <div id="cf-annual-body"></div>
                 </div>
-
-                <!-- 彙總圖表 -->
-                <div class="cf-sec" style="margin-top:1.5rem"><span class="cf-sec-lbl">收支結構</span><div class="cf-sec-bar"></div></div>
-                <div class="db-section-card" style="margin-bottom:12px">
-                  <div style="display:flex;flex-direction:column;gap:14px">
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">收入</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-in" style="width:0%;background:#10b981"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-in-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">固定支出</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-exp" style="width:0%;background:#ef4444"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-exp-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">信用卡</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-card" style="width:0%;background:#f59e0b"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-card-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">投資流出</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-inv" style="width:0%;background:#8b5cf6"></div></div><span style="font-size:14px;font-weight:600;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-inv-v">$0</span></div>
-                    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:13px;font-weight:600;color:#ccc9bf;width:70px">結餘率</span><div class="db-bar-track"><div class="db-bar-fill" id="cf-b-fcf" style="width:0%;background:#f0ede6"></div></div><span style="font-size:14px;font-weight:700;font-family:var(--mono);color:#f0ede6;min-width:100px;text-align:right" id="cf-b-fcf-p">0%</span></div>
-                  </div>
-                </div>
-                <p class="db-footer">資料同步至 Firebase 雲端 · 跨裝置共享</p>
+                <p class="db-footer">資料同步至 Firebase 雲端 · 跨裝置共享 · 信用卡與投資金額自動連動</p>
               </div>
               </div>
             </div>
