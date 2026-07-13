@@ -276,7 +276,7 @@ function openCatPage(cat) {
   const p = $('fPersonO').value;
   const list = ALL.filter(t => t.statementYear === y && (!p || t.person === p)
       && !isPayment(t) && (t.category || '其他') === cat)
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => b.amount - a.amount); // 金額大到小
   const net = list.reduce((s, t) => s + t.amount, 0);
   $('catPageTitle').textContent = `${cat} — ${y} 年明細`;
   $('catPageSub').textContent = `${list.length} 筆 · 淨額 ${fmt(net)}` + (p ? ` · ${PERSON_LABEL[p]}` : '');
@@ -430,7 +430,11 @@ function renderOverview() {
       <td>${t.persons.map(p => `<span class="pill">${PERSON_LABEL[p] || p}</span>`).join(' ')}</td>
       <td class="amt r">${fmt(t.net)}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">尚無資料</td></tr>';
+  }).join('') + (top.length ? `
+    <tr style="border-top:2px solid rgba(255,255,255,.18)">
+      <td colspan="4" style="font-weight:700;color:#f0f0f0">合計（TOP ${top.length}）</td>
+      <td class="amt r" style="font-weight:800;font-size:14px">${fmt(top.reduce((s, t) => s + t.net, 0))}</td>
+    </tr>` : '') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">尚無資料</td></tr>';
 
   // TOP20 店家（依消費次數；同店不同寫法先正規化合併；退款扣入該店總額）
   const shops = {};
@@ -450,7 +454,12 @@ function renderOverview() {
       <td class="r" style="font-family:var(--mono)">${s.count}</td>
       <td class="amt r">${fmt(s.total)}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="4" style="color:#666;text-align:center;padding:20px">尚無資料</td></tr>';
+  }).join('') + (topShops.length ? `
+    <tr style="border-top:2px solid rgba(255,255,255,.18)">
+      <td colspan="2" style="font-weight:700;color:#f0f0f0">合計（TOP ${topShops.length}）</td>
+      <td class="r" style="font-family:var(--mono);font-weight:700">${topShops.reduce((s, x) => s + x.count, 0)}</td>
+      <td class="amt r" style="font-weight:800;font-size:14px">${fmt(topShops.reduce((s, x) => s + x.total, 0))}</td>
+    </tr>` : '') || '<tr><td colspan="4" style="color:#666;text-align:center;padding:20px">尚無資料</td></tr>';
 }
 
 /* ═══ 消費明細 ═══ */
