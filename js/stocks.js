@@ -546,7 +546,26 @@
             }
         }
 
+        // 持股明細的平台/持有人篩選：依實際持股資料動態產生選項，不再寫死
+        function populateDetailFilters() {
+            const fill = (id, values, emptyLabel) => {
+                const sel = document.getElementById(id);
+                if (!sel) return;
+                const cur = sel.value;
+                sel.innerHTML = `<option value="">${emptyLabel}</option>`;
+                [...values].sort().forEach(v => {
+                    const o = document.createElement('option');
+                    o.value = v; o.textContent = v;
+                    sel.appendChild(o);
+                });
+                if (cur) sel.value = cur;
+            };
+            fill('filterPlatform', new Set(stocks.map(s => s.platform).filter(Boolean)), '全部平台');
+            fill('filterHolder', new Set(stocks.map(s => s.holder).filter(Boolean)), '全部持有人');
+        }
+
         function renderStocks() {
+            populateDetailFilters();
             const tbody = document.getElementById('stockTableBody');
             const addRow = tbody.querySelector('tr');
             tbody.innerHTML = '';
@@ -1294,7 +1313,14 @@
             document.getElementById('editTxFee').value = tx.fee || 0;
             document.getElementById('editTxTax').value = tx.tax || 0;
             document.getElementById('editTxHolder').value = tx.holder;
-            document.getElementById('editTxPlatform').value = tx.platform;
+            // 舊資料的平台值若不在選單中，動態補上，避免顯示錯誤
+            const editPlatSel = document.getElementById('editTxPlatform');
+            if (tx.platform && ![...editPlatSel.options].some(o => o.value === tx.platform)) {
+                const o = document.createElement('option');
+                o.value = tx.platform; o.textContent = tx.platform;
+                editPlatSel.appendChild(o);
+            }
+            editPlatSel.value = tx.platform;
             if (tx.type === '賣出' && tx.realizedProfit !== undefined) document.getElementById('editTxProfit').value = tx.realizedProfit;
             updateEditTypeFields();
             document.getElementById('editTransactionModal').style.display = 'flex';
