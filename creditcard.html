@@ -231,9 +231,12 @@ const fmt = n => '$' + Math.round(n).toLocaleString();
 const ym = t => `${t.statementYear}-${String(t.statementMonth).padStart(2,'0')}`;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-// 店家分組：去空白、分期尾綴、/TW，減少同店不同寫法被拆開
+// 店家分組：去空白、分期尾綴、/TW、退款字樣，減少同店不同寫法被拆開
 const normShop = s => String(s || '').replace(/\s+/g, '')
+  .replace(/^信用卡消費折抵_/, '').replace(/\(退貨\)$/, '').replace(/退款$/, '')
   .replace(/第?\d+\/\d+期/g, '').replace(/\/TW$/, '').replace(/-[\d.]+$/, '');
+// 繳款/還款紀錄不是消費，所有統計一律排除（明細表仍會顯示）
+const isPayment = t => t.category === '繳款';
 
 window.switchView = v => {
   $('viewOverview').classList.toggle('hidden', v !== 'overview');
@@ -278,18 +281,33 @@ async function loadAll() {
 function renderOverview() {
   const y = parseInt($('fYear').value) || 0;
   const p = $('fPersonO').value;
-  const rows = ALL.filter(t => t.statementYear === y && (!p || t.person === p));
+  const rows = ALL.filter(t => t.statementYear === y && (!p || t.person === p) && !isPayment(t));
   const spend = rows.filter(t => t.amount > 0);
   const refund = rows.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0); // 負值
   const total = rows.reduce((s, t) => s + t.amount, 0); // 淨額（退款已扣）
   const monthsCovered = new Set(rows.map(t => t.statementMonth)).size || 1;
 
+  // 退款配對回同店家、同持卡人的消費（金額大者優先吸收），供 TOP20 / 最大單筆用淨額
+  const purchases = spend.map(t => ({ ...t, net: t.amount, refunded: 0 }));
+  const byShopP = {};
+  purchases.forEach(t => { const k = normShop(t.merchant) + '|' + t.person; (byShopP[k] = byShopP[k] || []).push(t); });
+  for (const r of rows) {
+    if (r.amount >= 0) continue;
+    let remain = -r.amount;
+    const list = (byShopP[normShop(r.merchant) + '|' + r.person] || []).sort((a, b) => b.net - a.net);
+    for (const t of list) {
+      if (remain <= 0) break;
+      const take = Math.min(remain, t.net);
+      t.net -= take; t.refunded += take; remain -= take;
+    }
+  }
+
   $('oTotal').textContent = fmt(total);
   $('oMonths').textContent = `涵蓋 ${monthsCovered} 個帳單月` + (refund < 0 ? ` · 已扣退款 ${fmt(-refund)}` : '');
   $('oCount').textContent = spend.length.toLocaleString();
   $('oAvg').textContent = fmt(total / monthsCovered);
-  const maxT = spend.reduce((a, b) => (b.amount > (a?.amount || 0) ? b : a), null);
-  $('oMax').textContent = maxT ? fmt(maxT.amount) : '$0';
+  const maxT = purchases.reduce((a, b) => (b.net > (a?.net || 0) ? b : a), null);
+  $('oMax').textContent = maxT ? fmt(maxT.net) : '$0';
   $('oMaxWho').textContent = maxT ? `${maxT.merchant.slice(0, 16)} · ${PERSON_LABEL[maxT.person] || ''}` : '';
 
   // 各類別花費總額（淨額：退款計入該類別扣減；單色量值長條，金額+占比直接標示）
@@ -305,15 +323,15 @@ function renderOverview() {
       <span class="pct">${total > 0 ? (v / total * 100).toFixed(1) + '%' : ''}</span>
     </div>`).join('') || '<div style="color:#666;font-size:13px">尚無資料</div>';
 
-  // TOP20 消費（單筆金額）
-  const top = [...spend].sort((a, b) => b.amount - a.amount).slice(0, 20);
+  // TOP20 消費（單筆淨額：退款已折回原消費，全額退掉的不再上榜）
+  const top = purchases.filter(t => t.net > 0).sort((a, b) => b.net - a.net).slice(0, 20);
   $('oTopSpend').innerHTML = top.map((t, i) => `
     <tr>
       <td><span class="rank${i < 3 ? ' top' : ''}">${i + 1}</span></td>
       <td style="font-family:var(--mono);color:#bbb;white-space:nowrap">${t.date}</td>
-      <td><span class="merchant" title="${esc(t.merchant)}">${esc(t.merchant)}</span></td>
+      <td><span class="merchant" title="${esc(t.merchant)}">${esc(t.merchant)}</span>${t.refunded > 0 ? `<span style="display:block;font-size:10.5px;color:#8a8a8a">原 ${fmt(t.amount)} · 退款 −${fmt(t.refunded)}</span>` : ''}</td>
       <td><span class="pill">${PERSON_LABEL[t.person] || t.person}</span></td>
-      <td class="amt r">${fmt(t.amount)}</td>
+      <td class="amt r">${fmt(t.net)}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">尚無資料</td></tr>';
 
   // TOP20 店家（依消費次數；同店不同寫法先正規化合併；退款扣入該店總額）
@@ -345,15 +363,16 @@ function currentRows() {
 
 function render() {
   const rows = currentRows();
-  const spend = rows.filter(t => t.amount > 0);
+  const stat = rows.filter(t => !isPayment(t)); // 統計排除繳款列（表格仍顯示）
+  const spend = stat.filter(t => t.amount > 0);
   // 本月支出 = 淨額（退款已扣）
-  $('kTotal').textContent = fmt(rows.reduce((s,t) => s + t.amount, 0));
-  $('kCount').textContent = rows.length.toLocaleString();
+  $('kTotal').textContent = fmt(stat.reduce((s,t) => s + t.amount, 0));
+  $('kCount').textContent = stat.length.toLocaleString();
   $('kMax').textContent = fmt(Math.max(0, ...spend.map(t => t.amount)));
   $('kEdited').textContent = rows.filter(t => t.categoryEdited).length;
 
   const byCat = {};
-  for (const t of rows) byCat[t.category || '其他'] = (byCat[t.category || '其他'] || 0) + t.amount;
+  for (const t of stat) byCat[t.category || '其他'] = (byCat[t.category || '其他'] || 0) + t.amount;
   const cats = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
   if (catFilter && !byCat[catFilter]) catFilter = null;
   $('catChips').innerHTML = cats.map(([c,v]) =>

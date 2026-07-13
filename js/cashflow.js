@@ -255,6 +255,7 @@
         const agg={};
         snap.forEach(d=>{
           const t=d.data();
+          if(t.category==='繳款')return; // 繳款/還款紀錄不是消費，不計入帳單
           const ym=t.statementYear+'-'+String(t.statementMonth).padStart(2,'0');
           const k=ym+'|'+(t.person||'')+'|'+(t.bank||'');
           agg[k]=(agg[k]||0)+(parseFloat(t.amount)||0);
