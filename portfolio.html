@@ -111,23 +111,8 @@
                   </div>
                 </div>
 
-                <!-- 5000 萬目標進度 -->
-                <div class="db-section-card" style="margin-top:1rem">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                    <div style="font-size:14px;font-weight:600;color:#f0ede6;letter-spacing:.03em">5,000 萬目標進度</div>
-                    <div style="font-size:13px;font-family:var(--mono);color:#c8b89a" id="db-goal-pct">0%</div>
-                  </div>
-                  <div style="background:rgba(255,255,255,.06);border-radius:8px;height:18px;overflow:hidden;position:relative">
-                    <div id="db-goal-bar" style="height:100%;border-radius:8px;background:linear-gradient(90deg,#2563eb,#0ea5e9,#10b981);width:0%;transition:width .6s ease"></div>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:#9a9890">
-                    <span>目前淨資產 <strong id="db-goal-current" style="color:#f0ede6">$0</strong></span>
-                    <span>距離目標 <strong id="db-goal-remain" style="color:#c8b89a">$50,000,000</strong></span>
-                  </div>
-                </div>
-
                 <!-- 資產 KPI 4 格 -->
-                <div class="db-kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+                <div class="db-kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-top:1rem">
                   <div class="db-kpi-card">
                     <div class="db-kpi-icon" style="background:rgba(74,173,110,.12);color:#4aad6e">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
@@ -166,25 +151,6 @@
                   </div>
                 </div>
 
-
-                <!-- 重要日期 -->
-                <div class="db-section-card" style="margin-top:.5rem">
-                  <div class="db-section-header">
-                    <h3 class="db-section-title">重要日期 DATES</h3>
-                  </div>
-                  <div id="db-dates-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:10px">
-                  </div>
-                  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
-                    <input id="db-rem-name" placeholder="提醒名稱" style="flex:1;min-width:120px;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
-                    <input id="db-rem-date" type="date" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
-                    <select id="db-rem-repeat" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
-                      <option value="once">單次</option>
-                      <option value="monthly">每月</option>
-                      <option value="yearly">每年</option>
-                    </select>
-                    <button onclick="dbAddReminder()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增提醒</button>
-                  </div>
-                </div>
 
                 <!-- 資產結構圖 -->
                 <div class="db-section-card">
@@ -236,6 +202,32 @@
                   </div>
                 </div>
 
+                <!-- 年度現金流（自動彙整：收支管理 + 消費明細 + 交易記錄） -->
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title" id="db-cf-title">年度現金流 CASH FLOW</h3>
+                    <span class="db-section-total" id="db-cf-balance">—</span>
+                  </div>
+                  <div id="db-cf-body" style="padding-top:4px">
+                    <div style="font-size:12px;color:#9a9890;padding:8px 0">載入中…（資料來自收支管理、消費明細與交易記錄）</div>
+                  </div>
+                </div>
+
+                <!-- 5000 萬目標進度 -->
+                <div class="db-section-card">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <div style="font-size:14px;font-weight:600;color:#f0ede6;letter-spacing:.03em">5,000 萬目標進度</div>
+                    <div style="font-size:13px;font-family:var(--mono);color:#c8b89a" id="db-goal-pct">0%</div>
+                  </div>
+                  <div style="background:rgba(255,255,255,.06);border-radius:8px;height:18px;overflow:hidden;position:relative">
+                    <div id="db-goal-bar" style="height:100%;border-radius:8px;background:linear-gradient(90deg,#5a5a5a,#9a9a9a,#e5e5e5);width:0%;transition:width .6s ease"></div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:#9a9890">
+                    <span>目前淨資產 <strong id="db-goal-current" style="color:#f0ede6">$0</strong></span>
+                    <span>距離目標 <strong id="db-goal-remain" style="color:#c8b89a">$50,000,000</strong></span>
+                  </div>
+                </div>
+
                 <!-- 現金存款 -->
                 <div class="db-section-card">
                   <div class="db-section-header">
@@ -284,7 +276,26 @@
                   </table>
                 </div>
 
-                <p class="db-footer">資料同步至 Firebase 雲端 · 股票市值從持股總覽即時讀取</p>
+                <!-- 重要日期 -->
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">重要日期 DATES</h3>
+                  </div>
+                  <div id="db-dates-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:10px">
+                  </div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
+                    <input id="db-rem-name" placeholder="提醒名稱" style="flex:1;min-width:120px;border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
+                    <input id="db-rem-date" type="date" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
+                    <select id="db-rem-repeat" style="border:1px solid rgba(255,255,255,.15);background:#3d3c38;color:#f0ede6;font-size:12px;padding:5px 8px;border-radius:4px;outline:none">
+                      <option value="once">單次</option>
+                      <option value="monthly">每月</option>
+                      <option value="yearly">每年</option>
+                    </select>
+                    <button onclick="dbAddReminder()" style="background:#3d3c38;border:1px solid rgba(255,255,255,.15);color:#ccc9bf;font-size:12px;padding:5px 12px;border-radius:4px;cursor:pointer">+ 新增提醒</button>
+                  </div>
+                </div>
+
+                <p class="db-footer">資料同步至 Firebase 雲端 · 股票市值從持股總覽即時讀取 · 年度現金流自動彙整收支/信用卡/交易</p>
               </div>
             </div>
 

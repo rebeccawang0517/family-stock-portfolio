@@ -325,6 +325,36 @@
       });
     }
 
+    // ── 年度現金流（資產總覽區塊；資料由 cashflow.js 的 cfCalc 寫入 window.cfYearStats）──
+    window.dbRenderYearCF=function(){
+      const s=window.cfYearStats;
+      const el=document.getElementById('db-cf-body');if(!el||!s)return;
+      const t=document.getElementById('db-cf-title');
+      if(t)t.textContent=s.year+' 年度現金流 CASH FLOW';
+      const bal=document.getElementById('db-cf-balance');
+      if(bal){bal.textContent=fmt(s.balance);bal.style.color=s.balance>=0?'#4aad6e':'#e8675a';}
+      const rows=[
+        ['年收入',s.income,'#4aad6e','收支管理 · 收入'],
+        ['固定支出',s.expense,'#e8675a','收支管理 · 固定支出'],
+        ['信用卡支出',s.card,'#e8675a','消費明細自動彙總'],
+        ['投資淨流出',s.investNet,s.investNet>0?'#e8675a':'#4aad6e','交易記錄自動連動'],
+      ];
+      const max=Math.max(s.income,s.expense,s.card,Math.abs(s.investNet),1);
+      el.innerHTML=rows.map(r=>{
+        const w=Math.max(1,Math.round(Math.abs(r[1])/max*100));
+        return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:11px">
+          <span style="width:88px;font-size:13px;color:#ccc9bf;flex-shrink:0">${r[0]}</span>
+          <div class="db-bar-track" style="flex:1"><div class="db-bar-fill" style="width:${w}%;background:${r[2]}"></div></div>
+          <span style="min-width:104px;text-align:right;font-family:var(--mono);font-size:13px;color:${r[2]}">${fmt(Math.abs(r[1]))}</span>
+          <span style="width:130px;font-size:10px;color:#7a7872;text-align:right" class="db-cf-src">${r[3]}</span>
+        </div>`;
+      }).join('')+
+      `<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.12);padding-top:12px;margin-top:6px">
+        <span style="font-size:14px;font-weight:700;color:#f0ede6">年結餘（收入 − 支出 − 投資淨流出）</span>
+        <span style="font-family:var(--mono);font-size:18px;font-weight:700;color:${s.balance>=0?'#4aad6e':'#e8675a'}">${fmt(s.balance)}</span>
+      </div>`;
+    };
+
     let dbSaveTimer=null;
     function dbSave(){
       try{localStorage.setItem(DB_STORE,JSON.stringify({assets:dbAssets,cash:dbCash,debts:dbDebts,reminders:dbReminders}));}catch(e){}

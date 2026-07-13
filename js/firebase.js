@@ -29,3 +29,5 @@
         window._fbDoc = doc;
         window._fbGetDoc = getDoc;
         window._fbSetDoc = setDoc;
+        window._fbCollection = collection;
+        window._fbGetDocs = getDocs;

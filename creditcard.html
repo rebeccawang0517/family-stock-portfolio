@@ -173,6 +173,9 @@ async function loadAll() {
   // 月份選單（新→舊）
   const months = [...new Set(ALL.map(ym))].sort().reverse();
   $('fMonth').innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
+  // 從收支管理點月份進來：?m=2026-06 預選該帳單月
+  const qm = new URLSearchParams(location.search).get('m');
+  if (qm && months.includes(qm)) $('fMonth').value = qm;
   // 銀行選單
   const banks = [...new Set(ALL.map(t => t.bank))].sort();
   $('fBank').innerHTML = '<option value="">全部</option>' + banks.map(b => `<option>${b}</option>`).join('');

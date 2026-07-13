@@ -244,24 +244,70 @@
       });
       cfSave();cfRenderExpense();cfCalc();
     };
+    // ── 信用卡自動連結：從 creditCardTransactions（/spend 消費明細）彙總各卡月帳單 ──
+    let ccAuto=null; // {'2026-06|rebecca|台新': 金額}
+    const CC_PERSON_LABEL={rebecca:'Rebecca',eric:'Eric'};
+    async function cfLoadCreditCards(){
+      try{
+        const {db}=window.firebaseApp||{};
+        if(!db||!window._fbGetDocs||!window._fbCollection)return;
+        const snap=await window._fbGetDocs(window._fbCollection(db,'creditCardTransactions'));
+        const agg={};
+        snap.forEach(d=>{
+          const t=d.data();
+          const ym=t.statementYear+'-'+String(t.statementMonth).padStart(2,'0');
+          const k=ym+'|'+(t.person||'')+'|'+(t.bank||'');
+          agg[k]=(agg[k]||0)+(parseFloat(t.amount)||0);
+        });
+        ccAuto=agg;
+        cfInitYearSelect();cfRenderCards();cfCalc();
+      }catch(e){console.warn('cfLoadCreditCards failed',e);}
+    }
+    // 該年度信用卡帳單（自動 + 手動；同月同人同銀行以自動為準，避免重複計算）
+    function cfCardCombined(yrStr){
+      const entries=[];const autoCover=new Set();
+      if(ccAuto){
+        for(const k in ccAuto){
+          const parts=k.split('|');const ym=parts[0],person=parts[1],bank=parts[2];
+          if(!ym.startsWith(yrStr))continue;
+          const owner=CC_PERSON_LABEL[person]||person;
+          entries.push({month:ym,owner,bank,amt:Math.round(ccAuto[k]),auto:true});
+          autoCover.add(ym+'|'+owner+'|'+bank);
+        }
+      }
+      cfCards.forEach(r=>{
+        const m=r.month||'';if(!m.startsWith(yrStr))return;
+        if(autoCover.has(m+'|'+(r.owner||'')+'|'+(r.bank||'')))return;
+        entries.push({month:m,owner:r.owner||'',bank:r.bank||'',amt:parseFloat(r.amt)||0,auto:false,id:r.id});
+      });
+      return entries;
+    }
     function cfRenderCards(){
       const el=document.getElementById('cf-card-body');if(!el)return;
       const yrStr=String(cfYear);
-      const yrCards=cfCards.filter(r=>(r.month||'').startsWith(yrStr));
-      const tot=yrCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
-      // group by month
+      const entries=cfCardCombined(yrStr);
+      const tot=entries.reduce((s,r)=>s+r.amt,0);
       const byMonth={};
-      yrCards.forEach(r=>{const m=r.month||'';if(!byMonth[m])byMonth[m]=[];byMonth[m].push(r);});
+      entries.forEach(r=>{if(!byMonth[r.month])byMonth[r.month]=[];byMonth[r.month].push(r);});
       const months=Object.keys(byMonth).sort().reverse();
       let html=months.map(m=>{
         const items=byMonth[m];
-        const mTot=items.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+        const mTot=items.reduce((s,r)=>s+r.amt,0);
         const label=m.length===7?(m.replace('-','年')+'月'):(m||'未分類');
-        return `<tr onclick="cfOpenMonth('${m}')" style="cursor:pointer" onmouseover="this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.background=''">
-          <td colspan="3" style="padding:8px 5px;font-size:13px;color:#c8b89a;font-weight:500">${label}</td>
-          <td style="font-size:12px;color:#9a9890;padding:8px 4px">${items.length} 筆</td>
+        const autoAny=items.some(i=>i.auto);
+        const click=autoAny?`location.href='/spend?m=${m}'`:`cfOpenMonth('${m}')`;
+        const hint=autoAny?'點擊查看消費明細':'點擊編輯';
+        let rows=`<tr onclick="${click}" style="cursor:pointer" title="${hint}" onmouseover="this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.background=''">
+          <td colspan="3" style="padding:8px 5px;font-size:13px;color:#c8b89a;font-weight:500">${label}${autoAny?' <span style="font-size:10px;color:#4aad6e;border:1px solid rgba(74,173,110,.4);border-radius:4px;padding:1px 6px;margin-left:6px">自動</span>':''}</td>
+          <td style="font-size:12px;color:#9a9890;padding:8px 4px">${items.length} 卡</td>
           <td colspan="2" style="text-align:right;font-size:13px;font-family:var(--mono);color:#f0ede6;padding:8px 4px">${cfFmt(mTot)}</td>
           <td></td><td></td></tr>`;
+        rows+=items.map(i=>`<tr>
+          <td colspan="3" style="padding:4px 5px 4px 22px;font-size:12px;color:#9a9890">${i.owner} · ${i.bank}${i.auto?'':' <span style="font-size:10px;color:#9a9890">(手動)</span>'}</td>
+          <td></td>
+          <td colspan="2" style="text-align:right;font-size:12px;font-family:var(--mono);color:#ccc9bf;padding:4px 4px">${cfFmt(i.amt)}</td>
+          <td></td><td></td></tr>`).join('');
+        return rows;
       }).join('');
       if(!months.length) html=`<tr><td colspan="8" style="padding:12px 5px;font-size:12px;color:#9a9890;text-align:center">${yrStr} 年尚無帳單</td></tr>`;
       html+=subRow(tot,'帳單合計',5,'<td colspan="2"></td>');
@@ -328,6 +374,7 @@
       const now=new Date().getFullYear();
       yrs.add(now);yrs.add(now+1); // 永遠包含明年
       cfCards.forEach(r=>{if(r.month)yrs.add(parseInt(r.month.slice(0,4)));});
+      if(ccAuto)Object.keys(ccAuto).forEach(k=>yrs.add(parseInt(k.slice(0,4))));
       (window._cfTransactions||[]).forEach(t=>{if(t.date)yrs.add(parseInt(t.date.slice(0,4)));});
       // 從收入 monthly 中收集年份
       cfIncome.forEach(r=>{if(r.monthly)Object.keys(r.monthly).forEach(ym=>yrs.add(parseInt(ym.slice(0,4))));});
@@ -498,8 +545,11 @@
       for(let m=1;m<=12;m++){yrInTotal+=cfIncomeMonthTotal(yrStr+'-'+String(m).padStart(2,'0'));}
       const moIn=yrInTotal/12;
       const moExp=cfExpense.reduce((s,r)=>s+toMo(cfGetAmt(r),r.freq),0);
-      const yrCards=cfCards.filter(r=>(r.month||'').startsWith(yrStr));
-      const moCard=yrCards.length?yrCards.reduce((s,r)=>s+(parseFloat(r.amt)||0),0)/yrCards.length:0;
+      // 信用卡：自動（消費明細彙總）+ 手動合併
+      const ccEntries=cfCardCombined(yrStr);
+      const yrCardTotal=ccEntries.reduce((s,e)=>s+e.amt,0);
+      const cardMonths=new Set(ccEntries.map(e=>e.month)).size;
+      const moCard=cardMonths?yrCardTotal/cardMonths:0;
       const moInv=cfInvest.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
       const moRed=cfRedeem.reduce((s,r)=>s+toMo(r.amt,r.freq),0);
       const totalOut=moExp+moCard;const investNet=moInv-moRed;const fcf=moIn-(totalOut+investNet);
@@ -513,7 +563,7 @@
       set('cf-s-year-fcf',cfFmt(fcf*12),fcf>0?'#4aad6e':fcf<0?'#e8675a':'#f0ede6');
       // 年度統計卡片 - 投資淨流出用實際交易計算
       const yrExpense = moExp * 12;
-      const yrCard = cfCards.reduce((s,r)=>{const m=r.month||'';return s+(m.startsWith(yrStr)?(parseFloat(r.amt)||0):0);},0);
+      const yrCard = yrCardTotal;
       // 改用實際交易計算投資淨流出，與投資收支表一致
       const txs_calc=window._cfTransactions||[];
       const usdRate_calc=parseFloat(document.getElementById('usdRate')?.value)||31.5;
@@ -548,11 +598,7 @@
         });
         const yrInvestNet=yrBuy-yrSell;
         const yrIncome=yrInTotal, yrExpense=moExp*12;
-        // 信用卡：加總該年月份的實際帳單
-        const yrCard=cfCards.reduce((s,r)=>{
-          const m=r.month||'';
-          return s+(m.startsWith(yrStr)?(parseFloat(r.amt)||0):0);
-        },0);
+        const yrCard=yrCardTotal; // 自動 + 手動合併
         const yrBalance=yrIncome-yrExpense-yrCard-yrInvestNet;
         const row=(label,val,color)=>`<tr style="border-bottom:1px solid rgba(255,255,255,.06)"><td style="padding:7px 5px;font-size:13px;color:#ccc9bf">${label}</td><td style="text-align:right;padding:7px 5px;font-size:13px;font-family:var(--mono);color:${color||'#f0ede6'}">${cfFmt(val)}</td></tr>`;
         const titleEl=document.getElementById('cf-annual-title');
@@ -564,6 +610,13 @@
           row('年投資淨流出',yrInvestNet,yrInvestNet>0?'#e8675a':'#4aad6e')+
           `<tr style="border-top:2px solid rgba(255,255,255,.15)"><td style="padding:8px 5px;font-size:15px;font-weight:700;color:#f0ede6">年結餘</td><td style="text-align:right;padding:8px 5px;font-size:16px;font-weight:700;font-family:var(--mono);color:${yrBalance>=0?'#4aad6e':'#e8675a'}">${cfFmt(yrBalance)}</td></tr>`;
       }
+      // 年度現金流統計：供資產總覽的「年度現金流」區塊使用
+      window.cfYearStats={
+        year:yrStr,income:yrInTotal,expense:yrExpense,card:yrCard,
+        investNet:yrInvestNet_calc,
+        balance:yrInTotal-yrExpense-yrCard-yrInvestNet_calc
+      };
+      if(typeof window.dbRenderYearCF==='function')window.dbRenderYearCF();
     }
 
     window.cfCloseLoanModal=function(){
@@ -839,4 +892,20 @@
       }catch(e){}
       cfRenderAll();
     };
+
+    // 資料就緒後的自動連動：
+    // 1. 信用卡帳單 ← creditCardTransactions（/spend 消費明細）
+    // 2. 投資收支 ← 交易記錄（等 _cfTransactions 載入完成後自動重算，免手動按更新）
+    (function(){
+      let tries=0;
+      const t=setInterval(()=>{
+        tries++;
+        const fbReady=window.firebaseApp&&window._fbGetDocs;
+        if(fbReady&&ccAuto===null){ccAuto={};cfLoadCreditCards();}
+        if(window._cfTransactions&&window._cfTransactions.length){
+          clearInterval(t);
+          try{cfRenderInvest();cfCalc();}catch(e){}
+        }else if(tries>60){clearInterval(t);}
+      },500);
+    })();
     })();
