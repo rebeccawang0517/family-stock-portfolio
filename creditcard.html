@@ -280,28 +280,29 @@ function renderOverview() {
   const p = $('fPersonO').value;
   const rows = ALL.filter(t => t.statementYear === y && (!p || t.person === p));
   const spend = rows.filter(t => t.amount > 0);
-  const total = spend.reduce((s, t) => s + t.amount, 0);
+  const refund = rows.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0); // 負值
+  const total = rows.reduce((s, t) => s + t.amount, 0); // 淨額（退款已扣）
   const monthsCovered = new Set(rows.map(t => t.statementMonth)).size || 1;
 
   $('oTotal').textContent = fmt(total);
-  $('oMonths').textContent = `涵蓋 ${monthsCovered} 個帳單月`;
+  $('oMonths').textContent = `涵蓋 ${monthsCovered} 個帳單月` + (refund < 0 ? ` · 已扣退款 ${fmt(-refund)}` : '');
   $('oCount').textContent = spend.length.toLocaleString();
   $('oAvg').textContent = fmt(total / monthsCovered);
   const maxT = spend.reduce((a, b) => (b.amount > (a?.amount || 0) ? b : a), null);
   $('oMax').textContent = maxT ? fmt(maxT.amount) : '$0';
   $('oMaxWho').textContent = maxT ? `${maxT.merchant.slice(0, 16)} · ${PERSON_LABEL[maxT.person] || ''}` : '';
 
-  // 各類別花費總額（單色量值長條，金額+占比直接標示）
+  // 各類別花費總額（淨額：退款計入該類別扣減；單色量值長條，金額+占比直接標示）
   const byCat = {};
-  for (const t of spend) byCat[t.category || '其他'] = (byCat[t.category || '其他'] || 0) + t.amount;
+  for (const t of rows) byCat[t.category || '其他'] = (byCat[t.category || '其他'] || 0) + t.amount;
   const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
-  const maxCat = cats.length ? cats[0][1] : 1;
+  const maxCat = Math.max(...cats.map(([, v]) => Math.abs(v)), 1);
   $('oCats').innerHTML = cats.map(([c, v]) => `
     <div class="cat-row">
       <span class="nm">${esc(c)}</span>
-      <div class="track"><div class="fill" style="width:${Math.max(1, Math.round(v / maxCat * 100))}%"></div></div>
-      <span class="val">${fmt(v)}</span>
-      <span class="pct">${(v / total * 100).toFixed(1)}%</span>
+      <div class="track"><div class="fill" style="width:${Math.max(1, Math.round(Math.abs(v) / maxCat * 100))}%${v < 0 ? ';background:#5c5c5c' : ''}"></div></div>
+      <span class="val">${v < 0 ? '−' + fmt(-v) : fmt(v)}</span>
+      <span class="pct">${total > 0 ? (v / total * 100).toFixed(1) + '%' : ''}</span>
     </div>`).join('') || '<div style="color:#666;font-size:13px">尚無資料</div>';
 
   // TOP20 消費（單筆金額）
@@ -315,12 +316,13 @@ function renderOverview() {
       <td class="amt r">${fmt(t.amount)}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="color:#666;text-align:center;padding:20px">尚無資料</td></tr>';
 
-  // TOP20 店家（依消費次數；同店不同寫法先正規化合併）
+  // TOP20 店家（依消費次數；同店不同寫法先正規化合併；退款扣入該店總額）
   const shops = {};
-  for (const t of spend) {
+  for (const t of rows) {
     const k = normShop(t.merchant);
     if (!shops[k]) shops[k] = { count: 0, total: 0, names: {} };
-    shops[k].count++; shops[k].total += t.amount;
+    if (t.amount > 0) shops[k].count++;
+    shops[k].total += t.amount;
     shops[k].names[t.merchant] = (shops[k].names[t.merchant] || 0) + 1;
   }
   const topShops = Object.values(shops).sort((a, b) => b.count - a.count || b.total - a.total).slice(0, 20);
@@ -344,17 +346,18 @@ function currentRows() {
 function render() {
   const rows = currentRows();
   const spend = rows.filter(t => t.amount > 0);
-  $('kTotal').textContent = fmt(spend.reduce((s,t) => s + t.amount, 0));
+  // 本月支出 = 淨額（退款已扣）
+  $('kTotal').textContent = fmt(rows.reduce((s,t) => s + t.amount, 0));
   $('kCount').textContent = rows.length.toLocaleString();
   $('kMax').textContent = fmt(Math.max(0, ...spend.map(t => t.amount)));
   $('kEdited').textContent = rows.filter(t => t.categoryEdited).length;
 
   const byCat = {};
-  for (const t of spend) byCat[t.category || '其他'] = (byCat[t.category || '其他'] || 0) + t.amount;
+  for (const t of rows) byCat[t.category || '其他'] = (byCat[t.category || '其他'] || 0) + t.amount;
   const cats = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
   if (catFilter && !byCat[catFilter]) catFilter = null;
   $('catChips').innerHTML = cats.map(([c,v]) =>
-    `<span class="cat-chip${catFilter===c?' on':''}" data-cat="${c}">${esc(c)}<small>${fmt(v)}</small></span>`).join('');
+    `<span class="cat-chip${catFilter===c?' on':''}" data-cat="${c}">${esc(c)}<small>${v<0?'−'+fmt(-v):fmt(v)}</small></span>`).join('');
   $('catChips').querySelectorAll('.cat-chip').forEach(el =>
     el.onclick = () => { catFilter = catFilter === el.dataset.cat ? null : el.dataset.cat; render(); });
 
