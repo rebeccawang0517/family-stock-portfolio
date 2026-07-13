@@ -15,6 +15,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
     <script type="module" src="js/firebase.js"></script>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/bw.css">
 </head>
 <body class="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
     <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
@@ -1177,13 +1178,32 @@
     <script defer src="js/dashboard.js"></script>
     <script defer src="js/ai-analysis.js"></script>
     <script type="module" src="js/stocks.js"></script>
-    <!-- 首頁三大支柱深層連結：#assets 總資產 / #invest 投資 / #spend 消費 -->
+    <!-- 三大主題獨立頁面：/assets 總資產、/invest 投資（Vercel rewrite 到本檔）。
+         依網址只顯示該主題的分頁，不會點到別的主題 -->
     <script>
-    window.addEventListener('load', function () {
-        var map = { '#assets': 'dashboard', '#invest': 'overview', '#spend': 'cashflow' };
-        var tab = map[location.hash];
-        if (tab && typeof switchTab === 'function') setTimeout(function () { switchTab(tab); }, 0);
-    });
+    (function () {
+        var path = location.pathname.replace(/\/+$/, '');
+        var area = /\/assets$/.test(path) ? 'assets'
+                 : /\/invest$/.test(path) ? 'invest'
+                 : { '#assets': 'assets', '#invest': 'invest' }[location.hash] || null;
+        if (!area) return; // 直接開 portfolio.html 時顯示全部分頁（相容模式）
+        var groups = {
+            assets: { tabs: ['tabDashboard', 'tabCashflow'], first: 'dashboard', title: '家族總資產管理' },
+            invest: { tabs: ['tabOverview', 'tabDetail', 'tabTransactions', 'tabAi'], first: 'overview', title: '家族投資管理' }
+        };
+        var g = groups[area];
+        document.title = g.title;
+        window.addEventListener('load', function () {
+            ['tabDashboard', 'tabOverview', 'tabDetail', 'tabTransactions', 'tabCashflow', 'tabAi']
+                .forEach(function (id) {
+                    var el = document.getElementById(id);
+                    if (el && g.tabs.indexOf(id) === -1) el.style.display = 'none';
+                });
+            var h1 = document.querySelector('#mainApp h1');
+            if (h1) h1.textContent = g.title;
+            if (typeof switchTab === 'function') setTimeout(function () { switchTab(g.first); }, 0);
+        });
+    })();
     </script>
 </body>
 </html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家族消費管理</title>
+<style>
+:root{
+  --bg:#0a0a0a;--panel:#141414;--panel2:#1c1c1c;--line:rgba(255,255,255,.12);
+  --ink:#f0f0f0;--dim:#9a9a9a;--faint:#5c5c5c;
+  --sans:"Segoe UI","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+  --mono:Consolas,"SF Mono",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1180px;margin:0 auto;padding:24px}
+
+/* 登入 */
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:44px 40px;max-width:400px;width:92%;text-align:center}
+.login-card h1{font-size:22px;letter-spacing:.12em;font-weight:800;margin-bottom:6px}
+.login-card p{color:var(--dim);font-size:12px;letter-spacing:.22em;margin-bottom:28px}
+.g-btn{width:100%;background:#f0f0f0;color:#111;font-weight:700;border:none;border-radius:8px;padding:12px;font-size:14px;cursor:pointer;letter-spacing:.06em}
+.g-btn:hover{background:#fff}
+
+/* 頁首 */
+header{border-bottom:1px solid var(--line);background:#000}
+.hd{max-width:1180px;margin:0 auto;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hd-title h1{font-size:22px;font-weight:800;letter-spacing:.1em}
+.hd-title span{display:block;font-size:10px;letter-spacing:.38em;color:var(--faint);margin-top:4px}
+.hd-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{background:var(--panel2);border:1px solid var(--line);color:#ccc;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:.04em}
+.btn:hover{background:#2a2a2a}
+
+/* 篩選列 */
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+.filters select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;cursor:pointer}
+.filters .lbl{font-size:12px;color:var(--dim);letter-spacing:.14em}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.kpi b{display:block;font-size:11px;color:var(--dim);letter-spacing:.18em;margin-bottom:8px;font-weight:600}
+.kpi span{font-size:22px;font-weight:800;font-family:var(--mono)}
+
+/* 類別彙總 chips */
+.cats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.cat-chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:12px;color:#ccc;cursor:pointer;user-select:none}
+.cat-chip small{color:var(--dim);font-family:var(--mono);margin-left:6px}
+.cat-chip.on{background:#f0f0f0;color:#111;font-weight:700}
+.cat-chip.on small{color:#555}
+
+/* 表格 */
+.tbl-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+th{text-align:left;font-size:11px;letter-spacing:.16em;color:var(--faint);padding:12px 14px;border-bottom:1px solid var(--line);font-weight:600;white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,.025)}
+td.r,th.r{text-align:right}
+td.amt{font-family:var(--mono);font-weight:600;white-space:nowrap}
+td.amt.neg{color:#8a8a8a}
+td .merchant{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+td select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:inherit;outline:none;cursor:pointer;min-width:96px}
+td select.edited{border-color:#8a8a8a;background:#242424}
+.pill{display:inline-block;font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.foot-note{color:var(--faint);font-size:11px;letter-spacing:.14em;text-align:center;padding:26px 0 8px}
+#status{font-size:12px;color:var(--dim);padding:8px 2px}
+.hidden{display:none!important}
+@media (max-width:700px){.wrap{padding:14px}}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>家族消費管理</h1>
+    <p>SPENDING MANAGEMENT</p>
+    <button class="g-btn" onclick="loginWithGoogle()">使用 Google 帳號登入</button>
+  </div>
+</div>
+
+<div id="mainApp" class="hidden">
+  <header>
+    <div class="hd">
+      <div class="hd-title">
+        <h1>家族消費管理</h1>
+        <span>CREDIT CARD SPENDING</span>
+      </div>
+      <div class="hd-actions">
+        <a class="btn" href="index.html">首頁</a>
+        <button class="btn" onclick="logout()">登出</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="filters">
+      <span class="lbl">帳單月份</span><select id="fMonth"></select>
+      <span class="lbl">持卡人</span>
+      <select id="fPerson"><option value="">全部</option><option value="rebecca">Rebecca</option><option value="eric">Eric</option></select>
+      <span class="lbl">銀行</span><select id="fBank"><option value="">全部</option></select>
+      <span id="status"></span>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><b>本月支出</b><span id="kTotal">$0</span></div>
+      <div class="kpi"><b>筆數</b><span id="kCount">0</span></div>
+      <div class="kpi"><b>最大單筆</b><span id="kMax">$0</span></div>
+      <div class="kpi"><b>手動調整分類</b><span id="kEdited">0</span></div>
+    </div>
+
+    <div class="cats" id="catChips"></div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>日期</th><th>商家</th><th class="r">金額</th><th>分類</th><th>持卡人</th><th>銀行</th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="6" style="text-align:center;color:#666;padding:30px">載入中…</td></tr></tbody>
+      </table>
+    </div>
+
+    <p class="foot-note">分類下拉可直接修改，會即時存回雲端（重抓帳單不會蓋掉手動分類）· 資料來源：各銀行電子帳單自動解析</p>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getFirestore, collection, getDocs, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const app = initializeApp({
+  apiKey: "AIzaSyAt8QWDrmdYxnIsjEWX6DJ5tHXnDPDSwdM",
+  authDomain: "rebecca-financial-platform.firebaseapp.com",
+  projectId: "rebecca-financial-platform",
+  storageBucket: "rebecca-financial-platform.firebasestorage.app",
+  messagingSenderId: "335938745651",
+  appId: "1:335938745651:web:2c090e33a72db1a5adfa46"
+});
+const auth = getAuth(app);
+const db = getFirestore(app);
+window.loginWithGoogle = async () => {
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (e) { alert('登入失敗：' + e.message); }
+};
+window.logout = () => signOut(auth);
+
+const CATEGORIES = ['餐飲','超市','購物','交通','加油','娛樂','旅遊','醫療','保險','繳費','訂閱','教育','其他'];
+const PERSON_LABEL = { rebecca: 'Rebecca', eric: 'Eric' };
+let ALL = [];          // 全部交易
+let catFilter = null;  // 點類別 chip 篩選
+
+const $ = id => document.getElementById(id);
+const fmt = n => '$' + Math.round(n).toLocaleString();
+const ym = t => `${t.statementYear}-${String(t.statementMonth).padStart(2,'0')}`;
+
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    $('loginScreen').classList.remove('hidden');
+    $('mainApp').classList.add('hidden');
+    return;
+  }
+  $('loginScreen').classList.add('hidden');
+  $('mainApp').classList.remove('hidden');
+  await loadAll();
+});
+
+async function loadAll() {
+  $('status').textContent = '載入中…';
+  const snap = await getDocs(collection(db, 'creditCardTransactions'));
+  ALL = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // 月份選單（新→舊）
+  const months = [...new Set(ALL.map(ym))].sort().reverse();
+  $('fMonth').innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
+  // 銀行選單
+  const banks = [...new Set(ALL.map(t => t.bank))].sort();
+  $('fBank').innerHTML = '<option value="">全部</option>' + banks.map(b => `<option>${b}</option>`).join('');
+  $('status').textContent = `共 ${ALL.length.toLocaleString()} 筆`;
+  render();
+}
+
+function currentRows() {
+  const m = $('fMonth').value, p = $('fPerson').value, b = $('fBank').value;
+  return ALL.filter(t => ym(t) === m && (!p || t.person === p) && (!b || t.bank === b));
+}
+
+function render() {
+  const rows = currentRows();
+  // KPI（不受類別 chip 篩選影響，反映整月）
+  const spend = rows.filter(t => t.amount > 0);
+  $('kTotal').textContent = fmt(spend.reduce((s,t) => s + t.amount, 0));
+  $('kCount').textContent = rows.length.toLocaleString();
+  $('kMax').textContent = fmt(Math.max(0, ...spend.map(t => t.amount)));
+  $('kEdited').textContent = rows.filter(t => t.categoryEdited).length;
+
+  // 類別彙總 chips
+  const byCat = {};
+  for (const t of spend) byCat[t.category || '其他'] = (byCat[t.category || '其他'] || 0) + t.amount;
+  const cats = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
+  if (catFilter && !byCat[catFilter]) catFilter = null;
+  $('catChips').innerHTML = cats.map(([c,v]) =>
+    `<span class="cat-chip${catFilter===c?' on':''}" data-cat="${c}">${c}<small>${fmt(v)}</small></span>`).join('');
+  $('catChips').querySelectorAll('.cat-chip').forEach(el =>
+    el.onclick = () => { catFilter = catFilter === el.dataset.cat ? null : el.dataset.cat; render(); });
+
+  // 明細表
+  const list = (catFilter ? rows.filter(t => (t.category||'其他') === catFilter) : rows)
+    .sort((a,b) => b.date.localeCompare(a.date) || b.amount - a.amount);
+  const allCats = [...new Set([...CATEGORIES, ...Object.keys(byCat)])];
+  $('tbody').innerHTML = list.length ? list.map(t => `
+    <tr>
+      <td style="font-family:var(--mono);color:#bbb;white-space:nowrap">${t.date}</td>
+      <td><span class="merchant" title="${esc(t.merchant)}">${esc(t.merchant)}</span></td>
+      <td class="amt r${t.amount < 0 ? ' neg' : ''}">${t.amount < 0 ? '−' + fmt(-t.amount) : fmt(t.amount)}</td>
+      <td><select data-id="${t.id}" class="${t.categoryEdited ? 'edited' : ''}">
+        ${allCats.map(c => `<option${c === (t.category||'其他') ? ' selected' : ''}>${c}</option>`).join('')}
+      </select></td>
+      <td><span class="pill">${PERSON_LABEL[t.person] || t.person}</span></td>
+      <td><span class="pill">${esc(t.bank)}</span></td>
+    </tr>`).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:#666;padding:30px">此條件沒有資料</td></tr>';
+
+  $('tbody').querySelectorAll('select').forEach(sel => sel.onchange = async () => {
+    const t = ALL.find(x => x.id === sel.dataset.id);
+    const val = sel.value;
+    sel.disabled = true;
+    try {
+      await updateDoc(doc(db, 'creditCardTransactions', t.id), { category: val, categoryEdited: true });
+      t.category = val; t.categoryEdited = true;
+      render();
+    } catch (e) {
+      alert('儲存失敗：' + e.message);
+      sel.disabled = false;
+    }
+  });
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+['fMonth','fPerson','fBank'].forEach(id => $(id).onchange = () => { catFilter = null; render(); });
+</script>
+</body>
+</html>
