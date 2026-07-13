@@ -174,7 +174,7 @@
             <div style="${cW[0]}"><input value="${r.name}" placeholder="項目名稱" oninput="cfIncomeEditName('${r.id}',this.value)" style="${iS}"></div>
             <div style="${cW[1]}"><select onchange="cfIncomeEditOwner('${r.id}',this.value)" style="${iS}">${mOpts(r.owner)}</select></div>
             <div style="${cW[2]}"><input type="number" value="${v}" placeholder="0" oninput="cfIncomeEditAmt('${r.id}','${ym}',this.value)" style="${iS}text-align:right;font-family:var(--mono)"></div>
-            <div style="width:24px;flex-shrink:0;text-align:center"><button onclick="cfIncomeDelRow('${r.id}')" style="background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer;padding:0">×</button></div>
+            <div style="width:24px;flex-shrink:0;text-align:center"><button onclick="cfIncomeDelMonth('${r.id}','${ym}')" title="清除本月金額" style="background:none;border:none;color:#c0392b;font-size:14px;cursor:pointer;padding:0">×</button></div>
           </div>`;}).join('')}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid rgba(26,25,22,.1)">
             <button onclick="cfIncomeAddRow()" style="background:transparent;color:#1a1916;border:1px dashed rgba(26,25,22,.25);border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit">+ 新增項目</button>
@@ -212,6 +212,17 @@
     };
     window.cfIncomeDelRow=function(id){
       cfIncome=cfIncome.filter(x=>x.id!==id);cfSave();window._cfIncomeModalRender();
+    };
+    // 月彈窗的 ×：只清除「該月」金額，不動其他月份。
+    // 若清完後所有月份都沒金額，才詢問是否整個項目刪除。
+    window.cfIncomeDelMonth=function(id,ym){
+      const r=cfIncome.find(x=>x.id===id);if(!r)return;
+      if(r.monthly)delete r.monthly[ym];
+      const hasAny=r.monthly&&Object.values(r.monthly).some(v=>parseFloat(v));
+      if(!hasAny&&confirm('「'+(r.name||'未命名項目')+'」在其他月份都沒有金額，要把整個項目刪除嗎？\n（取消 = 保留項目，只清除本月金額）')){
+        cfIncome=cfIncome.filter(x=>x.id!==id);
+      }
+      cfSave();window._cfIncomeModalRender();
     };
 
     function cfRenderExpense(){
