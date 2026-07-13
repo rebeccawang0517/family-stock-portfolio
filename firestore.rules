@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 僅限家族成員帳號（2026-07-13 收緊：原本對全世界開放）
+    // 已部署於 Firebase console；此檔為版本留存。要加成員在名單加 email 後重新部署。
+    match /{document=**} {
+      allow read, write: if request.auth != null
+        && request.auth.token.email in ['rebeccawang0517@gmail.com', 'sclu.eric@gmail.com'];
+    }
+  }
+}
