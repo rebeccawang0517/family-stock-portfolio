@@ -289,6 +289,7 @@
       // 寫扁平快照給每週排程（/api/refresh-advice）讀取
       dbWriteSnapshot({ netAsset, totalAsset, stockVal, fixedTot, cashTot, debtTot, goalPct, goalRemain });
       dbRenderHealthChips({ netAsset, totalAsset, cashTot, debtTot, goalRemain });
+      dbRenderGauge({ totalAsset, cashTot, debtTot });
     }
 
     function dbRenderDonut(stock,fixed,cash,debt){
@@ -445,6 +446,30 @@
       }
       chips.push({s:'info',t:'5,000 萬目標',d:'距離目標尚差 '+fmt(v.goalRemain)});
       el.innerHTML=chips.map(c=>'<div class="db-chip '+c.s+'"><div><div class="ct">'+c.t+'</div><div class="cd">'+c.d+'</div></div></div>').join('');
+    }
+
+    // ── 健康分數環（0~100，從負債比/儲蓄率/預備金算）──
+    function dbRenderGauge(v){
+      const cf=window.cfYearStats||{};
+      const ratio=v.totalAsset>0?(v.debtTot/v.totalAsset*100):0;
+      const hasCF=cf.income>0;
+      const sr=hasCF?(cf.balance/cf.income*100):0;
+      const annualOut=(cf.expense||0)+(cf.card||0);
+      const months=annualOut>0?v.cashTot/(annualOut/12):0;
+      const clamp=x=>Math.max(0,Math.min(100,x));
+      const debtScore=clamp(100-Math.max(0,ratio-25)*2.5);
+      const saveScore=hasCF?clamp(sr/35*100):60;
+      const fundScore=annualOut>0?clamp(months/9*100):60;
+      const score=Math.round(.4*debtScore+.35*saveScore+.25*fundScore);
+      const color=score>=70?'#57b877':score>=40?'#e0a14a':'#e8675a';
+      const C=263.9; // 2πr, r=42
+      const set=(id,txt,col)=>{const el=document.getElementById(id);if(el){el.textContent=txt;if(col)el.style.color=col;}};
+      set('db-health-score',score,color);
+      const ring=document.getElementById('db-gauge-ring');
+      if(ring){ring.style.strokeDashoffset=String(C*(1-score/100));ring.style.stroke=color;}
+      set('db-badge-ratio',ratio.toFixed(1)+'% · '+(ratio<30?'健康':ratio<60?'注意':'偏高'),ratio<30?'#57b877':ratio<60?'#e0a14a':'#e8675a');
+      set('db-badge-saving',hasCF?(sr.toFixed(1)+'% · '+(sr>=30?'優秀':sr>=10?'尚可':'偏低')):'—');
+      set('db-badge-fund',annualOut>0?('≈ '+Math.round(months)+' 個月'):'—');
     }
 
     // ── AI 財務建議：讀 advice/latest（每週一晚由 /api/refresh-advice 排程寫入）──
