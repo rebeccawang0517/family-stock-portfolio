@@ -48,6 +48,7 @@ a{text-decoration:none;color:inherit}
 .p-body{padding:22px 22px 26px;display:flex;flex-direction:column;gap:10px;flex:1}
 .p-num{font-size:11px;letter-spacing:.32em;color:var(--card-dim)}
 .p-body h3{font-size:20px;font-weight:800;letter-spacing:.05em;border-bottom:2px solid #111;padding-bottom:10px}
+.p-sub{font-size:13.5px;color:#4a4a4a;line-height:1.55;letter-spacing:.01em;font-weight:600}
 .p-body ul{list-style:none;color:var(--card-dim);font-size:13.5px;line-height:2;flex:1}
 .p-body li::before{content:"·  ";font-weight:900;color:#111}
 .p-go{font-size:12px;letter-spacing:.24em;font-weight:700;color:#111;margin-top:6px}
@@ -76,6 +77,11 @@ a{text-decoration:none;color:inherit}
 .next-desc b{font-size:13.5px;letter-spacing:.1em;display:block;margin-bottom:8px}
 .next-desc ul{list-style:none;color:var(--ink-dim);font-size:13px;line-height:2}
 .next-desc li::before{content:"·  "}
+.next-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.next-links a{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;letter-spacing:.05em;
+  color:#e8e8e8;background:#1f1f1f;border:1px solid var(--line);border-radius:999px;padding:7px 15px;
+  transition:background .15s ease,transform .15s ease}
+.next-links a:hover{background:#2a2a2a;transform:translateY(-1px)}
 
 /* ── Footer ── */
 footer{background:#000;border-top:1px solid var(--line);text-align:center;padding:72px 24px 64px}
@@ -143,13 +149,12 @@ footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
         <div class="p-body">
           <span class="p-num">01 — TOTAL ASSETS</span>
           <h3>家族總資產管理</h3>
+          <p class="p-sub">一眼看懂全家有多少錢</p>
           <ul>
-            <li>定存與現金存款</li>
-            <li>流動資產（股票市值）</li>
-            <li>固定資產（房產）</li>
-            <li>負債</li>
-            <li>年度花費 — 信用卡</li>
-            <li>年度花費 — 非信用卡支出</li>
+            <li>現金、股票、房產全部加總</li>
+            <li>扣掉負債後的淨資產</li>
+            <li>距離 5,000 萬還差多少</li>
+            <li>財務健檢與 AI 建議</li>
           </ul>
           <span class="p-go">進入總覽</span>
         </div>
@@ -170,12 +175,12 @@ footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
         <div class="p-body">
           <span class="p-num">02 — INVESTMENTS</span>
           <h3>家族投資管理</h3>
+          <p class="p-sub">股票現在賺還是賠，一清二楚</p>
           <ul>
-            <li>台股持股與損益</li>
-            <li>美股持股與損益</li>
-            <li>交易記錄（券商信件自動匯入）</li>
-            <li>年度報酬率</li>
-            <li>AI 智慧分析</li>
+            <li>台股、美股即時損益</li>
+            <li>買賣自動從券商信件匯入</li>
+            <li>今年賺了幾 %</li>
+            <li>AI 幫你分析持股</li>
           </ul>
           <span class="p-go">進入投資</span>
         </div>
@@ -196,12 +201,12 @@ footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
         <div class="p-body">
           <span class="p-num">03 — SPENDING</span>
           <h3>家族消費管理</h3>
+          <p class="p-sub">每月花多少、存多少，一目了然</p>
           <ul>
-            <li>信用卡支出總管理</li>
-            <li>各卡月帳單彙總</li>
-            <li>年度累積統計</li>
-            <li>收入與固定支出對照</li>
-            <li>結餘率追蹤</li>
+            <li>各信用卡帳單自動彙總</li>
+            <li>今年總花費一次看清</li>
+            <li>收入 vs 固定支出對照</li>
+            <li>每月結餘率追蹤</li>
           </ul>
           <span class="p-go">進入消費</span>
         </div>
@@ -250,6 +255,10 @@ footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
             <li>已拆分至 taifex-backtest，不影響資產系統</li>
             <li>策略回測・模擬下單・保證金水位監控</li>
           </ul>
+          <div class="next-links">
+            <a href="https://taifex-backtest.vercel.app" target="_blank" rel="noopener">自動交易・保證金監控 →</a>
+            <a href="taifex-ma-backtest.html">K棒均線回測 →</a>
+          </div>
         </div>
       </div>
     </div>

@@ -3,6 +3,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // 僅限家族成員帳號（2026-07-13 收緊：原本對全世界開放）
     // 已部署於 Firebase console；此檔為版本留存。要加成員在名單加 email 後重新部署。
+    //
+    // 這條 catch-all（/{document=**}）已涵蓋所有集合，含 2026-07 新增：
+    //   • dashboard/snapshot ── 前端 dbWriteSnapshot 寫入的扁平快照（兩人可讀寫）
+    //   • advice/latest      ── AI 財務建議；由 /api/refresh-advice 排程用 Admin SDK 寫入
+    //                            （Admin SDK 繞過規則），前端只讀。兩人可讀，符合此規則。
+    // Firestore 規則採 OR 語意：任一 allow 命中即放行，故無法用更細的 match 去「縮限」
+    // 這條 catch-all。若日後要讓 advice/latest 變成「前端唯讀」，需改成逐集合列舉
+    // （風險：漏列任一集合會讓該集合被鎖死），對兩人信任環境不建議。
     match /{document=**} {
       allow read, write: if request.auth != null
         && request.auth.token.email in ['rebeccawang0517@gmail.com', 'sclu.eric@gmail.com'];

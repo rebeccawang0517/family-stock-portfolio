@@ -3,5 +3,8 @@
     { "source": "/assets", "destination": "/portfolio.html" },
     { "source": "/invest", "destination": "/portfolio.html" },
     { "source": "/spend", "destination": "/creditcard.html" }
+  ],
+  "crons": [
+    { "path": "/api/refresh-advice", "schedule": "0 13 * * 1-5" }
   ]
 }

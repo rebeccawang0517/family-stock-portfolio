@@ -82,7 +82,7 @@
         <td style="font-size:13px;color:#ccc9bf;padding:7px 4px">${r.owner}</td>
         <td style="text-align:right;font-size:13px;font-family:var(--mono);color:#f0ede6;padding:7px 4px">${r.val?fmt(parseFloat(r.val)):''}</td>
       </tr>`).join(''):`<tr><td colspan="4" style="padding:12px;font-size:12px;color:#9a9890;text-align:center">收支管理尚無貸款項目</td></tr>`)+
-      `<tr class="cf-sub"><td colspan="3" class="cf-sub-lbl">負債合計</td><td class="cf-sub-val" style="color:#ef4444">${fmt(tot)}</td></tr>`;
+      `<tr class="cf-sub"><td colspan="3" class="cf-sub-lbl">負債合計</td><td class="cf-sub-val" style="color:#e8675a">${fmt(tot)}</td></tr>`;
       const st=document.getElementById('db-st-debt');if(st)st.textContent=fmt(tot);
       dbCalc();
     }
@@ -172,6 +172,7 @@
       try{
         await dbLoad();
         dbRenderCash();dbRenderAssets();dbRenderDebts();dbRenderReminders();dbCalc();
+        if(window.loadAdvice)loadAdvice();
       }catch(e){console.error('dbRender error:',e);}
       finally{if(loadEl)loadEl.style.display='none';}
     };
@@ -284,6 +285,10 @@
 
       // donut chart
       dbRenderDonut(stockVal,fixedTot,cashTot,debtTot);
+
+      // 寫扁平快照給每週排程（/api/refresh-advice）讀取
+      dbWriteSnapshot({ netAsset, totalAsset, stockVal, fixedTot, cashTot, debtTot, goalPct, goalRemain });
+      dbRenderHealthChips({ netAsset, totalAsset, cashTot, debtTot, goalRemain });
     }
 
     function dbRenderDonut(stock,fixed,cash,debt){
@@ -297,7 +302,7 @@
           labels:['股票','固定資產','現金','負債'],
           datasets:[{
             data:hasData?[stock,fixed,cash,debt]:[1],
-            backgroundColor:hasData?['#2563eb','#f59e0b','#10b981','#ef4444']:['rgba(255,255,255,.06)'],
+            backgroundColor:hasData?['#b0664b','#cea24f','#5f86ac','#e8675a']:['rgba(255,255,255,.06)'],
             borderWidth:0,
             hoverOffset:6
           }]
@@ -367,6 +372,27 @@
         }catch(e){console.warn('dbSave to Firebase failed',e);}
       },500);
     }
+
+    // 扁平快照：把最終數字寫成 dashboard/snapshot，供每週排程 /api/refresh-advice 讀取
+    let dbSnapTimer=null;
+    function dbWriteSnapshot(v){
+      const cf=window.cfYearStats||{};
+      const debtRatio=v.totalAsset>0?(v.debtTot/v.totalAsset)*100:0;
+      const savingsRate=cf.income>0?(cf.balance/cf.income)*100:0;
+      clearTimeout(dbSnapTimer);
+      dbSnapTimer=setTimeout(()=>{
+        try{
+          const {db}=window.firebaseApp||{};
+          if(!db||!window._fbSetDoc||!window._fbDoc)return;
+          window._fbSetDoc(window._fbDoc(db,'dashboard','snapshot'),{
+            netWorth:v.netAsset, totalAsset:v.totalAsset, stockValue:v.stockVal,
+            fixedAsset:v.fixedTot, cash:v.cashTot, debt:v.debtTot, debtRatio,
+            yearIncome:cf.income||0, yearExpense:cf.expense||0, yearNet:cf.balance||0, savingsRate,
+            goalPct:v.goalPct, goalRemain:v.goalRemain, snapshotAt:new Date().toISOString()
+          },{merge:true});
+        }catch(e){console.warn('dbWriteSnapshot failed',e);}
+      },600);
+    }
     async function dbLoad(){
       try{
         const {db}=window.firebaseApp||{};
@@ -394,4 +420,56 @@
       }catch(e){}
     }
     // dbLoad 由 dbRender 呼叫，不需在此獨立呼叫
+
+    // ── 財務健檢 chips（規則式，從 dbCalc 數字即時算）──
+    function dbRenderHealthChips(v){
+      const el=document.getElementById('db-chips'); if(!el)return;
+      const cf=window.cfYearStats||{};
+      const chips=[];
+      const ratio=v.totalAsset>0?(v.debtTot/v.totalAsset*100):0;
+      chips.push(ratio>60?{s:'bad',t:'負債比偏高 '+ratio.toFixed(1)+'%',d:'超過 60% 警戒，建議優先降低負債'}
+        :ratio>30?{s:'warn',t:'負債比 '+ratio.toFixed(1)+'%',d:'留意負債水位，控制在 30% 以下較穩健'}
+        :{s:'good',t:'負債比 '+ratio.toFixed(1)+'%',d:'遠低於 30% 警戒線，體質健康'});
+      if(cf.income>0){
+        const sr=cf.balance/cf.income*100;
+        chips.push(sr>=30?{s:'good',t:'儲蓄率 '+sr.toFixed(1)+'%',d:'優秀，維持目前收支結構'}
+          :sr>=10?{s:'info',t:'儲蓄率 '+sr.toFixed(1)+'%',d:'尚可，可再檢視彈性支出'}
+          :{s:'warn',t:'儲蓄率偏低 '+sr.toFixed(1)+'%',d:'結餘偏少，建議檢視固定支出'});
+      }
+      const annualOut=(cf.expense||0)+(cf.card||0);
+      if(annualOut>0){
+        const months=v.cashTot/(annualOut/12);
+        chips.push(months>18?{s:'info',t:'現金水位偏高 ≈'+Math.round(months)+' 個月',d:'閒置現金偏多，可評估轉入低風險投資'}
+          :months>=3?{s:'good',t:'緊急預備金 ≈'+Math.round(months)+' 個月',d:'預備金充足，涵蓋突發支出'}
+          :{s:'warn',t:'緊急預備金不足 ≈'+Math.round(months)+' 個月',d:'建議至少備足 3~6 個月支出'});
+      }
+      chips.push({s:'info',t:'5,000 萬目標',d:'距離目標尚差 '+fmt(v.goalRemain)});
+      el.innerHTML=chips.map(c=>'<div class="db-chip '+c.s+'"><div><div class="ct">'+c.t+'</div><div class="cd">'+c.d+'</div></div></div>').join('');
+    }
+
+    // ── AI 財務建議：讀 advice/latest（每週一晚由 /api/refresh-advice 排程寫入）──
+    window.loadAdvice=async function(){
+      const body=document.getElementById('db-ai-body'),note=document.getElementById('db-ai-note');
+      if(!body)return;
+      const esc=s=>String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      try{
+        const {db}=window.firebaseApp||{};
+        if(!(db&&window._fbGetDoc&&window._fbDoc)){body.innerHTML='<div class="db-hint">尚未連線 Firebase</div>';return;}
+        const snap=await window._fbGetDoc(window._fbDoc(db,'advice','latest'));
+        if(!snap.exists()){body.innerHTML='<div class="db-ai-waiting">尚未產生建議（每週一晚自動生成）</div>';if(note)note.textContent='';return;}
+        const d=snap.data();
+        if(d.status==='waiting'){
+          body.innerHTML='<div class="db-ai-waiting">建議暫緩產生，等待：'+(esc((d.waitingFor||[]).join('、'))||'資料就緒')+'</div>';
+          if(note)note.textContent='資料補齊後，下一次排程（每晚）會自動生成';
+          return;
+        }
+        const items=d.advice||[];
+        body.innerHTML=items.length?'<ul>'+items.map(a=>'<li><b>'+esc(a.title)+'</b>：'+esc(a.detail)+'</li>').join('')+'</ul>':'<div class="db-hint">尚無建議內容</div>';
+        if(note){
+          const dt=d.dataAsOf||{},hd=dt.holdings?new Date(dt.holdings):null;
+          const hstr=hd?(String(hd.getMonth()+1).padStart(2,'0')+'/'+String(hd.getDate()).padStart(2,'0')):'—';
+          note.textContent='Claude 每週一晚生成 · 資料截至 持股 '+hstr+'、收支 '+(dt.cashflowMonth||'—');
+        }
+      }catch(e){body.innerHTML='<div class="db-hint">建議載入失敗</div>';console.warn('loadAdvice',e);}
+    };
     })();

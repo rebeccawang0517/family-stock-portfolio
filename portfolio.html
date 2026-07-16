@@ -16,6 +16,24 @@
     <script type="module" src="js/firebase.js"></script>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/bw.css">
+    <style>
+      /* 財務健檢 chips */
+      .db-chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+      .db-chip{display:flex;gap:10px;align-items:flex-start;background:#1a1a1a;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 13px;position:relative;overflow:hidden}
+      .db-chip::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+      .db-chip.good::before{background:#4aad6e}.db-chip.warn::before{background:#e0a14a}.db-chip.info::before{background:#8aa0b8}.db-chip.bad::before{background:#e8675a}
+      .db-chip .ct{font-size:13px;font-weight:600;color:#f0ede6;line-height:1.3}
+      .db-chip .cd{font-size:11.5px;color:#9a9890;margin-top:3px;line-height:1.5}
+      /* AI 財務建議 */
+      #db-ai-card{border-left:3px solid #c8b89a}
+      .db-ai-body{font-size:13px;color:#ccc9bf;padding-top:2px}
+      .db-ai-body ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+      .db-ai-body li{display:flex;gap:9px;line-height:1.6}
+      .db-ai-body li::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:#c8b89a;margin-top:8px}
+      .db-ai-body b{color:#f0ede6}
+      .db-ai-note{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);font-size:10.5px;color:#7a7872;letter-spacing:.03em}
+      .db-ai-waiting{color:#e0a14a;font-size:12.5px;line-height:1.6}
+    </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
     <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
@@ -149,6 +167,26 @@
                 </div>
 
 
+                <!-- 財務健檢 -->
+                <div class="db-section-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title">財務健檢 HEALTH CHECK</h3>
+                  </div>
+                  <div class="db-chips" id="db-chips"><div class="db-hint">計算中…</div></div>
+                </div>
+
+                <!-- AI 財務建議 -->
+                <div class="db-section-card" id="db-ai-card">
+                  <div class="db-section-header">
+                    <h3 class="db-section-title" style="display:flex;align-items:center;gap:8px">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c8b89a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"/></svg>AI 財務建議
+                    </h3>
+                    <button class="db-add-btn" style="margin:0;width:auto;padding:6px 12px" onclick="loadAdvice()">↻ 重新整理</button>
+                  </div>
+                  <div class="db-ai-body" id="db-ai-body"><div class="db-hint">載入中…</div></div>
+                  <div class="db-ai-note" id="db-ai-note"></div>
+                </div>
+
                 <!-- 資產結構圖 -->
                 <div class="db-section-card">
                   <div class="db-section-header">
@@ -161,39 +199,39 @@
                     <div class="db-bars-wrap">
                       <div class="db-bar-item">
                         <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#2563eb"></span>
+                          <span class="db-bar-dot" style="background:#b0664b"></span>
                           <span class="db-bar-label">股票</span>
                           <span class="db-bar-pct" id="db-pct-stock">0%</span>
                           <span class="db-bar-amt" id="db-bar-stock-v">$0</span>
                         </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-stock" style="width:0%;background:#2563eb"></div></div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-stock" style="width:0%;background:#b0664b"></div></div>
                       </div>
                       <div class="db-bar-item">
                         <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#f59e0b"></span>
+                          <span class="db-bar-dot" style="background:#cea24f"></span>
                           <span class="db-bar-label">固定資產</span>
                           <span class="db-bar-pct" id="db-pct-fixed">0%</span>
                           <span class="db-bar-amt" id="db-bar-fixed-v">$0</span>
                         </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-fixed" style="width:0%;background:#f59e0b"></div></div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-fixed" style="width:0%;background:#cea24f"></div></div>
                       </div>
                       <div class="db-bar-item">
                         <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#10b981"></span>
+                          <span class="db-bar-dot" style="background:#5f86ac"></span>
                           <span class="db-bar-label">現金</span>
                           <span class="db-bar-pct" id="db-pct-cash">0%</span>
                           <span class="db-bar-amt" id="db-bar-cash-v">$0</span>
                         </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-cash" style="width:0%;background:#10b981"></div></div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-cash" style="width:0%;background:#5f86ac"></div></div>
                       </div>
                       <div class="db-bar-item">
                         <div class="db-bar-header">
-                          <span class="db-bar-dot" style="background:#ef4444"></span>
+                          <span class="db-bar-dot" style="background:#e8675a"></span>
                           <span class="db-bar-label">負債</span>
                           <span class="db-bar-pct" id="db-pct-debt">0%</span>
                           <span class="db-bar-amt" id="db-bar-debt-v">$0</span>
                         </div>
-                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-debt" style="width:0%;background:#ef4444"></div></div>
+                        <div class="db-bar-track"><div class="db-bar-fill" id="db-bar-debt" style="width:0%;background:#e8675a"></div></div>
                       </div>
                     </div>
                   </div>
