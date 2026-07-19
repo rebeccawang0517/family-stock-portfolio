@@ -422,17 +422,35 @@ function renderBudget() {
 function openCatPage(cat, keepScroll) {
   const y = parseInt($('fYear').value) || 0;
   const p = $('fPersonO').value;
-  const list = ALL.filter(t => t.statementYear === y && (!p || t.person === p)
-      && !isPayment(t) && (t.category || '其他') === cat)
-    .sort((a, b) => b.amount - a.amount); // 金額大到小
-  const net = list.reduce((s, t) => s + t.amount, 0);
+  const scope = ALL.filter(t => t.statementYear === y && (!p || t.person === p) && !isPayment(t));
+  // 退款配對（同店家＋同持卡人）：全退的消費與被吸收的退款不顯示；部分退款顯示淨額
+  const purchases = scope.filter(t => t.amount > 0).map(t => ({ ...t, net: t.amount, refunded: 0 }));
+  const byShopP = {};
+  purchases.forEach(t => { const k = normShop(t.merchant) + '|' + t.person; (byShopP[k] = byShopP[k] || []).push(t); });
+  const refunds = scope.filter(t => t.amount < 0).map(t => ({ ...t, remain: -t.amount }));
+  for (const r of refunds) {
+    const list = (byShopP[normShop(r.merchant) + '|' + r.person] || []).sort((a, b) => b.net - a.net);
+    for (const t of list) {
+      if (r.remain <= 0) break;
+      const take = Math.min(r.remain, t.net);
+      t.net -= take; t.refunded += take; r.remain -= take;
+    }
+  }
+  const inCat = t => (t.category || '其他') === cat;
+  const hiddenN = purchases.filter(t => inCat(t) && t.net <= 0).length + refunds.filter(t => inCat(t) && t.remain <= 0).length;
+  const list = [
+    ...purchases.filter(t => inCat(t) && t.net > 0),
+    ...refunds.filter(t => inCat(t) && t.remain > 0).map(t => ({ ...t, net: -t.remain }))
+  ].sort((a, b) => b.net - a.net); // 淨額大到小
+  const net = list.reduce((s, t) => s + t.net, 0);
   $('catPageTitle').textContent = `${cat} — ${y} 年明細`;
-  $('catPageSub').textContent = `${list.length} 筆 · 淨額 ${fmt(net)}` + (p ? ` · ${PERSON_LABEL[p]}` : '');
+  $('catPageSub').textContent = `${list.length} 筆 · 淨額 ${fmt(net)}` + (p ? ` · ${PERSON_LABEL[p]}` : '')
+    + (hiddenN ? ` · 已隱藏 ${hiddenN} 筆全額退款的消費與退款紀錄` : '');
   $('catPageBody').innerHTML = list.map(t => `
     <tr>
       <td style="font-family:var(--mono);color:#bbb;white-space:nowrap">${t.date}</td>
-      <td><span class="merchant" style="max-width:340px" title="${esc(t.merchant)}">${esc(t.merchant)}</span></td>
-      <td class="amt r"${t.amount < 0 ? ' style="color:#8a8a8a"' : ''}>${t.amount < 0 ? '−' + fmt(-t.amount) : fmt(t.amount)}</td>
+      <td><span class="merchant" style="max-width:340px" title="${esc(t.merchant)}">${esc(t.merchant)}</span>${t.refunded > 0 ? `<span style="display:block;font-size:10.5px;color:#8a8a8a">原 ${fmt(t.amount)} · 已退 −${fmt(t.refunded)}</span>` : ''}</td>
+      <td class="amt r"${t.net < 0 ? ' style="color:#8a8a8a"' : ''}>${t.net < 0 ? '−' + fmt(-t.net) : fmt(t.net)}</td>
       <td>${budgetDots(t)}</td>
       <td><span class="pill">${PERSON_LABEL[t.person] || t.person}</span></td>
       <td><span class="pill">${esc(t.bank)}</span></td>
