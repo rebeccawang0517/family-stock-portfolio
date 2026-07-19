@@ -26,7 +26,13 @@ export default async function handler(req, res) {
         const segEnd = new Date(Math.min(cur.getTime() + 92 * 86400000, end.getTime()));
         try {
           const bars = await fetchTaifexRange(cur, segEnd);
-          for (const b of bars) { await db.doc(`taifex_daily/${b.dateKey}`).set(b, { merge: true }); backfilled++; }
+          // 批次寫入（每批上限 500）避免逐筆寫超過函式時限
+          for (let i = 0; i < bars.length; i += 450) {
+            const batch = db.batch();
+            bars.slice(i, i + 450).forEach(b => batch.set(db.doc(`taifex_daily/${b.dateKey}`), b, { merge: true }));
+            await batch.commit();
+          }
+          backfilled += bars.length;
         } catch (e) { /* 單段失敗不擋整批 */ }
         cur.setTime(segEnd.getTime() + 86400000);
       }
