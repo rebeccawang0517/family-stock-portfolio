@@ -358,30 +358,46 @@ document.addEventListener('click', async e => {
 function renderBudget() {
   const y = parseInt($('fYearB').value) || 0;
   const p = $('fPersonB').value;
-  const rows = ALL.filter(t => t.statementYear === y && (!p || t.person === p) && !isPayment(t) && t.amount > 0);
+  const all = ALL.filter(t => t.statementYear === y && (!p || t.person === p) && !isPayment(t));
+  // 退款配對（同店家＋同持卡人，金額大者優先吸收）：全額退掉的消費淨額歸 0，不虛增預算
+  const rows = all.filter(t => t.amount > 0).map(t => ({ ...t, net: t.amount }));
+  const byShopP = {};
+  rows.forEach(t => { const k = normShop(t.merchant) + '|' + t.person; (byShopP[k] = byShopP[k] || []).push(t); });
+  for (const r of all) {
+    if (r.amount >= 0) continue;
+    let remain = -r.amount;
+    const list = (byShopP[normShop(r.merchant) + '|' + r.person] || []).sort((a, b) => b.net - a.net);
+    for (const t of list) {
+      if (remain <= 0) break;
+      const take = Math.min(remain, t.net);
+      t.net -= take; remain -= take;
+    }
+  }
   const byCat = {};
   let actual = 0, tagged = 0;
   for (const t of rows) {
+    if (t.net <= 0) continue;                      // 全額退款的消費不計
     const c = t.category || '其他';
     const g = byCat[c] = byCat[c] || { actual: 0, keep: 0, half: 0, cut: 0, untag: 0 };
-    g.actual += t.amount; actual += t.amount;
+    g.actual += t.net; actual += t.net;
     const tag = t.budgetTag || '';
     if (tag) tagged++;
-    if (tag === 'keep') g.keep += t.amount;
-    else if (tag === 'half') g.half += t.amount;
-    else if (tag === 'cut') g.cut += t.amount;
-    else g.untag += t.amount;
+    if (tag === 'keep') g.keep += t.net;
+    else if (tag === 'half') g.half += t.net;
+    else if (tag === 'cut') g.cut += t.net;
+    else g.untag += t.net;
   }
   const cats = Object.entries(byCat).sort((a, b) => b[1].actual - a[1].actual);
   const budgetOf = g => g.keep + g.untag + g.half / 2;
   const totalBudget = cats.reduce((s, [, g]) => s + budgetOf(g), 0);
+  const liveN = rows.filter(t => t.net > 0).length;
   $('bActual').textContent = fmt(actual);
-  $('bBase').textContent = `依據 ${y} 年${p ? '・' + PERSON_LABEL[p] : ''}（退款與繳款不計）`;
+  $('bBase').textContent = `依據 ${y} 年${p ? '・' + PERSON_LABEL[p] : ''}（繳款不計；退款已沖銷，全退的消費不列入）`;
   $('bBudget').textContent = fmt(totalBudget);
   $('bSave').textContent = fmt(actual - totalBudget);
   $('bSavePct').textContent = actual > 0 ? `省 ${((actual - totalBudget) / actual * 100).toFixed(1)}%` : '';
-  $('bTagged').textContent = rows.length ? Math.round(tagged / rows.length * 100) + '%' : '0%';
-  $('bTaggedN').textContent = `${tagged.toLocaleString()} / ${rows.length.toLocaleString()} 筆已標記`;
+  $('bTagged').textContent = liveN ? Math.round(tagged / liveN * 100) + '%' : '0%';
+  $('bTaggedN').textContent = `${tagged.toLocaleString()} / ${liveN.toLocaleString()} 筆已標記`;
   $('bBody').innerHTML = cats.map(([c, g]) => `
     <tr>
       <td>${esc(c)}</td>
