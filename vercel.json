@@ -5,6 +5,7 @@
     { "source": "/spend", "destination": "/creditcard.html" }
   ],
   "crons": [
-    { "path": "/api/refresh-advice", "schedule": "0 13 * * 1-5" }
+    { "path": "/api/refresh-advice", "schedule": "0 13 * * 1-5" },
+    { "path": "/api/taifex-daily-sync", "schedule": "20 6 * * 1-5" }
   ]
 }

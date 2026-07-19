@@ -278,11 +278,11 @@
     <input type="file" id="fileImport" accept=".csv" style="display:none">
   </div>
   <fieldset>
-    <legend>🚀 線上抓資料（免匯檔，第一次用先按這個）</legend>
+    <legend>☁ 雲端日 K（每交易日自動更新，開頁自動同步）</legend>
     <div class="row">
       <select id="fetchYears"><option value="1">近 1 年</option><option value="2" selected>近 2 年</option><option value="3">近 3 年</option><option value="5">近 5 年</option></select>
-      <button class="btn" id="btnFetchOnline">抓期交所日 K 匯入</button>
-      <span class="hint">TX 主力合約日線，自動存進「日線」週期。60分/15分等細週期仍需貼上或匯 CSV。</span>
+      <button class="btn" id="btnFetchOnline">手動重新同步</button>
+      <span class="hint">雲端排程每交易日收盤後自動抓期交所 TX 日 K，你不開網頁它也照抓；開頁時會自動同步到「日線」週期。60分/15分等細週期仍需貼上或匯 CSV。</span>
     </div>
   </fieldset>
   <p class="hint" style="margin:4px 0">要匯 CSV 檔：直接按下方表格對應週期那列的「<b>匯CSV</b>」。要貼上：先點該列「<b>匯入目標</b>」圓鈕再貼上→解析預覽。</p>
@@ -928,40 +928,53 @@ document.addEventListener('change',e=>{ if(e.target.classList&&e.target.classLis
 //========================= 持久化 =========================
 function load(){ bars = loadTF(TF); }
 
-/* ── 線上抓期交所日K（走台指自動交易專案的 API，有開 CORS；每 3 個月一段抓避免被拒） ── */
-const FETCH_API='https://taifex-backtest.vercel.app/api/taifex-history';
+/* ── 雲端日K：Vercel Cron 每交易日自動抓期交所存 Firestore，這裡讀 /api/taifex-bars（同網域，開頁免動手） ── */
+const CLOUD_BARS_API='/api/taifex-bars';
+const CLOUD_FILE_NAME='☁ 雲端自動同步';
+async function fetchCloudDaily(yrs){
+  const r=await fetch(CLOUD_BARS_API);
+  const j=await r.json();
+  if(!j||!j.bars||!j.bars.length) throw new Error(j&&j.error||'no bars');
+  const cut=new Date(); cut.setFullYear(cut.getFullYear()-(yrs||99));
+  const cutSec=Math.floor(cut.getTime()/1000);
+  return j.bars.filter(b=>b.time>=cutSec)
+    .map(b=>({date:b.date,time:'',o:b.open,h:b.high,l:b.low,c:b.close,v:b.volume==null?null:b.volume}));
+}
+function importCloudRows(rows){
+  const files=loadFiles('D').filter(f=>f.name!==CLOUD_FILE_NAME);   // 覆蓋舊的雲端同步檔，不累積
+  files.push({name:CLOUD_FILE_NAME,when:Date.now(),bars:rows});
+  persistFiles('D',files);
+  if(TF==='D'){ load(); refreshAll(); }
+  renderStore();
+}
 $('btnFetchOnline').onclick=async()=>{
   const btn=$('btnFetchOnline'); const yrs=+$('fetchYears').value||2;
   btn.disabled=true; btn.textContent='抓取中…';
-  const end=new Date(); const start=new Date(); start.setFullYear(end.getFullYear()-yrs);
-  const fmtD=d=>d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
-  const segs=[]; let cur=new Date(start);
-  while(cur<end){ const s=new Date(cur); cur.setMonth(cur.getMonth()+3); segs.push([s, cur<end?new Date(cur):new Date(end)]); }
-  const all=[]; let fail=0;
-  for(let i=0;i<segs.length;i++){
-    msg($('parseMsg'),`線上抓取中… 第 ${i+1}/${segs.length} 段（已收 ${all.length} 根）`,true);
-    try{
-      const r=await fetch(FETCH_API+'?from='+fmtD(segs[i][0])+'&to='+fmtD(segs[i][1]));
-      const j=await r.json();
-      if(j&&j.bars&&j.bars.length) all.push(...j.bars); else fail++;
-    }catch(e){ fail++; }
+  msg($('parseMsg'),'向雲端要日 K 中…（第一次使用會自動回補近 2 年，約 10~30 秒）',true);
+  try{
+    const rows=await fetchCloudDaily(yrs);
+    importCloudRows(rows);
+    if(TF!=='D') setActiveTF('D');
+    msg($('parseMsg'),`✅ 已同步 ${rows.length} 根日 K 到「日線」週期。之後每交易日雲端自動更新，開頁就是最新。接著到「② 回測」或「③ 圖表」開始使用`,true);
+  }catch(e){
+    msg($('parseMsg'),'雲端資料暫時拿不到（'+e.message+'），稍後再試，或改用下面貼上／匯 CSV',false);
   }
   btn.disabled=false; btn.textContent='抓期交所日 K 匯入';
-  if(!all.length){ msg($('parseMsg'),'抓不到資料：期交所或 API 暫時沒回應，稍後再試，或改用下面貼上／匯 CSV',false); return; }
-  const seen={}; const rows=[];
-  all.forEach(b=>{
-    const d=new Date(b.time*1000);
-    const date=d.getUTCFullYear()+'/'+String(d.getUTCMonth()+1).padStart(2,'0')+'/'+String(d.getUTCDate()).padStart(2,'0');
-    if(seen[date])return; seen[date]=1;
-    rows.push({date,time:'',o:b.open,h:b.high,l:b.low,c:b.close,v:b.volume==null?null:b.volume});
-  });
-  const files=loadFiles('D').slice();
-  files.push({name:'線上抓取 '+fmtD(start)+'~'+fmtD(end),when:Date.now(),bars:rows});
-  persistFiles('D',files);
-  if(TF!=='D') setActiveTF('D'); else { load(); refreshAll(); }
-  renderStore();
-  msg($('parseMsg'),`✅ 抓到 ${rows.length} 根日 K，已匯入「日線」週期${fail?('（'+fail+' 段失敗可再抓補）'):''}。資料存在這台瀏覽器，接著到「② 回測」或「③ 圖表」開始使用`,true);
 };
+/* 開頁自動同步：日線空的→全量匯入；已有資料→背景靜默更新到最新（免按任何鈕） */
+async function autoSyncCloudDaily(){
+  try{
+    const rows=await fetchCloudDaily(99);
+    if(!rows.length) return;
+    const cur=loadTF('D');
+    const curLast=cur.length?cur[cur.length-1].date:'';
+    const newLast=rows[rows.length-1].date;
+    if(!cur.length || newLast>curLast){
+      importCloudRows(rows);
+      msg($('parseMsg'),`☁ 已自動同步雲端日 K（共 ${rows.length} 根，最新 ${newLast}）`,true);
+    }
+  }catch(e){ console.warn('雲端日K自動同步失敗：',e); }
+}
 
 //========================= 解析貼上 =========================
 function splitLine(line){
@@ -3208,6 +3221,7 @@ $('chartLast').onclick=()=>{ viewStart=chartGeo?chartGeo.maxStart:null; if(viewS
   catch(err){ try{ $('dataInfo').textContent='啟動發生錯誤：'+err.message; }catch(e){}
     console.error(err); alert('啟動發生錯誤：'+err.message+'\n資料應仍在，請把此訊息告訴我。'); }
   try{ restoreOptCache(); }catch(e){ console.warn('還原最佳化結果失敗',e); }   // 還原上次自動最佳化結果，換分頁/重整不用重跑
+  autoSyncCloudDaily();   // 背景自動同步雲端日K（不擋啟動流程）
 })();
 </script>
 
