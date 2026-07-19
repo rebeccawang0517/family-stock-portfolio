@@ -534,25 +534,21 @@
 <!-- ========== 自動化回測（單週期最佳化＋跨週期） ========== -->
 <section class="view" id="v-auto">
   <div class="tfbar">📊 單週期最佳化的週期 <select class="tfPick"></select><span class="tfInfo hint"></span>　<span class="hint">← A 區就在這個週期上找最佳（B/C 跨週期另有進出場週期）</span></div>
-  <fieldset style="margin:0 0 14px">
-    <legend>⚙ 共用進階選項（A 單週期、B 跨週期一次設定）</legend>
-    <div class="cfg-shared">
-      <label title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
-      <label title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="optDayStop"> 夜盤不停損（僅日盤執行停損停利）</label>
-      <label title="固定停損點數，從進場價算。勾了：A 不再自動掃描停損、直接用這個點數；B 加上這個停損。不勾：A 依「出場方式」自動掃描、B 不設停損"><input type="checkbox" id="mtfOptUseSL"> 加停損 <input type="number" id="mtfOptSL" value="80"> 點<span class="sub">（勾＝A/B 都用固定點數；不勾＝A 自動掃描）</span></label>
-      <label title="從最高點回吐這麼多點就出場＝鎖利。勾了：A/B 都用這個回吐點數；不勾：A 自動測 不用/80 兩種、B 不設"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損 <input type="number" id="mtfOptTrail" value="80"> 點<span class="sub">（回吐鎖利）</span></label>
-      <label title="出場後改用較嚴格的再次進場條件；會多試幾組，搜尋時間增加。此功能僅跨週期引擎支援"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件<span class="sub">（實驗，僅 B 跨週期適用）</span></label>
-    </div>
-  </fieldset>
+  <div class="msg err" style="background:#20293a;color:#b8cde8;margin:0 0 12px">
+    ⚠️ <b>小心過度最佳化</b>：歷史最好 ≠ 未來會賺。務必看右邊「<b>樣本外(後30%)</b>」那幾欄——樣本外也不錯才可信。
+  </div>
   <div class="autoGrid">
   <div class="autoLeft">
-  <div style="font-size:16px;font-weight:600;color:var(--acc);margin:2px 0 10px">A. 單週期自動最佳化（在這個週期內找最佳）</div>
-  <div class="msg err" style="background:#20293a;color:#b8cde8">
-    ⚠️ <b>小心過度最佳化</b>：這是把大量「均線＋K棒」條件組合跑一遍找歷史最佳。歷史最好 ≠ 未來會賺。
-    請務必看右邊「<b>樣本外(後30%)</b>」那幾欄 —— 若樣本外也不錯，才比較可信；只有樣本內漂亮就是騙人的。
-  </div>
-  <fieldset>
-    <legend>A. 最佳化設定</legend>
+  <div class="wizard" style="margin-top:0">
+    <div class="wz-head">
+      <button type="button" class="wz-tab on" data-step="0"><span class="wz-num">1</span><span class="wz-tt"><b>單週期</b><small>在這個週期內找最佳</small></span></button>
+      <button type="button" class="wz-tab" data-step="1"><span class="wz-num">2</span><span class="wz-tt"><b>跨週期</b><small>進場、出場不同週期</small></span></button>
+      <button type="button" class="wz-tab" data-step="2"><span class="wz-num">3</span><span class="wz-tt"><b>共用選項</b><small>停損 · 壓撐 · 夜盤</small></span></button>
+    </div>
+    <div class="wz-body">
+
+      <!-- STEP 1：A 單週期 -->
+      <div class="wz-pane on" data-pane="0">
     <div class="cfg">
       <label>找方向
         <select id="optDir"><option value="both">多、空都找</option><option value="long">只找做多</option><option value="short">只找做空</option></select>
@@ -584,15 +580,11 @@
       <span id="optMsg" class="hint"></span>
     </div>
     <p class="hint">用前面比例的資料找最佳組合（樣本內），再用剩下沒看過的資料驗證（樣本外）。點右邊結果的「套用」會把該組設定填回「② 回測設定」。</p>
-  </fieldset>
+      </div>
 
-  <div style="font-size:16px;font-weight:600;color:var(--acc);margin:22px 0 10px;border-top:2px solid var(--line);padding-top:16px">B. 跨週期自動最佳化（進場一週期＋出場另一週期）</div>
-  <div class="msg err" style="background:#20293a;color:#b8cde8">
-    電腦自動搜尋各種進出場<b>條件組合</b>，找歷史最佳並用樣本外驗證。進場條件在進場週期判斷、出場用出場週期的均線/K棒訊號。
-    <br>★ 想「手動測一組」跨週期，請到「② 回測（手動）」頁下方的「跨週期回測」。
-  </div>
-  <fieldset>
-    <legend>B. 跨週期最佳化設定</legend>
+      <!-- STEP 2：B 跨週期 -->
+      <div class="wz-pane" data-pane="1">
+    <p class="hint" style="margin:0 0 12px">進場條件在<b>進場週期</b>判斷、出場用<b>出場週期</b>的均線/K棒訊號。想手動測一組跨週期 → 到「② 回測」頁下方的「跨週期回測」。</p>
     <div class="cfg">
       <label>做 <select id="mtfOptDir"><option value="long">多</option><option value="short">空</option></select></label>
       <label>週期配對
@@ -622,7 +614,22 @@
       <span class="hint">「固定週期」用上面選的進/出場週期（可進粗出細，如進15出5）＋完整網格；「所有配對」自動試所有週期組合（含進場比出場粗），為省時改用<b>精簡網格</b>——是粗略掃「哪組週期配對好」，選出配對後再用「固定週期」跑完整細節。搜尋中畫面會顯示進度%不會凍結（若仍卡住請先 Ctrl+Shift+R 硬重整）。成本/每點價值沿用②跨週期設定。</span>
     </div>
     <div class="row"><button class="btn" id="btnMTFOpt">▶ 開始自動找最佳組合</button><span id="mtfOptMsg" class="hint"></span></div>
-  </fieldset>
+      </div>
+
+      <!-- STEP 3：共用選項（A、B 都適用） -->
+      <div class="wz-pane" data-pane="2">
+    <p class="hint" style="margin:0 0 12px">這裡的設定<b>同時作用於 1 單週期和 2 跨週期</b>，設一次就好。</p>
+    <div class="cfg-shared" style="flex-direction:column;align-items:flex-start;gap:14px">
+      <label title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
+      <label title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="optDayStop"> 夜盤不停損（僅日盤執行停損停利）</label>
+      <label title="固定停損點數，從進場價算。勾了：單週期不再自動掃描停損、直接用這個點數；跨週期加上這個停損。不勾：單週期依「出場方式」自動掃描、跨週期不設停損"><input type="checkbox" id="mtfOptUseSL"> 加停損 <input type="number" id="mtfOptSL" value="80"> 點<span class="sub">（勾＝兩邊都用固定點數；不勾＝單週期自動掃描）</span></label>
+      <label title="從最高點回吐這麼多點就出場＝鎖利。勾了：兩邊都用這個回吐點數；不勾：單週期自動測 不用/80 兩種、跨週期不設"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損 <input type="number" id="mtfOptTrail" value="80"> 點<span class="sub">（回吐鎖利）</span></label>
+      <label title="出場後改用較嚴格的再次進場條件；會多試幾組，搜尋時間增加。此功能僅跨週期引擎支援"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件<span class="sub">（實驗，僅跨週期適用）</span></label>
+    </div>
+      </div>
+
+    </div><!-- /wz-body -->
+  </div><!-- /wizard -->
   </div><!-- /autoLeft -->
   <div class="autoRight">
     <div class="resHd">📋 A 單週期結果</div>
@@ -3179,10 +3186,11 @@ $('scanRange').addEventListener('input',()=>{ $('scanFrom').value=''; });
 $('scanH').addEventListener('change',()=>{ if($('scanBarInfo').style.display!=='none')scanBar(); });
 $('btnConfirm').onclick=confirmImport;
 $('btnBTbar').onclick=runBT;   // ▶執行回測只剩置頂摘要列這顆
-// ② 精靈分頁切換（進場/出場/算倉位，一次一步）
+// 精靈分頁切換（②回測與③自動最佳化各自獨立，只切換自己 wizard 內的分頁）
 document.querySelectorAll('.wz-tab').forEach(t=>t.onclick=()=>{
-  document.querySelectorAll('.wz-tab').forEach(x=>x.classList.toggle('on',x===t));
-  document.querySelectorAll('.wz-pane').forEach(p=>p.classList.toggle('on',p.dataset.pane===t.dataset.step));
+  const wz=t.closest('.wizard');
+  wz.querySelectorAll('.wz-tab').forEach(x=>x.classList.toggle('on',x===t));
+  wz.querySelectorAll('.wz-pane').forEach(p=>p.classList.toggle('on',p.dataset.pane===t.dataset.step));
 });
 // 方向 segmented → 寫回隱藏的 mtfDir select（JS 其他地方照讀 mtfDir）
 document.querySelectorAll('#dirSeg button').forEach(b=>b.onclick=()=>{ const d=$('mtfDir'); if(d) d.value=b.dataset.dir; renderStratBar(); renderChipConds&&renderChipConds(); });
