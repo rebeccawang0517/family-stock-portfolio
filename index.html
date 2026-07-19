@@ -6,7 +6,7 @@
 <title>家族資產管理平台</title>
 <style>
 :root{
-  --bg:#0a0a0a; --bg2:#111; --band:#c9c9c9;
+  --bg:#0a0a0a; --bg2:#111;
   --ink:#f5f5f5; --ink-dim:#9a9a9a; --ink-faint:#5c5c5c;
   --card:#f2f2f2; --card-ink:#111; --card-dim:#555;
   --line:rgba(255,255,255,.14);
@@ -78,27 +78,6 @@ a{text-decoration:none;color:inherit}
 .p-go{font-size:12px;letter-spacing:.24em;font-weight:700;color:#111;margin-top:auto;padding-top:8px}
 .p-go::after{content:" →";display:inline-block;transition:transform .2s ease}
 .pillar:hover .p-go::after{transform:translateX(4px)}
-
-/* ── Gray band：自動化流程（互動步驟列） ── */
-.band{background:var(--band);color:#111}
-.band .sec-head h2{color:#111}
-.band .sec-head .en{color:#666}
-.flow{padding-bottom:48px}
-.flow-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;position:relative}
-.flow-steps::before{content:"";position:absolute;top:50%;left:4%;right:4%;height:2px;background:#9d9d9d;z-index:0}
-.fstep{position:relative;z-index:1;background:#1c1c1c;color:#ddd;border:2px solid transparent;border-radius:10px;
-  padding:13px 8px;text-align:center;font-size:12px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;
-  cursor:pointer;font-family:inherit;transition:background .2s ease,color .2s ease,transform .2s ease,border-color .2s ease}
-.fstep:hover{transform:translateY(-3px)}
-.fstep.on{background:#f2f2f2;color:#111;border-color:#111;transform:translateY(-3px)}
-.flow-detail{margin-top:16px;background:#111;color:#eee;border-radius:10px;padding:16px 22px;
-  display:flex;align-items:baseline;gap:16px;min-height:58px}
-.flow-detail b{font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:#fff;white-space:nowrap}
-.flow-detail span{font-size:13.5px;color:#b8b8b8;letter-spacing:.04em;line-height:1.7}
-.flow-bar{height:3px;background:#333;border-radius:2px;overflow:hidden;margin-top:10px}
-.flow-bar i{display:block;height:100%;width:0;background:#f2f2f2}
-.flow-bar i.run{animation:fill 4s linear forwards}
-@keyframes fill{to{width:100%}}
 
 /* ── Footer ── */
 footer{background:#000;border-top:1px solid var(--line);padding:36px 24px}
@@ -239,22 +218,6 @@ footer{background:#000;border-top:1px solid var(--line);padding:36px 24px}
     </div>
   </div>
 
-  <!-- ═══ 自動化流程 ═══ -->
-  <section class="band">
-    <div class="wrap flow">
-      <div class="sec-head reveal">
-        <h2>自動化流程</h2><span class="en">Automated Pipeline</span>
-      </div>
-      <div class="reveal">
-        <div class="flow-steps" id="flowSteps"></div>
-        <div class="flow-detail">
-          <b id="flowTitle"></b>
-          <span id="flowDesc"></span>
-        </div>
-        <div class="flow-bar"><i id="flowBar"></i></div>
-      </div>
-    </div>
-  </section>
 </main>
 
 <!-- ═══ Footer ═══ -->
@@ -295,42 +258,6 @@ document.querySelectorAll('.pillar').forEach(function(card){
   });
   card.addEventListener('mouseleave', function(){ card.style.transform = ''; });
 });
-
-/* 自動化流程：可點擊步驟 + 自動輪播 */
-var FLOW = [
-  ['Statement','券商寄送交割對帳信件'],
-  ['Fetch','每交易日自動抓信，已抓過不重抓'],
-  ['Parse','解密 PDF，解析逐筆成交'],
-  ['Rebuild','交易入帳，持股自動重算'],
-  ['Report','資產彙總，即時呈現']
-];
-var stepsEl = document.getElementById('flowSteps');
-var titleEl = document.getElementById('flowTitle');
-var descEl  = document.getElementById('flowDesc');
-var barEl   = document.getElementById('flowBar');
-var cur = 0, timer = null;
-
-FLOW.forEach(function(s, i){
-  var b = document.createElement('button');
-  b.type = 'button'; b.className = 'fstep'; b.textContent = s[0];
-  b.addEventListener('click', function(){ show(i); restart(); });
-  stepsEl.appendChild(b);
-});
-
-function show(i){
-  cur = i;
-  stepsEl.querySelectorAll('.fstep').forEach(function(b, j){ b.classList.toggle('on', j === i); });
-  titleEl.textContent = FLOW[i][0];
-  descEl.textContent  = FLOW[i][1];
-  barEl.classList.remove('run');
-  void barEl.offsetWidth;   /* 重置進度條動畫 */
-  barEl.classList.add('run');
-}
-function restart(){
-  clearInterval(timer);
-  timer = setInterval(function(){ show((cur + 1) % FLOW.length); }, 4000);
-}
-show(0); restart();
 </script>
 </body>
 </html>
