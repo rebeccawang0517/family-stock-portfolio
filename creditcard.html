@@ -91,6 +91,17 @@ td .merchant{max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:
 .tbl-wrap td{padding:10px 14px}
 td select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:inherit;outline:none;cursor:pointer;min-width:96px}
 td select.edited{border-color:#8a8a8a;background:#242424}
+/* 預算標記三色點：紅=必要繼續、黃=降低水準減半、藍=非必要刪除 */
+.dots{display:inline-flex;gap:7px;align-items:center}
+.dot{width:16px;height:16px;border-radius:50%;border:none;cursor:pointer;opacity:.22;padding:0;flex-shrink:0;transition:.12s}
+.dot.r{background:#e05656}
+.dot.y{background:#e0b34a}
+.dot.b{background:#4a90e0}
+.dot:hover{opacity:.75;transform:scale(1.15)}
+.dot.on{opacity:1;box-shadow:0 0 0 2px #fff}
+.tag-legend{font-size:11.5px;color:var(--dim);letter-spacing:.04em;margin-bottom:14px;line-height:2}
+.tag-legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 4px -1px 10px}
+.budget-save{color:#7fe7b6}
 .cats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
 .cat-chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:12px;color:#ccc;cursor:pointer;user-select:none}
 .cat-chip small{color:var(--dim);font-family:var(--mono);margin-left:6px}
@@ -130,6 +141,7 @@ td select.edited{border-color:#8a8a8a;background:#242424}
     <div class="views">
       <button class="view-tab on" id="tabOverview" onclick="switchView('overview')">年度總覽</button>
       <button class="view-tab" id="tabDetail" onclick="switchView('detail')">消費明細</button>
+      <button class="view-tab" id="tabBudget" onclick="switchView('budget')">明年預算</button>
     </div>
 
     <!-- ═══ 年度總覽 ═══ -->
@@ -180,10 +192,11 @@ td select.edited{border-color:#8a8a8a;background:#242424}
       <button class="back-btn" onclick="closeCatPage()">← 返回年度總覽</button>
       <div class="cat-page-title" id="catPageTitle"></div>
       <div class="cat-page-sub" id="catPageSub"></div>
+      <div class="tag-legend">預算標記：<i style="background:#e05656"></i>必要消費（明年繼續）<i style="background:#e0b34a"></i>降低水準（明年減半）<i style="background:#4a90e0"></i>非必要（明年刪除）— 點一下標記、再點取消，自動存雲端</div>
       <div class="tbl-wrap">
         <table>
           <thead><tr>
-            <th>日期</th><th>商家</th><th class="r">金額</th><th>持卡人</th><th>銀行</th><th>帳單月</th>
+            <th>日期</th><th>商家</th><th class="r">金額</th><th>預算標記</th><th>持卡人</th><th>銀行</th><th>帳單月</th>
           </tr></thead>
           <tbody id="catPageBody"></tbody>
         </table>
@@ -209,13 +222,46 @@ td select.edited{border-color:#8a8a8a;background:#242424}
 
       <div class="cats" id="catChips"></div>
 
+      <div class="tag-legend">預算標記：<i style="background:#e05656"></i>必要消費（明年繼續）<i style="background:#e0b34a"></i>降低水準（明年減半）<i style="background:#4a90e0"></i>非必要（明年刪除）— 點一下標記、再點取消，標記結果到「明年預算」分頁看試算</div>
       <div class="tbl-wrap">
         <table>
           <thead><tr>
-            <th>日期</th><th>商家</th><th class="r">金額</th><th>分類</th><th>持卡人</th><th>銀行</th>
+            <th>日期</th><th>商家</th><th class="r">金額</th><th>預算標記</th><th>分類</th><th>持卡人</th><th>銀行</th>
           </tr></thead>
-          <tbody id="tbody"><tr><td colspan="6" style="text-align:center;color:#666;padding:30px">載入中…</td></tr></tbody>
+          <tbody id="tbody"><tr><td colspan="7" style="text-align:center;color:#666;padding:30px">載入中…</td></tr></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ═══ 明年預算 ═══ -->
+    <div id="viewBudget" class="hidden">
+      <div class="filters">
+        <span class="lbl">依據年度</span><select id="fYearB"></select>
+        <span class="lbl">持卡人</span>
+        <select id="fPersonB"><option value="">全部</option><option value="rebecca">Rebecca</option><option value="eric">Eric</option></select>
+      </div>
+      <div class="tag-legend">規則：<i style="background:#e05656"></i>紅＝繼續（100%）<i style="background:#e0b34a"></i>黃＝減半（50%）<i style="background:#4a90e0"></i>藍＝刪除（0%）· 未標記的先當作繼續（100%），標得越完整、預算越準。到「消費明細」或總覽點類別進明細頁標記。</div>
+      <div class="kpis">
+        <div class="kpi"><b>今年實際消費</b><span id="bActual">$0</span><small id="bBase"></small></div>
+        <div class="kpi"><b>明年預算</b><span id="bBudget">$0</span><small>紅100%＋黃50%＋藍0%</small></div>
+        <div class="kpi"><b>預計省下</b><span id="bSave" class="budget-save">$0</span><small id="bSavePct"></small></div>
+        <div class="kpi"><b>標記進度</b><span id="bTagged">0%</span><small id="bTaggedN"></small></div>
+      </div>
+      <div class="sec">
+        <h2>各類別預算試算</h2>
+        <div style="overflow:auto">
+        <table>
+          <thead><tr>
+            <th>類別</th><th class="r">今年實際</th>
+            <th class="r" style="color:#e05656">紅·繼續</th>
+            <th class="r" style="color:#e0b34a">黃·減半</th>
+            <th class="r" style="color:#4a90e0">藍·刪除</th>
+            <th class="r">未標記</th>
+            <th class="r">明年預算</th><th class="r">省下</th>
+          </tr></thead>
+          <tbody id="bBody"></tbody>
+        </table>
+        </div>
       </div>
     </div>
 
@@ -265,13 +311,93 @@ window.switchView = v => {
   $('viewOverview').classList.toggle('hidden', v !== 'overview');
   $('viewDetail').classList.toggle('hidden', v !== 'detail');
   $('viewCategory').classList.toggle('hidden', v !== 'category');
+  $('viewBudget').classList.toggle('hidden', v !== 'budget');
   $('tabOverview').classList.toggle('on', v === 'overview' || v === 'category');
   $('tabDetail').classList.toggle('on', v === 'detail');
+  $('tabBudget').classList.toggle('on', v === 'budget');
+  if (v === 'budget') renderBudget();
 };
 window.closeCatPage = () => switchView('overview');
 
+/* ═══ 預算標記（紅=必要繼續 keep、黃=降低水準 half、藍=非必要刪除 cut） ═══ */
+const TAG_TITLES = { keep: '紅：必要消費，明年繼續（100%）', half: '黃：降低水準，明年減半（50%)', cut: '藍：非必要，明年刪除（0%）' };
+function budgetDots(t) {
+  if (isPayment(t) || t.amount <= 0) return '';
+  const tag = t.budgetTag || '';
+  return `<span class="dots" data-id="${t.id}">` +
+    [['keep','r'],['half','y'],['cut','b']].map(([k, cls]) =>
+      `<button class="dot ${cls}${tag === k ? ' on' : ''}" data-tag="${k}" title="${TAG_TITLES[k]}"></button>`).join('') +
+    `</span>`;
+}
+function attachDots(container, rerender) {
+  container.querySelectorAll('.dots .dot').forEach(btn => btn.onclick = async () => {
+    const wrap = btn.parentElement;
+    const t = ALL.find(x => x.id === wrap.dataset.id);
+    if (!t) return;
+    const newTag = (t.budgetTag === btn.dataset.tag) ? '' : btn.dataset.tag;   // 再點同色＝取消
+    wrap.querySelectorAll('.dot').forEach(b => b.disabled = true);
+    try {
+      await updateDoc(doc(db, 'creditCardTransactions', t.id), { budgetTag: newTag });
+      t.budgetTag = newTag;
+      wrap.querySelectorAll('.dot').forEach(b => { b.disabled = false; b.classList.toggle('on', b.dataset.tag === newTag); });
+      if (rerender) rerender();
+    } catch (e) {
+      alert('儲存失敗：' + e.message);
+      wrap.querySelectorAll('.dot').forEach(b => b.disabled = false);
+    }
+  });
+}
+
+/* ═══ 明年預算試算：紅 100%＋黃 50%＋藍 0%；未標記先視為繼續 ═══ */
+function renderBudget() {
+  const y = parseInt($('fYearB').value) || 0;
+  const p = $('fPersonB').value;
+  const rows = ALL.filter(t => t.statementYear === y && (!p || t.person === p) && !isPayment(t) && t.amount > 0);
+  const byCat = {};
+  let actual = 0, tagged = 0;
+  for (const t of rows) {
+    const c = t.category || '其他';
+    const g = byCat[c] = byCat[c] || { actual: 0, keep: 0, half: 0, cut: 0, untag: 0 };
+    g.actual += t.amount; actual += t.amount;
+    const tag = t.budgetTag || '';
+    if (tag) tagged++;
+    if (tag === 'keep') g.keep += t.amount;
+    else if (tag === 'half') g.half += t.amount;
+    else if (tag === 'cut') g.cut += t.amount;
+    else g.untag += t.amount;
+  }
+  const cats = Object.entries(byCat).sort((a, b) => b[1].actual - a[1].actual);
+  const budgetOf = g => g.keep + g.untag + g.half / 2;
+  const totalBudget = cats.reduce((s, [, g]) => s + budgetOf(g), 0);
+  $('bActual').textContent = fmt(actual);
+  $('bBase').textContent = `依據 ${y} 年${p ? '・' + PERSON_LABEL[p] : ''}（退款與繳款不計）`;
+  $('bBudget').textContent = fmt(totalBudget);
+  $('bSave').textContent = fmt(actual - totalBudget);
+  $('bSavePct').textContent = actual > 0 ? `省 ${((actual - totalBudget) / actual * 100).toFixed(1)}%` : '';
+  $('bTagged').textContent = rows.length ? Math.round(tagged / rows.length * 100) + '%' : '0%';
+  $('bTaggedN').textContent = `${tagged.toLocaleString()} / ${rows.length.toLocaleString()} 筆已標記`;
+  $('bBody').innerHTML = cats.map(([c, g]) => `
+    <tr>
+      <td>${esc(c)}</td>
+      <td class="amt r">${fmt(g.actual)}</td>
+      <td class="amt r" style="color:${g.keep ? '#e05656' : '#555'}">${g.keep ? fmt(g.keep) : '—'}</td>
+      <td class="amt r" style="color:${g.half ? '#e0b34a' : '#555'}">${g.half ? fmt(g.half) : '—'}</td>
+      <td class="amt r" style="color:${g.cut ? '#4a90e0' : '#555'}">${g.cut ? fmt(g.cut) : '—'}</td>
+      <td class="amt r" style="color:${g.untag ? '#9a9a9a' : '#555'}">${g.untag ? fmt(g.untag) : '—'}</td>
+      <td class="amt r" style="font-weight:800">${fmt(budgetOf(g))}</td>
+      <td class="amt r ${g.actual - budgetOf(g) > 0 ? 'budget-save' : ''}">${g.actual - budgetOf(g) > 0 ? '−' + fmt(g.actual - budgetOf(g)) : '—'}</td>
+    </tr>`).join('') + (cats.length ? `
+    <tr style="border-top:2px solid rgba(255,255,255,.18)">
+      <td style="font-weight:800">合計</td>
+      <td class="amt r" style="font-weight:800">${fmt(actual)}</td>
+      <td colspan="4"></td>
+      <td class="amt r" style="font-weight:800;font-size:14px">${fmt(totalBudget)}</td>
+      <td class="amt r budget-save" style="font-weight:800">−${fmt(actual - totalBudget)}</td>
+    </tr>` : '') || '<tr><td colspan="8" style="text-align:center;color:#666;padding:30px">此年度沒有資料</td></tr>';
+}
+
 // 類別明細頁：該年度（含持卡人篩選）此類別的全部交易
-function openCatPage(cat) {
+function openCatPage(cat, keepScroll) {
   const y = parseInt($('fYear').value) || 0;
   const p = $('fPersonO').value;
   const list = ALL.filter(t => t.statementYear === y && (!p || t.person === p)
@@ -285,12 +411,14 @@ function openCatPage(cat) {
       <td style="font-family:var(--mono);color:#bbb;white-space:nowrap">${t.date}</td>
       <td><span class="merchant" style="max-width:340px" title="${esc(t.merchant)}">${esc(t.merchant)}</span></td>
       <td class="amt r"${t.amount < 0 ? ' style="color:#8a8a8a"' : ''}>${t.amount < 0 ? '−' + fmt(-t.amount) : fmt(t.amount)}</td>
+      <td>${budgetDots(t)}</td>
       <td><span class="pill">${PERSON_LABEL[t.person] || t.person}</span></td>
       <td><span class="pill">${esc(t.bank)}</span></td>
       <td style="font-family:var(--mono);color:#8a8a8a;font-size:12px">${ym(t)}</td>
-    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#666;padding:30px">沒有資料</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#666;padding:30px">沒有資料</td></tr>';
+  attachDots($('catPageBody'));
   switchView('category');
-  window.scrollTo(0, 0);
+  if (!keepScroll) window.scrollTo(0, 0);
 }
 
 onAuthStateChanged(auth, async user => {
@@ -316,6 +444,7 @@ async function loadAll() {
   // 總覽：年度選單
   const years = [...new Set(ALL.map(t => t.statementYear))].sort().reverse();
   $('fYear').innerHTML = years.map(y => `<option value="${y}">${y} 年</option>`).join('');
+  $('fYearB').innerHTML = years.map(y => `<option value="${y}">${y} 年 → ${y + 1} 年預算</option>`).join('');
   $('status').textContent = `共 ${ALL.length.toLocaleString()} 筆`;
   $('statusD').textContent = `共 ${ALL.length.toLocaleString()} 筆`;
   // 從收支管理點月份進來：直接切到明細並預選該月
@@ -495,13 +624,15 @@ function render() {
       <td style="font-family:var(--mono);color:#bbb;white-space:nowrap">${t.date}</td>
       <td><span class="merchant" style="max-width:340px" title="${esc(t.merchant)}">${esc(t.merchant)}</span></td>
       <td class="amt r"${t.amount < 0 ? ' style="color:#8a8a8a"' : ''}>${t.amount < 0 ? '−' + fmt(-t.amount) : fmt(t.amount)}</td>
+      <td>${budgetDots(t)}</td>
       <td><select data-id="${t.id}" class="${t.categoryEdited ? 'edited' : ''}">
         ${allCats.map(c => `<option${c === (t.category||'其他') ? ' selected' : ''}>${esc(c)}</option>`).join('')}
       </select></td>
       <td><span class="pill">${PERSON_LABEL[t.person] || t.person}</span></td>
       <td><span class="pill">${esc(t.bank)}</span></td>
     </tr>`).join('')
-    : '<tr><td colspan="6" style="text-align:center;color:#666;padding:30px">此條件沒有資料</td></tr>';
+    : '<tr><td colspan="7" style="text-align:center;color:#666;padding:30px">此條件沒有資料</td></tr>';
+  attachDots($('tbody'));
 
   $('tbody').querySelectorAll('select').forEach(sel => sel.onchange = async () => {
     const t = ALL.find(x => x.id === sel.dataset.id);
@@ -521,6 +652,7 @@ function render() {
 
 ['fMonth','fPerson','fBank'].forEach(id => $(id).onchange = () => { catFilter = null; render(); });
 ['fYear','fPersonO'].forEach(id => $(id).onchange = renderOverview);
+['fYearB','fPersonB'].forEach(id => $(id).onchange = renderBudget);
 </script>
 </body>
 </html>
