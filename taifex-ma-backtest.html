@@ -117,9 +117,11 @@
   #v-auto .cfg label.full{grid-column:1/-1;white-space:nowrap;flex-wrap:wrap}
   #v-auto .cfg label.full .sub{white-space:nowrap}
   /* 頂部共用進階選項：橫向排列、單行 */
-  .cfg-shared{display:flex;gap:10px 32px;flex-wrap:wrap}
-  .cfg-shared label{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13.5px;color:var(--txt)}
+  .cfg-shared{display:flex;gap:12px 32px;flex-wrap:wrap}
+  .cfg-shared label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px;color:var(--txt);white-space:nowrap;flex-wrap:wrap}
   .cfg-shared input[type=checkbox]{flex-shrink:0}
+  .cfg-shared input[type=number]{width:68px}
+  .cfg-shared .sub{color:var(--sub2);font-size:12px}
   #v-auto .cfg>span.hint{grid-column:1/-1}
   @media(max-width:640px){#v-auto .cfg{grid-template-columns:1fr}}
   @media(max-width:960px){ .autoLeft{flex:1 1 auto} }
@@ -538,6 +540,9 @@
     <div class="cfg-shared">
       <label title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
       <label title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="optDayStop"> 夜盤不停損（僅日盤執行停損停利）</label>
+      <label title="固定停損點數，從進場價算。勾了：A 不再自動掃描停損、直接用這個點數；B 加上這個停損。不勾：A 依「出場方式」自動掃描、B 不設停損"><input type="checkbox" id="mtfOptUseSL"> 加停損 <input type="number" id="mtfOptSL" value="80"> 點<span class="sub">（勾＝A/B 都用固定點數；不勾＝A 自動掃描）</span></label>
+      <label title="從最高點回吐這麼多點就出場＝鎖利。勾了：A/B 都用這個回吐點數；不勾：A 自動測 不用/80 兩種、B 不設"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損 <input type="number" id="mtfOptTrail" value="80"> 點<span class="sub">（回吐鎖利）</span></label>
+      <label title="出場後改用較嚴格的再次進場條件；會多試幾組，搜尋時間增加。此功能僅跨週期引擎支援"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件<span class="sub">（實驗，僅 B 跨週期適用）</span></label>
     </div>
   </fieldset>
   <div class="autoGrid">
@@ -614,10 +619,7 @@
       </label>
       <label>最少交易次數 <input type="number" id="mtfMinN" value="20"></label>
       <label>樣本內比例（%）<input type="number" id="mtfSplit" value="70"></label>
-      <label class="full"><input type="checkbox" id="mtfOptUseSL"> 加停損<span class="sub">（固定，從進場價算）</span><input type="number" id="mtfOptSL" value="80"> 點</label>
-      <label class="full" title="從最高點回吐這麼多點就出場＝鎖利、避免吐回獲利。勾了連「所有配對」也會搜(會跑久一點)"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損<span class="sub">（回吐鎖利）</span><input type="number" id="mtfOptTrail" value="80"> 點</label>
-      <label class="full" title="出場後改用較嚴格的再次進場條件；會多試幾組較嚴格的再進場，搜尋時間增加"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件（實驗，較久）</label>
-      <input type="checkbox" id="mtfOptDayStop" hidden><input type="checkbox" id="mtfOptSR" hidden><!-- 由頂部「共用進階選項」同步 -->
+      <input type="checkbox" id="mtfOptDayStop" hidden><input type="checkbox" id="mtfOptSR" hidden><!-- 停損/移動停損/再進場/壓撐/夜盤 皆由頂部「共用進階選項」設定 -->
       <span class="hint">「固定週期」用上面選的進/出場週期（可進粗出細，如進15出5）＋完整網格；「所有配對」自動試所有週期組合（含進場比出場粗），為省時改用<b>精簡網格</b>——是粗略掃「哪組週期配對好」，選出配對後再用「固定週期」跑完整細節。搜尋中畫面會顯示進度%不會凍結（若仍卡住請先 Ctrl+Shift+R 硬重整）。成本/每點價值沿用②跨週期設定。</span>
     </div>
     <div class="row"><button class="btn" id="btnMTFOpt">▶ 開始自動找最佳組合</button><span id="mtfOptMsg" class="hint"></span></div>
@@ -2570,9 +2572,12 @@ async function optimize(){
   const trainEnd=Math.floor(bars.length*split);
   const sigOnly=$('optExit').value==='signal';
   const exitsBase = sigOnly?SIG_EXIT:L_EXIT;
-  const slList = sigOnly?[0]:SLS;
+  let slList = sigOnly?[0]:SLS;
   const tpList = sigOnly?[0]:TPS;
-  const trailList = [0,80];   // 移動停損：不用 / 回吐80點
+  let trailList = [0,80];   // 移動停損：不用 / 回吐80點
+  // 共用進階選項：勾了固定停損/移動停損 → A 不掃描、直接用指定點數（與 B 一致）
+  if($('mtfOptUseSL')&&$('mtfOptUseSL').checked){ const v=+$('mtfOptSL').value||0; if(v>0) slList=[v]; }
+  if($('mtfOptUseTrail')&&$('mtfOptUseTrail').checked){ const v=+$('mtfOptTrail').value||0; if(v>0) trailList=[v]; }
   const alignSel=$('optAlign').value; const alignList = alignSel==='both'?[3,4]:[+alignSel];
   let srList=[null]; _srFilterFn=null;                 // 壓力支撐過濾（可選維度）：進場碰到60分/日線壓撐就不進
   if($('optSR').checked){ _srFilterFn=makeSRFilter(parseTimeArr(bars));
@@ -3456,7 +3461,7 @@ function _elv(id){ const e=$(id); return e?(e.type==='checkbox'?(e.checked?'1':'
 function _dataFP(tf){ const B=loadTF(tf), n=B.length; return tf+'#'+n+'#'+(n?barLabel(B[0]):'')+'~'+(n?barLabel(B[n-1]):''); }
 const _common=()=>['ma1','ma2','ma3','ma4','ma5','alignN','trendLB','trendThr','tol','cost','entryPx','ptVal'].map(_elv).join(',');
 function optSig(kind){
-  if(kind==='single') return 'S|'+TF+'|'+_dataFP(TF)+'|'+_common()+'|'+['optDir','optAlign','optMetric','optExit','optMinN','optSplit','optSR','optDayStop'].map(_elv).join(',');
+  if(kind==='single') return 'S|'+TF+'|'+_dataFP(TF)+'|'+_common()+'|'+['optDir','optAlign','optMetric','optExit','optMinN','optSplit','optSR','optDayStop','mtfOptUseSL','mtfOptSL','mtfOptUseTrail','mtfOptTrail'].map(_elv).join(',');
   return 'M|'+TFS.map(_dataFP).join(';')+'|'+_common()+'|'+['mtfOptDir','mtfPairMode','mtfOptEntryTF','mtfOptExitTF','mtfAlign','mtfMetric','mtfMinN','mtfSplit','mtfOptUseSL','mtfOptSL','mtfOptUseTrail','mtfOptTrail','mtfOptDayStop','mtfOptSR','mtfOptReentry'].map(_elv).join(',');
 }
 let _forceS=false,_forceM=false;
