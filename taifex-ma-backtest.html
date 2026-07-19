@@ -277,6 +277,14 @@
     <label class="hint"><input type="checkbox" id="appendMode" checked> 累加合併到現有資料（重複自動去除）｜取消勾＝清掉舊的重匯</label>
     <input type="file" id="fileImport" accept=".csv" style="display:none">
   </div>
+  <fieldset>
+    <legend>🚀 線上抓資料（免匯檔，第一次用先按這個）</legend>
+    <div class="row">
+      <select id="fetchYears"><option value="1">近 1 年</option><option value="2" selected>近 2 年</option><option value="3">近 3 年</option><option value="5">近 5 年</option></select>
+      <button class="btn" id="btnFetchOnline">抓期交所日 K 匯入</button>
+      <span class="hint">TX 主力合約日線，自動存進「日線」週期。60分/15分等細週期仍需貼上或匯 CSV。</span>
+    </div>
+  </fieldset>
   <p class="hint" style="margin:4px 0">要匯 CSV 檔：直接按下方表格對應週期那列的「<b>匯CSV</b>」。要貼上：先點該列「<b>匯入目標</b>」圓鈕再貼上→解析預覽。</p>
   <fieldset>
     <legend>各週期資料 · 匯入目標（全部集中在這頁管理）</legend>
@@ -919,6 +927,41 @@ document.addEventListener('change',e=>{ if(e.target.classList&&e.target.classLis
 
 //========================= 持久化 =========================
 function load(){ bars = loadTF(TF); }
+
+/* ── 線上抓期交所日K（走台指自動交易專案的 API，有開 CORS；每 3 個月一段抓避免被拒） ── */
+const FETCH_API='https://taifex-backtest.vercel.app/api/taifex-history';
+$('btnFetchOnline').onclick=async()=>{
+  const btn=$('btnFetchOnline'); const yrs=+$('fetchYears').value||2;
+  btn.disabled=true; btn.textContent='抓取中…';
+  const end=new Date(); const start=new Date(); start.setFullYear(end.getFullYear()-yrs);
+  const fmtD=d=>d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  const segs=[]; let cur=new Date(start);
+  while(cur<end){ const s=new Date(cur); cur.setMonth(cur.getMonth()+3); segs.push([s, cur<end?new Date(cur):new Date(end)]); }
+  const all=[]; let fail=0;
+  for(let i=0;i<segs.length;i++){
+    msg($('parseMsg'),`線上抓取中… 第 ${i+1}/${segs.length} 段（已收 ${all.length} 根）`,true);
+    try{
+      const r=await fetch(FETCH_API+'?from='+fmtD(segs[i][0])+'&to='+fmtD(segs[i][1]));
+      const j=await r.json();
+      if(j&&j.bars&&j.bars.length) all.push(...j.bars); else fail++;
+    }catch(e){ fail++; }
+  }
+  btn.disabled=false; btn.textContent='抓期交所日 K 匯入';
+  if(!all.length){ msg($('parseMsg'),'抓不到資料：期交所或 API 暫時沒回應，稍後再試，或改用下面貼上／匯 CSV',false); return; }
+  const seen={}; const rows=[];
+  all.forEach(b=>{
+    const d=new Date(b.time*1000);
+    const date=d.getUTCFullYear()+'/'+String(d.getUTCMonth()+1).padStart(2,'0')+'/'+String(d.getUTCDate()).padStart(2,'0');
+    if(seen[date])return; seen[date]=1;
+    rows.push({date,time:'',o:b.open,h:b.high,l:b.low,c:b.close,v:b.volume==null?null:b.volume});
+  });
+  const files=loadFiles('D').slice();
+  files.push({name:'線上抓取 '+fmtD(start)+'~'+fmtD(end),when:Date.now(),bars:rows});
+  persistFiles('D',files);
+  if(TF!=='D') setActiveTF('D'); else { load(); refreshAll(); }
+  renderStore();
+  msg($('parseMsg'),`✅ 抓到 ${rows.length} 根日 K，已匯入「日線」週期${fail?('（'+fail+' 段失敗可再抓補）'):''}。資料存在這台瀏覽器，接著到「② 回測」或「③ 圖表」開始使用`,true);
+};
 
 //========================= 解析貼上 =========================
 function splitLine(line){
