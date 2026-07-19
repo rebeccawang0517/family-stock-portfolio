@@ -92,8 +92,9 @@ td .merchant{max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:
 td select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:inherit;outline:none;cursor:pointer;min-width:96px}
 td select.edited{border-color:#8a8a8a;background:#242424}
 /* 預算標記三色點：紅=必要繼續、黃=降低水準減半、藍=非必要刪除 */
-.dots{display:inline-flex;gap:7px;align-items:center}
-.dot{width:16px;height:16px;border-radius:50%;border:none;cursor:pointer;opacity:.22;padding:0;flex-shrink:0;transition:.12s}
+.dots{display:inline-flex;gap:8px;align-items:center}
+.dot{width:20px;height:20px;border-radius:50%;border:none;cursor:pointer;opacity:.25;padding:0;flex-shrink:0;transition:.12s;position:relative}
+.dot::after{content:"";position:absolute;inset:-6px}   /* 擴大點擊範圍到 32px */
 .dot.r{background:#e05656}
 .dot.y{background:#e0b34a}
 .dot.b{background:#4a90e0}
@@ -326,27 +327,32 @@ function budgetDots(t) {
   const tag = t.budgetTag || '';
   return `<span class="dots" data-id="${t.id}">` +
     [['keep','r'],['half','y'],['cut','b']].map(([k, cls]) =>
-      `<button class="dot ${cls}${tag === k ? ' on' : ''}" data-tag="${k}" title="${TAG_TITLES[k]}"></button>`).join('') +
+      `<button type="button" class="dot ${cls}${tag === k ? ' on' : ''}" data-tag="${k}" title="${TAG_TITLES[k]}"></button>`).join('') +
     `</span>`;
 }
-function attachDots(container, rerender) {
-  container.querySelectorAll('.dots .dot').forEach(btn => btn.onclick = async () => {
-    const wrap = btn.parentElement;
-    const t = ALL.find(x => x.id === wrap.dataset.id);
-    if (!t) return;
-    const newTag = (t.budgetTag === btn.dataset.tag) ? '' : btn.dataset.tag;   // 再點同色＝取消
-    wrap.querySelectorAll('.dot').forEach(b => b.disabled = true);
-    try {
-      await updateDoc(doc(db, 'creditCardTransactions', t.id), { budgetTag: newTag });
-      t.budgetTag = newTag;
-      wrap.querySelectorAll('.dot').forEach(b => { b.disabled = false; b.classList.toggle('on', b.dataset.tag === newTag); });
-      if (rerender) rerender();
-    } catch (e) {
-      alert('儲存失敗：' + e.message);
-      wrap.querySelectorAll('.dot').forEach(b => b.disabled = false);
-    }
-  });
-}
+// 事件委派：不依賴每次渲染重綁，整頁任何 .dot 點擊都在這裡處理
+const TAG_LABEL = { keep: '🔴 必要繼續', half: '🟡 降低水準', cut: '🔵 非必要刪除', '': '已取消標記' };
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('.dot');
+  if (!btn) return;
+  const wrap = btn.closest('.dots');
+  if (!wrap || !wrap.dataset.id || btn.disabled) return;
+  e.preventDefault(); e.stopPropagation();
+  const t = ALL.find(x => x.id === wrap.dataset.id);
+  if (!t) return;
+  const newTag = (t.budgetTag === btn.dataset.tag) ? '' : btn.dataset.tag;   // 再點同色＝取消
+  wrap.querySelectorAll('.dot').forEach(b => b.disabled = true);
+  try {
+    await updateDoc(doc(db, 'creditCardTransactions', t.id), { budgetTag: newTag });
+    t.budgetTag = newTag;
+    const fb = `${TAG_LABEL[newTag]}：${String(t.merchant || '').slice(0, 14)}`;
+    if ($('statusD')) $('statusD').textContent = fb;
+    if ($('status')) $('status').textContent = fb;
+  } catch (err) {
+    alert('標記儲存失敗：' + err.message);
+  }
+  wrap.querySelectorAll('.dot').forEach(b => { b.disabled = false; b.classList.toggle('on', b.dataset.tag === t.budgetTag); });
+});
 
 /* ═══ 明年預算試算：紅 100%＋黃 50%＋藍 0%；未標記先視為繼續 ═══ */
 function renderBudget() {
@@ -416,7 +422,6 @@ function openCatPage(cat, keepScroll) {
       <td><span class="pill">${esc(t.bank)}</span></td>
       <td style="font-family:var(--mono);color:#8a8a8a;font-size:12px">${ym(t)}</td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#666;padding:30px">沒有資料</td></tr>';
-  attachDots($('catPageBody'));
   switchView('category');
   if (!keepScroll) window.scrollTo(0, 0);
 }
@@ -632,7 +637,6 @@ function render() {
       <td><span class="pill">${esc(t.bank)}</span></td>
     </tr>`).join('')
     : '<tr><td colspan="7" style="text-align:center;color:#666;padding:30px">此條件沒有資料</td></tr>';
-  attachDots($('tbody'));
 
   $('tbody').querySelectorAll('select').forEach(sel => sel.onchange = async () => {
     const t = ALL.find(x => x.id === sel.dataset.id);
