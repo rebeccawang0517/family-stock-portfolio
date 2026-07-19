@@ -533,7 +533,6 @@
 
 <!-- ========== 自動化回測（單週期最佳化＋跨週期） ========== -->
 <section class="view" id="v-auto">
-  <div class="tfbar">📊 單週期最佳化的週期 <select class="tfPick"></select><span class="tfInfo hint"></span>　<span class="hint">← A 區就在這個週期上找最佳（B/C 跨週期另有進出場週期）</span></div>
   <div class="msg err" style="background:#20293a;color:#b8cde8;margin:0 0 12px">
     ⚠️ <b>小心過度最佳化</b>：歷史最好 ≠ 未來會賺。務必看右邊「<b>樣本外(後30%)</b>」那幾欄——樣本外也不錯才可信。
   </div>
@@ -550,6 +549,9 @@
       <!-- STEP 1：A 單週期 -->
       <div class="wz-pane on" data-pane="0">
     <div class="cfg">
+      <label title="就在這個週期的 K 棒上找最佳組合（跨週期另有進出場週期）">最佳化週期<span class="tfInfo sub" style="font-weight:400"></span>
+        <select class="tfPick"></select>
+      </label>
       <label>找方向
         <select id="optDir"><option value="both">多、空都找</option><option value="long">只找做多</option><option value="short">只找做空</option></select>
       </label>
