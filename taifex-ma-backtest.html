@@ -113,6 +113,13 @@
   #v-auto .cfg label:has(input[type=checkbox]) input[type=checkbox]{flex-shrink:0}
   /* 「加停損 80 點」這類勾選＋數字混合欄：數字框維持小寬度，不撐滿 */
   #v-auto .cfg label:has(input[type=checkbox]) input[type=number]{width:72px;flex:0 0 auto}
+  /* 佔滿整列的勾選欄（B 區停損/移動停損/再進場）：橫排單行不擠壓 */
+  #v-auto .cfg label.full{grid-column:1/-1;white-space:nowrap;flex-wrap:wrap}
+  #v-auto .cfg label.full .sub{white-space:nowrap}
+  /* 頂部共用進階選項：橫向排列、單行 */
+  .cfg-shared{display:flex;gap:10px 32px;flex-wrap:wrap}
+  .cfg-shared label{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13.5px;color:var(--txt)}
+  .cfg-shared input[type=checkbox]{flex-shrink:0}
   #v-auto .cfg>span.hint{grid-column:1/-1}
   @media(max-width:640px){#v-auto .cfg{grid-template-columns:1fr}}
   @media(max-width:960px){ .autoLeft{flex:1 1 auto} }
@@ -526,6 +533,13 @@
 <!-- ========== 自動化回測（單週期最佳化＋跨週期） ========== -->
 <section class="view" id="v-auto">
   <div class="tfbar">📊 單週期最佳化的週期 <select class="tfPick"></select><span class="tfInfo hint"></span>　<span class="hint">← A 區就在這個週期上找最佳（B/C 跨週期另有進出場週期）</span></div>
+  <fieldset style="margin:0 0 14px">
+    <legend>⚙ 共用進階選項（A 單週期、B 跨週期一次設定）</legend>
+    <div class="cfg-shared">
+      <label title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
+      <label title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="optDayStop"> 夜盤不停損（僅日盤執行停損停利）</label>
+    </div>
+  </fieldset>
   <div class="autoGrid">
   <div class="autoLeft">
   <div style="font-size:16px;font-weight:600;color:var(--acc);margin:2px 0 10px">A. 單週期自動最佳化（在這個週期內找最佳）</div>
@@ -560,8 +574,6 @@
       </label>
       <label>最少交易次數 <input type="number" id="optMinN" value="30"></label>
       <label>樣本內比例（%）<input type="number" id="optSplit" value="70"></label>
-      <label class="hint" title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
-      <label class="hint" title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="optDayStop"> 夜盤不停損</label>
     </div>
     <div class="row">
       <button class="btn" id="btnOptimize">▶ 開始自動找最佳組合</button>
@@ -602,11 +614,10 @@
       </label>
       <label>最少交易次數 <input type="number" id="mtfMinN" value="20"></label>
       <label>樣本內比例（%）<input type="number" id="mtfSplit" value="70"></label>
-      <label><input type="checkbox" id="mtfOptUseSL"> 加停損<span class="sub">(固定,從進場價算)</span> <input type="number" id="mtfOptSL" value="80"> 點</label>
-      <label title="從最高點回吐這麼多點就出場＝鎖利、避免吐回獲利。勾了連「所有配對」也會搜(會跑久一點)"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損<span class="sub">(回吐鎖利)</span> <input type="number" id="mtfOptTrail" value="80"> 點</label>
-      <label class="hint" title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="mtfOptDayStop"> 夜盤不停損</label>
-      <label class="hint" title="壓力支撐固定用60分＋日線算，進場價碰到就不進，因果版不看未來，需先匯入60分或日線"><input type="checkbox" id="mtfOptSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
-      <label class="hint" title="出場後改用較嚴格的再次進場條件；會多試幾組較嚴格的再進場，搜尋時間增加"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件（實驗，較久）</label>
+      <label class="full"><input type="checkbox" id="mtfOptUseSL"> 加停損<span class="sub">（固定，從進場價算）</span><input type="number" id="mtfOptSL" value="80"> 點</label>
+      <label class="full" title="從最高點回吐這麼多點就出場＝鎖利、避免吐回獲利。勾了連「所有配對」也會搜(會跑久一點)"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損<span class="sub">（回吐鎖利）</span><input type="number" id="mtfOptTrail" value="80"> 點</label>
+      <label class="full" title="出場後改用較嚴格的再次進場條件；會多試幾組較嚴格的再進場，搜尋時間增加"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件（實驗，較久）</label>
+      <input type="checkbox" id="mtfOptDayStop" hidden><input type="checkbox" id="mtfOptSR" hidden><!-- 由頂部「共用進階選項」同步 -->
       <span class="hint">「固定週期」用上面選的進/出場週期（可進粗出細，如進15出5）＋完整網格；「所有配對」自動試所有週期組合（含進場比出場粗），為省時改用<b>精簡網格</b>——是粗略掃「哪組週期配對好」，選出配對後再用「固定週期」跑完整細節。搜尋中畫面會顯示進度%不會凍結（若仍卡住請先 Ctrl+Shift+R 硬重整）。成本/每點價值沿用②跨週期設定。</span>
     </div>
     <div class="row"><button class="btn" id="btnMTFOpt">▶ 開始自動找最佳組合</button><span id="mtfOptMsg" class="hint"></span></div>
@@ -934,6 +945,15 @@ document.addEventListener('change',e=>{ if(e.target.classList&&e.target.classLis
 
 //========================= 持久化 =========================
 function load(){ bars = loadTF(TF); }
+
+/* 共用進階選項：頂部勾選同步到 B 跨週期的隱藏勾選（搜尋邏輯仍各自讀原 id，行為不變） */
+(function(){
+  const sync=()=>{ if($('mtfOptSR'))$('mtfOptSR').checked=$('optSR').checked;
+                   if($('mtfOptDayStop'))$('mtfOptDayStop').checked=$('optDayStop').checked; };
+  if($('optSR'))$('optSR').addEventListener('change',sync);
+  if($('optDayStop'))$('optDayStop').addEventListener('change',sync);
+  sync();
+})();
 
 /* ── 雲端日K：Vercel Cron 每交易日自動抓期交所存 Firestore，這裡讀 /api/taifex-bars（同網域，開頁免動手） ── */
 const CLOUD_BARS_API='/api/taifex-bars';
