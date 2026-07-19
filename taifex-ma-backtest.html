@@ -278,15 +278,7 @@
 
 <!-- ========== 資料輸入 ========== -->
 <section class="view on" id="v-input">
-  <p class="hint">
-    <b>怎麼大量匯入：</b>從看盤軟體(XQ、群益、三竹)、期交所網站或 Excel／Google 試算表，
-    <b>框選整個表格 → Ctrl+C → 貼到下面框框 → 按「解析預覽」</b>。程式會自動辨識 日期／時間／開／高／低／收／量。<br>
-    支援 Tab、逗號、空白分隔。數字有千分位逗號(如 23,456)也讀得懂。若你的資料是<b>新到舊</b>排列，勾「反轉順序」。
-  </p>
-  <textarea id="pasteBox" placeholder="貼上範例（欄位順序程式會自動猜，貼上後可手動調整）：
-2026/07/01	23100	23260	23050	23210	85000
-2026/07/02	23210	23400	23180	23380	91000
-...也可以只有 開 高 低 收 四欄"></textarea>
+  <textarea id="pasteBox" placeholder="從看盤軟體或 Excel 框選表格複製後貼到這裡，按「解析預覽」（自動辨識 日期/時間/開/高/低/收/量，支援 Tab/逗號/空白分隔）"></textarea>
   <div class="row">
     <button class="btn" id="btnParse">解析預覽（貼上用）</button>
     <label class="hint"><input type="checkbox" id="revOrder"> 反轉順序（我的資料是新→舊）</label>
