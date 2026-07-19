@@ -19,11 +19,11 @@ export default async function handler(req, res) {
     let backfilled = 0;
 
     if (snap.size < 100) {
-      // 首次使用：分季回補近 2 年（期交所單次查詢範圍有限制）
+      // 首次使用：回補近 2 年。期交所單次查詢上限約 1 個月，28 天一段抓
       const end = new Date();
       const cur = new Date(end.getTime() - 2 * 365 * 86400000);
       while (cur < end) {
-        const segEnd = new Date(Math.min(cur.getTime() + 92 * 86400000, end.getTime()));
+        const segEnd = new Date(Math.min(cur.getTime() + 28 * 86400000, end.getTime()));
         try {
           const bars = await fetchTaifexRange(cur, segEnd);
           // 批次寫入（每批上限 500）避免逐筆寫超過函式時限
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       const b = d.data();
       return { date: b.date, time: b.time, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume };
     });
-    res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=86400');
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=3600');
     return res.status(200).json({ bars, count: bars.length, backfilled });
   } catch (e) {
     return res.status(500).json({ error: e.message });

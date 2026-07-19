@@ -932,7 +932,7 @@ function load(){ bars = loadTF(TF); }
 const CLOUD_BARS_API='/api/taifex-bars';
 const CLOUD_FILE_NAME='☁ 雲端自動同步';
 async function fetchCloudDaily(yrs){
-  const r=await fetch(CLOUD_BARS_API);
+  const r=await fetch(CLOUD_BARS_API+'?t='+Date.now());   // 防 CDN 舊快取
   const j=await r.json();
   if(!j||!j.bars||!j.bars.length) throw new Error(j&&j.error||'no bars');
   const cut=new Date(); cut.setFullYear(cut.getFullYear()-(yrs||99));
