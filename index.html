@@ -17,88 +17,107 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-
 a{text-decoration:none;color:inherit}
 .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
 
+/* ── 進場動畫 ── */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+
 /* ── Hero ── */
-.hero{display:grid;grid-template-columns:5fr 6fr;min-height:420px;border-bottom:1px solid var(--line)}
-.hero-art{position:relative;overflow:hidden;background:#000;min-height:280px}
-.skyline{position:absolute;inset:auto 0 0 0;height:82%;display:flex;align-items:flex-end;gap:6px;padding:0 18px;filter:grayscale(1)}
-.skyline span{flex:1;background:linear-gradient(180deg,#3a3a3a 0%,#161616 100%);border-radius:2px 2px 0 0;position:relative}
+.hero{display:grid;grid-template-columns:5fr 6fr;min-height:300px;border-bottom:1px solid var(--line)}
+.hero-art{position:relative;overflow:hidden;background:#000;min-height:220px}
+.skyline{position:absolute;inset:auto 0 0 0;height:86%;display:flex;align-items:flex-end;gap:6px;padding:0 18px;filter:grayscale(1)}
+.skyline span{flex:1;background:linear-gradient(180deg,#3a3a3a 0%,#161616 100%);border-radius:2px 2px 0 0;position:relative;
+  transform-origin:bottom;animation:rise .9s cubic-bezier(.2,.8,.2,1) backwards}
+.skyline span:nth-child(2n){animation-delay:.08s}
+.skyline span:nth-child(3n){animation-delay:.16s}
+@keyframes rise{from{transform:scaleY(0)}}
 .skyline span::after{content:"";position:absolute;inset:8px 25% auto 25%;height:60%;
-  background:repeating-linear-gradient(180deg,rgba(255,255,255,.14) 0 2px,transparent 2px 9px);opacity:.5}
+  background:repeating-linear-gradient(180deg,rgba(255,255,255,.14) 0 2px,transparent 2px 9px);opacity:.5;
+  animation:flicker 6s linear infinite}
+.skyline span:nth-child(2n)::after{animation-delay:1.7s}
+.skyline span:nth-child(3n)::after{animation-delay:3.4s}
+@keyframes flicker{0%,92%{opacity:.5}94%{opacity:.2}96%{opacity:.55}100%{opacity:.5}}
 .hero-art::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 20% 0%,rgba(255,255,255,.10),transparent 55%)}
-.hero-txt{display:flex;flex-direction:column;justify-content:center;gap:18px;padding:64px 48px;background:#000}
-.mark{width:44px;height:44px;color:#fff}
+.hero-txt{display:flex;flex-direction:column;justify-content:center;gap:14px;padding:44px 48px;background:#000}
+.mark{width:38px;height:38px;color:#fff}
 .hero-kicker{font-size:12px;letter-spacing:.42em;color:var(--ink-dim);text-transform:uppercase}
-.hero h1{font-size:clamp(30px,4.6vw,52px);font-weight:800;letter-spacing:.06em;line-height:1.15}
-.hero-sub{color:var(--ink-dim);font-size:15px;letter-spacing:.08em}
+.hero h1{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:.06em;line-height:1.15}
+.hero-sub{color:var(--ink-dim);font-size:14px;letter-spacing:.08em}
+.hero-meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .date-chip{display:inline-block;border:1px solid var(--line);border-radius:999px;
-  padding:6px 18px;font-size:12px;letter-spacing:.18em;color:var(--ink-dim);width:max-content}
+  padding:6px 16px;font-size:12px;letter-spacing:.14em;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+.hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:11px 24px;
+  font-size:13.5px;font-weight:700;letter-spacing:.1em;transition:transform .15s ease,background .15s ease,box-shadow .15s ease}
+.btn-main{background:#f2f2f2;color:#111}
+.btn-main:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(255,255,255,.15)}
+.btn-ghost{border:1px solid var(--line);color:#e8e8e8}
+.btn-ghost:hover{background:#1f1f1f;transform:translateY(-2px)}
 
 /* ── Section title ── */
-.sec-head{padding:72px 0 36px}
-.sec-head h2{font-size:clamp(22px,3vw,32px);font-weight:800;letter-spacing:.14em}
-.sec-head .en{display:block;font-size:11px;letter-spacing:.4em;color:var(--ink-faint);margin-top:8px;text-transform:uppercase}
+.sec-head{padding:44px 0 24px;display:flex;align-items:baseline;gap:14px}
+.sec-head h2{font-size:clamp(20px,2.6vw,28px);font-weight:800;letter-spacing:.14em}
+.sec-head .en{font-size:11px;letter-spacing:.4em;color:var(--ink-faint);text-transform:uppercase}
 
 /* ── Pillars ── */
-.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;padding-bottom:88px}
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;padding-bottom:56px}
 .pillar{background:var(--card);color:var(--card-ink);border-radius:14px;overflow:hidden;
-  display:flex;flex-direction:column;transition:transform .18s ease,box-shadow .18s ease}
-.pillar:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(0,0,0,.55)}
-.thumb{height:150px;background:#0d0d0d;position:relative;overflow:hidden}
-.thumb svg{position:absolute;inset:0;width:100%;height:100%}
-.p-body{padding:22px 22px 26px;display:flex;flex-direction:column;gap:10px;flex:1}
+  display:flex;flex-direction:column;transition:transform .18s ease,box-shadow .18s ease;will-change:transform}
+.pillar:hover,.pillar:focus-visible{box-shadow:0 18px 40px rgba(0,0,0,.55)}
+.thumb{height:118px;background:#0d0d0d;position:relative;overflow:hidden}
+.thumb svg{position:absolute;inset:0;width:100%;height:100%;transition:transform .35s ease}
+.pillar:hover .thumb svg{transform:scale(1.06)}
+.p-body{padding:18px 20px 20px;display:flex;flex-direction:column;gap:8px;flex:1}
 .p-num{font-size:11px;letter-spacing:.32em;color:var(--card-dim)}
-.p-body h3{font-size:20px;font-weight:800;letter-spacing:.05em;border-bottom:2px solid #111;padding-bottom:10px}
-.p-sub{font-size:13.5px;color:#4a4a4a;line-height:1.55;letter-spacing:.01em;font-weight:600}
-.p-body ul{list-style:none;color:var(--card-dim);font-size:13.5px;line-height:2;flex:1}
-.p-body li::before{content:"·  ";font-weight:900;color:#111}
-.p-go{font-size:12px;letter-spacing:.24em;font-weight:700;color:#111;margin-top:6px}
-.p-go::after{content:" →"}
+.p-body h3{font-size:19px;font-weight:800;letter-spacing:.05em;border-bottom:2px solid #111;padding-bottom:8px}
+.p-sub{font-size:13.5px;color:#4a4a4a;line-height:1.5;letter-spacing:.01em;font-weight:600}
+.p-more{list-style:none;color:var(--card-dim);font-size:13px;line-height:1.9;
+  max-height:0;overflow:hidden;opacity:0;transition:max-height .35s ease,opacity .3s ease,margin .3s ease}
+.pillar:hover .p-more,.pillar:focus-visible .p-more,.pillar.open .p-more{max-height:150px;opacity:1;margin-top:2px}
+.p-more li::before{content:"·  ";font-weight:900;color:#111}
+.p-go{font-size:12px;letter-spacing:.24em;font-weight:700;color:#111;margin-top:auto;padding-top:8px}
+.p-go::after{content:" →";display:inline-block;transition:transform .2s ease}
+.pillar:hover .p-go::after{transform:translateX(4px)}
 
-/* ── Gray band：自動化流程 ── */
+/* ── Gray band：自動化流程（互動步驟列） ── */
 .band{background:var(--band);color:#111}
 .band .sec-head h2{color:#111}
 .band .sec-head .en{color:#666}
-.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding-bottom:80px;position:relative}
-.step{background:#1c1c1c;color:#eee;border-radius:10px;padding:20px 14px 18px;text-align:center;position:relative}
-.step::before{content:"";position:absolute;top:-7px;left:50%;transform:translateX(-50%);
-  width:12px;height:12px;border-radius:50%;background:#f2f2f2;border:3px solid #1c1c1c}
-.step b{display:block;font-size:11px;letter-spacing:.22em;margin-bottom:8px;color:#fff;text-transform:uppercase}
-.step span{font-size:12.5px;color:#a8a8a8;line-height:1.7;display:block}
-
-/* ── 下一步 ── */
-.next{padding-bottom:96px}
-.next-grid{display:flex;flex-direction:column;gap:18px}
-.next-row{display:grid;grid-template-columns:5fr 7fr;gap:22px}
-.next-cta{background:#f2f2f2;color:#111;border-radius:12px;padding:26px 26px;
-  font-size:19px;font-weight:800;letter-spacing:.08em;display:flex;align-items:center;
-  transition:transform .15s ease}
-.next-cta:hover{transform:translateX(6px)}
-.next-desc{background:#161616;border:1px solid var(--line);border-radius:12px;padding:20px 24px}
-.next-desc b{font-size:13.5px;letter-spacing:.1em;display:block;margin-bottom:8px}
-.next-desc ul{list-style:none;color:var(--ink-dim);font-size:13px;line-height:2}
-.next-desc li::before{content:"·  "}
-.next-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
-.next-links a{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;letter-spacing:.05em;
-  color:#e8e8e8;background:#1f1f1f;border:1px solid var(--line);border-radius:999px;padding:7px 15px;
-  transition:background .15s ease,transform .15s ease}
-.next-links a:hover{background:#2a2a2a;transform:translateY(-1px)}
+.flow{padding-bottom:48px}
+.flow-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;position:relative}
+.flow-steps::before{content:"";position:absolute;top:50%;left:4%;right:4%;height:2px;background:#9d9d9d;z-index:0}
+.fstep{position:relative;z-index:1;background:#1c1c1c;color:#ddd;border:2px solid transparent;border-radius:10px;
+  padding:13px 8px;text-align:center;font-size:12px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;
+  cursor:pointer;font-family:inherit;transition:background .2s ease,color .2s ease,transform .2s ease,border-color .2s ease}
+.fstep:hover{transform:translateY(-3px)}
+.fstep.on{background:#f2f2f2;color:#111;border-color:#111;transform:translateY(-3px)}
+.flow-detail{margin-top:16px;background:#111;color:#eee;border-radius:10px;padding:16px 22px;
+  display:flex;align-items:baseline;gap:16px;min-height:58px}
+.flow-detail b{font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:#fff;white-space:nowrap}
+.flow-detail span{font-size:13.5px;color:#b8b8b8;letter-spacing:.04em;line-height:1.7}
+.flow-bar{height:3px;background:#333;border-radius:2px;overflow:hidden;margin-top:10px}
+.flow-bar i{display:block;height:100%;width:0;background:#f2f2f2}
+.flow-bar i.run{animation:fill 4s linear forwards}
+@keyframes fill{to{width:100%}}
 
 /* ── Footer ── */
-footer{background:#000;border-top:1px solid var(--line);text-align:center;padding:72px 24px 64px}
-footer h2{font-size:clamp(26px,3.6vw,40px);font-weight:800;letter-spacing:.2em;margin-bottom:10px}
-footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
-.f-chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:5px 16px;
-  font-size:11px;letter-spacing:.2em;color:var(--ink-dim);margin:26px 0 10px}
-.f-val{font-size:14px;letter-spacing:.06em;color:#ddd}
-.f-note{margin-top:34px;font-size:11px;color:var(--ink-faint);letter-spacing:.2em}
+footer{background:#000;border-top:1px solid var(--line);padding:36px 24px}
+.f-row{max-width:1080px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px}
+.f-brand{font-size:15px;font-weight:800;letter-spacing:.2em}
+.f-info{color:var(--ink-dim);font-size:12px;letter-spacing:.12em;display:flex;flex-wrap:wrap;gap:8px 22px}
+.f-info a{color:#ddd}
+.f-info a:hover{text-decoration:underline}
 
 @media (max-width:860px){
   .hero{grid-template-columns:1fr}
-  .hero-txt{padding:48px 28px}
+  .hero-art{min-height:150px}
+  .hero-txt{padding:34px 24px}
   .pillars{grid-template-columns:1fr}
-  .flow{grid-template-columns:1fr;gap:20px}
-  .step::before{top:50%;left:-7px;transform:translateY(-50%)}
-  .next-row{grid-template-columns:1fr}
+  .pillar .p-more{max-height:150px;opacity:1;margin-top:2px} /* 手機直接展開，避免 hover 不可用 */
+  .flow-steps{grid-template-columns:repeat(5,1fr);gap:6px}
+  .fstep{font-size:10px;letter-spacing:.08em;padding:11px 4px}
+  .flow-detail{flex-direction:column;gap:6px}
+  .f-row{justify-content:center;text-align:center}
 }
 </style>
 </head>
@@ -121,19 +140,24 @@ footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
     <span class="hero-kicker">Family Wealth Management</span>
     <h1>家族資產管理平台</h1>
     <p class="hero-sub">總資產 · 投資 · 消費　三位一體的家族財務中樞</p>
-    <span class="date-chip" id="today"></span>
+    <div class="hero-meta"><span class="date-chip" id="clock"></span></div>
+    <div class="hero-cta">
+      <a class="btn btn-main" href="portfolio.html">進入管理系統 →</a>
+      <a class="btn btn-ghost" href="https://taifex-backtest.vercel.app" target="_blank" rel="noopener">台指期回測</a>
+      <a class="btn btn-ghost" href="taifex-ma-backtest.html">K棒均線回測</a>
+    </div>
   </div>
 </header>
 
 <!-- ═══ 三大支柱 ═══ -->
 <main>
   <div class="wrap">
-    <div class="sec-head">
-      <h2>三大支柱<span class="en">Three Pillars</span></h2>
+    <div class="sec-head reveal">
+      <h2>三大支柱</h2><span class="en">Three Pillars</span>
     </div>
     <div class="pillars">
 
-      <a class="pillar" href="/assets">
+      <a class="pillar reveal" href="/assets">
         <div class="thumb">
           <svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
             <rect width="300" height="150" fill="#0d0d0d"/>
@@ -149,18 +173,18 @@ footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
         <div class="p-body">
           <span class="p-num">01 — TOTAL ASSETS</span>
           <h3>家族總資產管理</h3>
-          <p class="p-sub">一眼看懂全家有多少錢</p>
-          <ul>
-            <li>現金、股票、房產全部加總</li>
-            <li>扣掉負債後的淨資產</li>
-            <li>距離 5,000 萬還差多少</li>
-            <li>財務健檢與 AI 建議</li>
+          <p class="p-sub">整合家庭資產負債，即時掌握淨值全貌</p>
+          <ul class="p-more">
+            <li>現金、證券、不動產多元資產整合</li>
+            <li>負債沖抵後淨資產即時計算</li>
+            <li>財務目標達成率追蹤</li>
+            <li>AI 財務健檢與配置建議</li>
           </ul>
           <span class="p-go">進入總覽</span>
         </div>
       </a>
 
-      <a class="pillar" href="/invest">
+      <a class="pillar reveal" href="/invest">
         <div class="thumb">
           <svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
             <rect width="300" height="150" fill="#0d0d0d"/>
@@ -175,18 +199,18 @@ footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
         <div class="p-body">
           <span class="p-num">02 — INVESTMENTS</span>
           <h3>家族投資管理</h3>
-          <p class="p-sub">股票現在賺還是賠，一清二楚</p>
-          <ul>
-            <li>台股、美股即時損益</li>
-            <li>買賣自動從券商信件匯入</li>
-            <li>今年賺了幾 %</li>
-            <li>AI 幫你分析持股</li>
+          <p class="p-sub">跨市場投資組合追蹤與損益分析</p>
+          <ul class="p-more">
+            <li>台股、美股即時報價與未實現損益</li>
+            <li>券商交割憑證自動匯入建檔</li>
+            <li>年度報酬率與績效總覽</li>
+            <li>AI 持股分析與風險提示</li>
           </ul>
           <span class="p-go">進入投資</span>
         </div>
       </a>
 
-      <a class="pillar" href="/spend">
+      <a class="pillar reveal" href="/spend">
         <div class="thumb">
           <svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice">
             <rect width="300" height="150" fill="#0d0d0d"/>
@@ -201,12 +225,12 @@ footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
         <div class="p-body">
           <span class="p-num">03 — SPENDING</span>
           <h3>家族消費管理</h3>
-          <p class="p-sub">每月花多少、存多少，一目了然</p>
-          <ul>
-            <li>各信用卡帳單自動彙總</li>
-            <li>今年總花費一次看清</li>
-            <li>收入 vs 固定支出對照</li>
-            <li>每月結餘率追蹤</li>
+          <p class="p-sub">收支結構透明化，精準掌握現金流</p>
+          <ul class="p-more">
+            <li>多卡帳單自動彙整與分類</li>
+            <li>年度消費總覽與趨勢分析</li>
+            <li>收入與固定支出對照</li>
+            <li>每月結餘率與儲蓄追蹤</li>
           </ul>
           <span class="p-go">進入消費</span>
         </div>
@@ -217,66 +241,96 @@ footer p{color:var(--ink-dim);font-size:13.5px;letter-spacing:.14em}
 
   <!-- ═══ 自動化流程 ═══ -->
   <section class="band">
-    <div class="wrap">
-      <div class="sec-head">
-        <h2>自動化流程<span class="en">Automated Pipeline</span></h2>
+    <div class="wrap flow">
+      <div class="sec-head reveal">
+        <h2>自動化流程</h2><span class="en">Automated Pipeline</span>
       </div>
-      <div class="flow">
-        <div class="step"><b>Statement</b><span>券商寄送<br>交割對帳信件</span></div>
-        <div class="step"><b>Fetch</b><span>每交易日自動抓信<br>已抓過不重抓</span></div>
-        <div class="step"><b>Parse</b><span>解密 PDF<br>解析逐筆成交</span></div>
-        <div class="step"><b>Rebuild</b><span>交易入帳<br>持股自動重算</span></div>
-        <div class="step"><b>Report</b><span>資產彙總<br>即時呈現</span></div>
+      <div class="reveal">
+        <div class="flow-steps" id="flowSteps"></div>
+        <div class="flow-detail">
+          <b id="flowTitle"></b>
+          <span id="flowDesc"></span>
+        </div>
+        <div class="flow-bar"><i id="flowBar"></i></div>
       </div>
     </div>
   </section>
-
-  <!-- ═══ 下一步 ═══ -->
-  <div class="wrap next">
-    <div class="sec-head">
-      <h2>下一步<span class="en">Next Step</span></h2>
-    </div>
-    <div class="next-grid">
-      <div class="next-row">
-        <a class="next-cta" href="portfolio.html">進入管理系統</a>
-        <div class="next-desc">
-          <b>Google 帳號登入後使用</b>
-          <ul>
-            <li>總資產 / 投資 / 消費　三區一站管理</li>
-            <li>台股・美股報價自動更新</li>
-          </ul>
-        </div>
-      </div>
-      <div class="next-row">
-        <a class="next-cta" href="https://taifex-backtest.vercel.app" target="_blank" rel="noopener">台指期回測</a>
-        <div class="next-desc">
-          <b>獨立專案（模擬交易 + 保證金監控）</b>
-          <ul>
-            <li>已拆分至 taifex-backtest，不影響資產系統</li>
-            <li>策略回測・模擬下單・保證金水位監控</li>
-          </ul>
-          <div class="next-links">
-            <a href="https://taifex-backtest.vercel.app" target="_blank" rel="noopener">自動交易・保證金監控 →</a>
-            <a href="taifex-ma-backtest.html">K棒均線回測 →</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 </main>
 
 <!-- ═══ Footer ═══ -->
 <footer>
-  <h2>家族專用</h2>
-  <p>僅限 Rebecca ・ Eric 使用</p>
-  <span class="f-chip">CONTACT</span>
-  <div class="f-val">rebeccawang0517@gmail.com</div>
-  <div class="f-note">FAMILY WEALTH PLATFORM — DATA SYNCED VIA FIREBASE</div>
+  <div class="f-row">
+    <span class="f-brand">家族專用</span>
+    <div class="f-info">
+      <span>僅限 Rebecca ・ Eric 使用</span>
+      <a href="mailto:rebeccawang0517@gmail.com">rebeccawang0517@gmail.com</a>
+      <span>DATA SYNCED VIA FIREBASE</span>
+    </div>
+  </div>
 </footer>
 
 <script>
-document.getElementById('today').textContent =
-  new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+/* 即時時鐘 */
+function tick(){
+  var d = new Date();
+  document.getElementById('clock').textContent =
+    d.toLocaleDateString('zh-TW',{year:'numeric',month:'long',day:'numeric',weekday:'short'}) +
+    '　' + d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+tick(); setInterval(tick, 1000);
+
+/* 捲動進場 */
+var io = new IntersectionObserver(function(es){
+  es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+
+/* 支柱卡片：滑鼠 3D 傾斜 */
+document.querySelectorAll('.pillar').forEach(function(card){
+  card.addEventListener('mousemove', function(ev){
+    var r = card.getBoundingClientRect();
+    var x = (ev.clientX - r.left) / r.width - .5;
+    var y = (ev.clientY - r.top) / r.height - .5;
+    card.style.transform = 'translateY(-6px) rotateX(' + (-y*4) + 'deg) rotateY(' + (x*4) + 'deg)';
+  });
+  card.addEventListener('mouseleave', function(){ card.style.transform = ''; });
+});
+
+/* 自動化流程：可點擊步驟 + 自動輪播 */
+var FLOW = [
+  ['Statement','券商寄送交割對帳信件'],
+  ['Fetch','每交易日自動抓信，已抓過不重抓'],
+  ['Parse','解密 PDF，解析逐筆成交'],
+  ['Rebuild','交易入帳，持股自動重算'],
+  ['Report','資產彙總，即時呈現']
+];
+var stepsEl = document.getElementById('flowSteps');
+var titleEl = document.getElementById('flowTitle');
+var descEl  = document.getElementById('flowDesc');
+var barEl   = document.getElementById('flowBar');
+var cur = 0, timer = null;
+
+FLOW.forEach(function(s, i){
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'fstep'; b.textContent = s[0];
+  b.addEventListener('click', function(){ show(i); restart(); });
+  stepsEl.appendChild(b);
+});
+
+function show(i){
+  cur = i;
+  stepsEl.querySelectorAll('.fstep').forEach(function(b, j){ b.classList.toggle('on', j === i); });
+  titleEl.textContent = FLOW[i][0];
+  descEl.textContent  = FLOW[i][1];
+  barEl.classList.remove('run');
+  void barEl.offsetWidth;   /* 重置進度條動畫 */
+  barEl.classList.add('run');
+}
+function restart(){
+  clearInterval(timer);
+  timer = setInterval(function(){ show((cur + 1) % FLOW.length); }, 4000);
+}
+show(0); restart();
 </script>
 </body>
 </html>
