@@ -961,17 +961,17 @@ $('btnFetchOnline').onclick=async()=>{
   }
   btn.disabled=false; btn.textContent='抓期交所日 K 匯入';
 };
-/* 開頁自動同步：日線空的→全量匯入；已有資料→背景靜默更新到最新（免按任何鈕） */
+/* 開頁自動同步：內容指紋有變（新增日期或數值修正）就覆蓋雲端同步檔，確保與雲端一致 */
 async function autoSyncCloudDaily(){
   try{
     const rows=await fetchCloudDaily(99);
     if(!rows.length) return;
-    const cur=loadTF('D');
-    const curLast=cur.length?cur[cur.length-1].date:'';
-    const newLast=rows[rows.length-1].date;
-    if(!cur.length || newLast>curLast){
+    const fp=rows.length+'|'+rows[rows.length-1].date+'|'+rows.reduce((s,b)=>(s+b.c)%1e9,0);
+    let old=''; try{ old=localStorage.getItem('taiindex_cloud_fp')||''; }catch(e){}
+    if(fp!==old){
       importCloudRows(rows);
-      msg($('parseMsg'),`☁ 已自動同步雲端日 K（共 ${rows.length} 根，最新 ${newLast}）`,true);
+      try{ localStorage.setItem('taiindex_cloud_fp',fp); }catch(e){}
+      msg($('parseMsg'),`☁ 已自動同步雲端日 K（共 ${rows.length} 根，最新 ${rows[rows.length-1].date}）`,true);
     }
   }catch(e){ console.warn('雲端日K自動同步失敗：',e); }
 }
