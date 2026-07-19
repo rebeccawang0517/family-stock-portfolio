@@ -42,11 +42,15 @@ export async function fetchTaifexRange(start, end) {
     }).toString()
   });
   const buf = await resp.arrayBuffer();
-  const text = Buffer.from(buf).toString('latin1');
+  let text;
+  try { text = new TextDecoder('big5').decode(buf); }        // 正確解 Big5 才能辨識「一般/盤後」欄
+  catch { text = Buffer.from(buf).toString('latin1'); }
   return parseTaifexCsv(text);
 }
 
-// 期交所 CSV：一日多列（各到期月份＋一般/盤後），同日取成交量最大者當主力
+// 期交所 CSV：每日每合約有「一般」(日盤) 與「盤後」(夜盤) 兩列。
+// 固定取「一般」時段中成交量最大的合約當主力日K（時段混用會產生假跳動，如 2025/04/08 股災日）；
+// 若整天沒有可辨識的「一般」列（編碼異常），才退回全列取量最大。
 export function parseTaifexCsv(text) {
   const lines = text.split(/\r?\n/);
   const byDate = {};
@@ -59,15 +63,23 @@ export function parseTaifexCsv(text) {
     const [o, h, l, c] = [3, 4, 5, 6].map(j => parseFloat(cols[j]));
     const v = parseInt(cols[9]) || 0;
     if (![o, h, l, c].every(x => Number.isFinite(x) && x > 0)) continue;
-    if (!byDate[cols[0]] || v > byDate[cols[0]].volume) {
-      const [y, m, d] = cols[0].split('/').map(Number);
-      byDate[cols[0]] = {
-        dateKey: `${y}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}`,
-        date: `${y}/${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}`,
-        time: Math.floor(Date.UTC(y, m - 1, d, 0, 45) / 1000),
-        open: o, high: h, low: l, close: c, volume: v
-      };
+    const session = cols[17] || '';                            // 交易時段：一般 / 盤後
+    const isDay = session.includes('一般');
+    const cand = { isDay, o, h, l, c, v, dateStr: cols[0] };
+    const curBest = byDate[cols[0]];
+    // 優先序：一般 > 盤後；同時段比成交量
+    if (!curBest || (cand.isDay && !curBest.isDay) || (cand.isDay === curBest.isDay && v > curBest.v)) {
+      byDate[cols[0]] = cand;
     }
   }
-  return Object.values(byDate).sort((a, b) => a.time - b.time);
+  return Object.values(byDate).map(x => {
+    const [y, m, d] = x.dateStr.split('/').map(Number);
+    return {
+      dateKey: `${y}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}`,
+      date: `${y}/${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}`,
+      time: Math.floor(Date.UTC(y, m - 1, d, 0, 45) / 1000),
+      open: x.o, high: x.h, low: x.l, close: x.c, volume: x.v,
+      session: x.isDay ? 'day' : 'unknown'
+    };
+  }).sort((a, b) => a.time - b.time);
 }
