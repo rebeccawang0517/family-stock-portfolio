@@ -278,11 +278,12 @@
 
 <!-- ========== 資料輸入 ========== -->
 <section class="view on" id="v-input">
-  <textarea id="pasteBox" placeholder="從看盤軟體或 Excel 框選表格複製後貼到這裡，按「解析預覽」（自動辨識 日期/時間/開/高/低/收/量，支援 Tab/逗號/空白分隔）"></textarea>
+  <!-- 貼上匯入介面已移除；隱藏元素保留避免程式參照出錯 -->
+  <textarea id="pasteBox" hidden></textarea>
+  <button id="btnParse" hidden></button>
+  <input type="checkbox" id="revOrder" hidden>
   <div class="row">
-    <button class="btn" id="btnParse">解析預覽（貼上用）</button>
-    <label class="hint"><input type="checkbox" id="revOrder"> 反轉順序（我的資料是新→舊）</label>
-    <label class="hint"><input type="checkbox" id="appendMode" checked> 累加合併到現有資料（重複自動去除）｜取消勾＝清掉舊的重匯</label>
+    <label class="hint"><input type="checkbox" id="appendMode" checked> 匯入時累加合併到現有資料（重複自動去除）｜取消勾＝清掉舊的重匯</label>
     <input type="file" id="fileImport" accept=".csv" style="display:none">
   </div>
   <fieldset>
@@ -290,10 +291,10 @@
     <div class="row">
       <select id="fetchYears"><option value="1">近 1 年</option><option value="2" selected>近 2 年</option><option value="3">近 3 年</option><option value="5">近 5 年</option></select>
       <button class="btn" id="btnFetchOnline">手動重新同步</button>
-      <span class="hint">雲端排程每交易日收盤後自動抓期交所 TX 日 K，你不開網頁它也照抓；開頁時會自動同步到「日線」週期。60分/15分等細週期仍需貼上或匯 CSV。</span>
+      <span class="hint">雲端排程每交易日收盤後自動抓期交所 TX 日 K，你不開網頁它也照抓；開頁時會自動同步到「日線」週期。60分/15分等細週期仍需匯 CSV。</span>
     </div>
   </fieldset>
-  <p class="hint" style="margin:4px 0">要匯 CSV 檔：直接按下方表格對應週期那列的「<b>匯CSV</b>」。要貼上：先點該列「<b>匯入目標</b>」圓鈕再貼上→解析預覽。</p>
+  <p class="hint" style="margin:4px 0">匯 CSV 檔：按下方表格對應週期那列的「<b>匯CSV</b>」。</p>
   <fieldset>
     <legend>各週期資料 · 匯入目標（全部集中在這頁管理）</legend>
     <table id="storeTbl"></table>
