@@ -104,10 +104,17 @@
   /* ③ 自動最佳化：設定左、結果＋名人堂右 兩欄 */
   .autoGrid{display:flex;gap:16px;align-items:flex-start}
   .autoLeft{flex:0 0 520px;min-width:0}
-  /* ③自動最佳化：設定改 2 欄網格、不再一項一行拉很長 */
-  #v-auto .cfg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;align-items:center}
-  #v-auto .cfg label{min-width:0;flex-wrap:wrap}
+  /* ③自動最佳化：設定兩欄網格；欄名在上、控制項在下，選單吃滿格寬不溢出 */
+  #v-auto .cfg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;align-items:start}
+  #v-auto .cfg label{min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:6px;font-weight:600;font-size:13.5px}
+  #v-auto .cfg label select,#v-auto .cfg label input[type=number]{width:100%;max-width:100%;min-width:0;box-sizing:border-box;font-weight:400}
+  /* 勾選型欄位維持橫排（勾勾＋文字同一行），在格子內垂直置中 */
+  #v-auto .cfg label:has(input[type=checkbox]){flex-direction:row;align-items:center;gap:8px;font-weight:400;align-self:center;line-height:1.5}
+  #v-auto .cfg label:has(input[type=checkbox]) input[type=checkbox]{flex-shrink:0}
+  /* 「加停損 80 點」這類勾選＋數字混合欄：數字框維持小寬度，不撐滿 */
+  #v-auto .cfg label:has(input[type=checkbox]) input[type=number]{width:72px;flex:0 0 auto}
   #v-auto .cfg>span.hint{grid-column:1/-1}
+  @media(max-width:640px){#v-auto .cfg{grid-template-columns:1fr}}
   @media(max-width:960px){ .autoLeft{flex:1 1 auto} }
   .autoRight{flex:1 1 0;min-width:0}
   .autoRight .resHd{font-size:14px;font-weight:700;color:var(--acc);margin:0 0 6px}
@@ -552,7 +559,7 @@
         </select>
       </label>
       <label>最少交易次數 <input type="number" id="optMinN" value="30"></label>
-      <label>樣本內比例 <input type="number" id="optSplit" value="70">%</label>
+      <label>樣本內比例（%）<input type="number" id="optSplit" value="70"></label>
       <label class="hint" title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
       <label class="hint" title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="optDayStop"> 夜盤不停損</label>
     </div>
@@ -594,7 +601,7 @@
         </select>
       </label>
       <label>最少交易次數 <input type="number" id="mtfMinN" value="20"></label>
-      <label>樣本內比例 <input type="number" id="mtfSplit" value="70">%</label>
+      <label>樣本內比例（%）<input type="number" id="mtfSplit" value="70"></label>
       <label><input type="checkbox" id="mtfOptUseSL"> 加停損<span class="sub">(固定,從進場價算)</span> <input type="number" id="mtfOptSL" value="80"> 點</label>
       <label title="從最高點回吐這麼多點就出場＝鎖利、避免吐回獲利。勾了連「所有配對」也會搜(會跑久一點)"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損<span class="sub">(回吐鎖利)</span> <input type="number" id="mtfOptTrail" value="80"> 點</label>
       <label class="hint" title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="mtfOptDayStop"> 夜盤不停損</label>
