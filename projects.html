@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>專案總覽 — 家族資產管理平台</title>
+<style>
+:root{
+  --bg:#0a0a0a; --ink:#f5f5f5; --ink-dim:#9a9a9a; --ink-faint:#5c5c5c;
+  --card:#f2f2f2; --card-ink:#111; --card-dim:#555;
+  --line:rgba(255,255,255,.14);
+  --sans:"Segoe UI","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+/* ── 頁首 ── */
+header{border-bottom:1px solid var(--line);background:#000}
+.head-in{max-width:1080px;margin:0 auto;padding:26px 24px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.head-l{display:flex;align-items:center;gap:14px}
+.mark{width:30px;height:30px;color:#fff;flex-shrink:0}
+h1{font-size:22px;font-weight:800;letter-spacing:.1em}
+.h-sub{font-size:11px;letter-spacing:.34em;color:var(--ink-dim);text-transform:uppercase;display:block;margin-top:3px}
+.back{font-size:12.5px;letter-spacing:.1em;color:var(--ink-dim);border:1px solid var(--line);border-radius:999px;padding:7px 16px;transition:.15s}
+.back:hover{color:#fff;background:#1c1c1c}
+
+/* ── 篩選列 ── */
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:22px 0 6px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:7px 18px;font-size:13px;letter-spacing:.08em;
+  color:var(--ink-dim);cursor:pointer;background:none;font-family:inherit;transition:.15s}
+.chip:hover{color:#fff}
+.chip.on{background:#f2f2f2;color:#111;border-color:#f2f2f2;font-weight:700}
+.count{margin-left:auto;font-size:12px;color:var(--ink-faint);letter-spacing:.1em}
+
+/* ── 卡片 ── */
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;padding:18px 0 64px}
+.proj{background:var(--card);color:var(--card-ink);border-radius:14px;padding:20px 22px;
+  display:flex;flex-direction:column;gap:10px;transition:transform .18s ease,box-shadow .18s ease}
+.proj:hover{transform:translateY(-4px);box-shadow:0 16px 36px rgba(0,0,0,.55)}
+.proj.hide{display:none}
+.p-top{display:flex;align-items:center;gap:10px}
+.p-ico{font-size:22px}
+.p-top h3{font-size:17.5px;font-weight:800;letter-spacing:.04em;flex:1}
+.badge{font-size:10.5px;letter-spacing:.12em;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.b-live{background:#111;color:#7fe7b6}
+.b-local{background:#e2e2e2;color:#555;border:1px solid #ccc}
+.p-desc{font-size:13px;color:#4a4a4a;line-height:1.65}
+.p-tech{display:flex;flex-wrap:wrap;gap:6px}
+.tech{font-size:10.5px;letter-spacing:.06em;color:#666;background:#e6e6e6;border-radius:5px;padding:2px 8px}
+.p-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:6px}
+.p-links a,.p-links button{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;letter-spacing:.06em;
+  border-radius:8px;padding:7px 14px;cursor:pointer;font-family:inherit;border:none;transition:.15s}
+.lk-main{background:#111;color:#fff}
+.lk-main:hover{background:#333;transform:translateY(-1px)}
+.lk-sub{background:none;color:#111;border:1.5px solid #111 !important}
+.lk-sub:hover{background:#111;color:#fff}
+.p-path{font-size:11px;color:#8a8a8a;font-family:Consolas,monospace;background:#e9e9e9;border-radius:6px;
+  padding:6px 10px;display:flex;align-items:center;gap:8px;overflow:hidden}
+.p-path span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.copy{flex-shrink:0;background:none;border:none;cursor:pointer;font-size:13px;color:#666;padding:0}
+.copy:hover{color:#111}
+
+footer{border-top:1px solid var(--line);background:#000;padding:28px 24px;text-align:center;
+  font-size:11.5px;color:var(--ink-faint);letter-spacing:.18em}
+
+@media (max-width:760px){
+  .grid{grid-template-columns:1fr}
+  .count{width:100%;margin:0}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-in">
+    <div class="head-l">
+      <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+        <path d="M12 3v18M4.2 6.9l15.6 10.2M19.8 6.9L4.2 17.1"/>
+      </svg>
+      <div>
+        <h1>專案總覽</h1>
+        <span class="h-sub">All Projects</span>
+      </div>
+    </div>
+    <a class="back" href="index.html">← 回首頁</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="bar" id="filterBar">
+    <button class="chip on" data-f="all">全部</button>
+    <button class="chip" data-f="live">🟢 線上運行</button>
+    <button class="chip" data-f="local">💻 本機開發</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="grid" id="grid">
+
+    <!-- ═ 線上 ═ -->
+    <div class="proj" data-cat="live">
+      <div class="p-top"><span class="p-ico">🏛️</span><h3>家族資產管理平台</h3><span class="badge b-live">線上</span></div>
+      <p class="p-desc">家族財務中樞：總資產、投資、消費三位一體。券商對帳信自動匯入、台美股即時報價、AI 財務健檢。</p>
+      <div class="p-tech"><span class="tech">Firebase</span><span class="tech">Vercel</span><span class="tech">Gmail API</span></div>
+      <div class="p-links">
+        <a class="lk-main" href="portfolio.html">進入管理系統</a>
+        <a class="lk-sub" href="/assets">總資產</a>
+        <a class="lk-sub" href="/invest">投資</a>
+        <a class="lk-sub" href="/spend">消費</a>
+      </div>
+    </div>
+
+    <div class="proj" data-cat="live">
+      <div class="p-top"><span class="p-ico">🤖</span><h3>台指期自動交易</h3><span class="badge b-live">線上</span></div>
+      <p class="p-desc">模擬交易＋AI 對戰＋信心分數引擎（支撐壓力、歷史相似型態、勝場學習、名人堂策略）。含保證金水位監控。</p>
+      <div class="p-tech"><span class="tech">Lightweight Charts</span><span class="tech">Vercel API</span><span class="tech">Claude / Gemini / Grok</span></div>
+      <div class="p-links">
+        <a class="lk-main" href="https://taifex-backtest.vercel.app" target="_blank" rel="noopener">開啟自動交易</a>
+        <a class="lk-sub" href="https://taifex-backtest.vercel.app/margin-monitor.html" target="_blank" rel="noopener">保證金監控</a>
+      </div>
+    </div>
+
+    <div class="proj" data-cat="live">
+      <div class="p-top"><span class="p-ico">📊</span><h3>台指期 K棒均線回測</h3><span class="badge b-live">線上</span></div>
+      <p class="p-desc">多週期均線策略回測研究室：自動最佳化、樣本外驗證、名人堂累積高勝率組合，可匯出給自動交易使用。</p>
+      <div class="p-tech"><span class="tech">Canvas</span><span class="tech">IndexedDB</span><span class="tech">單檔 HTML</span></div>
+      <div class="p-links">
+        <a class="lk-main" href="taifex-ma-backtest.html">開啟回測</a>
+      </div>
+    </div>
+
+    <div class="proj" data-cat="live">
+      <div class="p-top"><span class="p-ico">💳</span><h3>信用卡消費總覽</h3><span class="badge b-live">線上</span></div>
+      <p class="p-desc">各家銀行信用卡帳單彙總檢視，年度消費與每月結餘率追蹤。</p>
+      <div class="p-tech"><span class="tech">Firebase</span></div>
+      <div class="p-links">
+        <a class="lk-main" href="creditcard.html">開啟總覽</a>
+      </div>
+    </div>
+
+    <!-- ═ 本機 ═ -->
+    <div class="proj" data-cat="local">
+      <div class="p-top"><span class="p-ico">🏦</span><h3>family-finance</h3><span class="badge b-local">開發中</span></div>
+      <p class="p-desc">下一代家庭財務系統：Next.js + Supabase 重構版，含信用卡交易資料庫遷移。</p>
+      <div class="p-tech"><span class="tech">Next.js</span><span class="tech">Supabase</span><span class="tech">TypeScript</span><span class="tech">Vitest</span></div>
+      <div class="p-path"><span>my project\family-finance　→ npm run dev</span><button class="copy" title="複製路徑">📋</button></div>
+    </div>
+
+    <div class="proj" data-cat="local">
+      <div class="p-top"><span class="p-ico">🧠</span><h3>第二大腦 · 3D 神經網絡</h3><span class="badge b-local">本機</span></div>
+      <p class="p-desc">五大領域知識（台股、美股、AI 專案、育兒、自我成長）視覺化成可探索的 3D 神經網絡，節點可編輯 Markdown。</p>
+      <div class="p-tech"><span class="tech">Three.js</span><span class="tech">Vite</span><span class="tech">TypeScript</span></div>
+      <div class="p-path"><span>HP專案\第二大腦　→ npm run dev（localhost:5173）</span><button class="copy" title="複製路徑">📋</button></div>
+    </div>
+
+    <div class="proj" data-cat="local">
+      <div class="p-top"><span class="p-ico">📓</span><h3>股票筆記 stock-notebook</h3><span class="badge b-local">本機</span></div>
+      <p class="p-desc">個股研究筆記工具，記錄觀察名單與投資想法。</p>
+      <div class="p-tech"><span class="tech">Vite</span><span class="tech">TypeScript</span></div>
+      <div class="p-path"><span>HP專案\stock-notebook　→ npm run dev</span><button class="copy" title="複製路徑">📋</button></div>
+    </div>
+
+    <div class="proj" data-cat="local">
+      <div class="p-top"><span class="p-ico">📬</span><h3>信用卡帳單自動化</h3><span class="badge b-local">排程</span></div>
+      <p class="p-desc">每月自動抓 Gmail 信用卡電子帳單（台新/中信/富邦/玉山）→ 解密 PDF → Gemini 擷取明細 → 寫入 Google Sheets。</p>
+      <div class="p-tech"><span class="tech">Python</span><span class="tech">Gmail API</span><span class="tech">Gemini</span><span class="tech">Google Sheets</span></div>
+      <div class="p-path"><span>HP專案\creditcard　→ python main.py --write</span><button class="copy" title="複製路徑">📋</button></div>
+    </div>
+
+    <div class="proj" data-cat="local">
+      <div class="p-top"><span class="p-ico">⚙️</span><h3>券商對帳單 Ingestion</h3><span class="badge b-local">排程</span></div>
+      <p class="p-desc">資產平台的資料管線：每交易日自動抓券商交割信 → 解密 PDF → 解析逐筆成交 → 重算持股寫入 Firestore。</p>
+      <div class="p-tech"><span class="tech">Python</span><span class="tech">Firestore</span><span class="tech">PDF 解析</span></div>
+      <div class="p-path"><span>my project\family-stock-portfolio\ingestion</span><button class="copy" title="複製路徑">📋</button></div>
+    </div>
+
+  </div>
+</main>
+
+<footer>FAMILY PROJECT HUB — REBECCA ・ ERIC</footer>
+
+<script>
+/* 分類篩選 */
+var chips = document.querySelectorAll('.chip');
+var cards = document.querySelectorAll('.proj');
+var countEl = document.getElementById('count');
+function applyFilter(f){
+  var n = 0;
+  cards.forEach(function(c){
+    var show = (f === 'all' || c.dataset.cat === f);
+    c.classList.toggle('hide', !show);
+    if (show) n++;
+  });
+  countEl.textContent = n + ' 個專案';
+}
+chips.forEach(function(ch){
+  ch.addEventListener('click', function(){
+    chips.forEach(function(x){ x.classList.remove('on'); });
+    ch.classList.add('on');
+    applyFilter(ch.dataset.f);
+  });
+});
+applyFilter('all');
+
+/* 複製本機路徑 */
+document.querySelectorAll('.copy').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var txt = btn.parentElement.querySelector('span').textContent.split('→')[0].trim();
+    var full = txt.indexOf('HP專案') === 0
+      ? 'c:\\Users\\rebec\\BeeStation\\' + txt
+      : 'c:\\Users\\rebec\\BeeStation\\HP專案\\' + txt;
+    navigator.clipboard.writeText(full).then(function(){
+      btn.textContent = '✅';
+      setTimeout(function(){ btn.textContent = '📋'; }, 1200);
+    });
+  });
+});
+</script>
+</body>
+</html>
