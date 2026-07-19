@@ -116,6 +116,12 @@
   /* 佔滿整列的勾選欄（B 區停損/移動停損/再進場）：橫排單行不擠壓 */
   #v-auto .cfg label.full{grid-column:1/-1;white-space:nowrap;flex-wrap:wrap}
   #v-auto .cfg label.full .sub{white-space:nowrap}
+  /* ②算倉位：比照自動最佳化的兩欄整齊排列 */
+  #posBox .cfg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;align-items:start}
+  #posBox .cfg label{min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:6px;font-weight:600;font-size:13.5px}
+  #posBox .cfg label select,#posBox .cfg label input[type=number]{width:100%;max-width:100%;min-width:0;box-sizing:border-box;font-weight:400}
+  #posBox .cfg .btn{grid-column:1/-1;justify-self:start}
+  @media(max-width:640px){#posBox .cfg{grid-template-columns:1fr}}
   /* 頂部共用進階選項：橫向排列、單行 */
   .cfg-shared{display:flex;gap:12px 32px;flex-wrap:wrap}
   .cfg-shared label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px;color:var(--txt);white-space:nowrap;flex-wrap:wrap}
@@ -433,8 +439,8 @@
       <div class="wz-pane" data-pane="2" id="posBox">
         <p class="hint" style="margin:0 0 12px">回測跑完才算得出倉位——用最新回測的 edge（期望值／勝率／回撤）反推<b>口數、首單、加碼與風險紅線</b>。</p>
         <div class="cfg">
-          <label>本金 <input type="number" id="posCapital" value="500000" style="width:104px"> 元</label>
-          <label>月目標 <input type="number" id="posTarget" value="100000" style="width:92px"> 元</label>
+          <label>本金（元）<input type="number" id="posCapital" value="500000"></label>
+          <label>月目標（元）<input type="number" id="posTarget" value="100000"></label>
           <label>試算商品
             <select id="posProduct">
               <option value="10" selected>微台（10元/點）</option>
@@ -442,9 +448,9 @@
               <option value="200">大台（200元/點）</option>
             </select>
           </label>
-          <label class="hint" title="每口原始保證金，會隨商品自動帶入，可自行改成券商公告值">保證金/口 <input type="number" id="posMargin" value="9200" style="width:82px"> 元</label>
-          <label class="hint" title="單筆停損最多虧本金的百分之幾——保護本金的鐵律，通常 1~2%">單筆風險上限 <input type="number" id="posRisk" value="1.5" step="0.1" style="width:56px">%</label>
-          <label class="hint" title="第一次進場先下總口數的幾成（試單），其餘等浮盈順勢再加碼">首單比例 <input type="number" id="posFirst" value="50" style="width:56px">%</label>
+          <label title="每口原始保證金，會隨商品自動帶入，可自行改成券商公告值">保證金/口（元）<input type="number" id="posMargin" value="9200"></label>
+          <label title="單筆停損最多虧本金的百分之幾——保護本金的鐵律，通常 1~2%">單筆風險上限（%）<input type="number" id="posRisk" value="1.5" step="0.1"></label>
+          <label title="第一次進場先下總口數的幾成（試單），其餘等浮盈順勢再加碼">首單比例（%）<input type="number" id="posFirst" value="50"></label>
           <button class="btn" id="btnPos">🧮 試算</button>
         </div>
         <div id="posResult"></div>
