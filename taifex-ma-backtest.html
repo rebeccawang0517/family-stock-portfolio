@@ -389,7 +389,7 @@
 
       <!-- STEP 1 進場 -->
       <div class="wz-pane on" data-pane="0">
-        <p class="hint" style="margin:0 0 12px">先決定做多或做空，再設「空手時要符合什麼才進場」。條件標籤：<b>×</b> 移除、<b>＋常用</b>快加、<b>全部條件（46）▾</b> 開完整清單（可搜尋）；定義看「⑧ 名詞說明」。</p>
+        <p class="hint" style="margin:0 0 12px">先決定做多或做空，再設「空手時要符合什麼才進場」。條件標籤：<b>×</b> 移除、<b>＋常用</b>快加、<b>全部條件（52）▾</b> 開完整清單（可搜尋）；定義看「⑧ 名詞說明」。</p>
         <div class="subhd" style="margin-top:0">方向</div>
         <div class="seg" id="dirSeg">
           <button type="button" data-dir="long" class="on">做多</button>
@@ -1910,7 +1910,8 @@ const CGROUPS=[
   ['均線拐點 / 斜率',['ma3Up','ma3Dn','ma1TurnUp','ma1TurnDn','ma4TurnUp','ma4TurnDn']],
   ['K棒型態',['red','green','strRed','strGreen','longLow','longUp','red2','red3','green2','green3']],
   ['量能',['volUp','volSpike']],
-  ['壓撐 / 位置',['sup','res','supL','resL','nearHigh','nearLow']]
+  ['壓撐 / 位置',['sup','res','supL','resL','nearHigh','nearLow']],
+  ['布林通道 (20, 2σ)',['bbUpBk','bbDnBk','bbLowT','bbUpT','bbMidUp','bbMidDn']]
 ];
 function condSel(kind){ return [...document.querySelectorAll('.'+KCLS[kind]+':checked')].map(e=>e.value); }
 function setCond(kind,code,state){ const b=document.querySelector('.'+KCLS[kind]+'[value="'+code+'"]'); if(b) b.checked=state; }
@@ -1927,7 +1928,7 @@ function renderChipConds(){
     if(addBox){ const avail=COMMON.filter(c=>!sel.includes(c)).slice(0,5);
       addBox.innerHTML=`<span class="albl">＋常用</span>`+
         avail.map(c=>`<button class="addbtn" data-ca="${kind}:${c}">${CODEL[c]||c}</button>`).join('')+
-        `<button class="addbtn more" data-cmore="${kind}">全部條件（46）▾</button>`; }
+        `<button class="addbtn more" data-cmore="${kind}">全部條件（52）▾</button>`; }
   });
 }
 let bpkKindS=null,bpkQuery='';
@@ -1941,7 +1942,7 @@ function renderCondPicker(){
   const html=CGROUPS.map(([title,keys])=>{ const ks=keys.filter(hit); matches+=ks.length; if(!ks.length) return '';
     return `<div class="pk-grp"><h5>${title}</h5><div class="pk-grid">`+
       ks.map(code=>`<button class="pick ${sel.includes(code)?'on':''}" data-cpick="${code}">${CODEL[code]||code}</button>`).join('')+`</div></div>`;}).join('');
-  $('bpkCnt').textContent=q?`已選 ${sel.length}　·　符合 ${matches} 條`:`已選 ${sel.length} / 46 條`;
+  $('bpkCnt').textContent=q?`已選 ${sel.length}　·　符合 ${matches} 條`:`已選 ${sel.length} / 52 條`;
   $('bpkBody').innerHTML=html||`<div class="pk-none">找不到「${bpkQuery}」相關條件，換個關鍵字（例：MA、量、影、K）</div>`;
 }
 document.addEventListener('click',e=>{
