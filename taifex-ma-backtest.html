@@ -106,7 +106,7 @@
   .autoLeft{flex:0 0 clamp(230px,22vw,280px);min-width:0;position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto}
   /* ②手動回測＋③自動最佳化：設定統一兩欄網格；欄名（含單位）在上、控制項在下，選單吃滿格寬不溢出 */
   #v-auto .cfg,#v-backtest .cfg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;align-items:start}
-  #v-auto .cfg{grid-template-columns:1fr}   /* ③自動最佳化左欄較窄(520px)，單週期/跨週期設定改單欄直排，避免擠壓右邊回測結果 */
+  #v-auto .cfg,#v-backtest .cfg{grid-template-columns:1fr}   /* ②③左欄都改窄欄，設定一律單欄直排，避免擠壓右邊回測結果 */
   #v-auto .cfg label,#v-backtest .cfg label{min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:6px;font-weight:600;font-size:13.5px}
   #v-auto .cfg label select,#v-auto .cfg label input[type=number],
   #v-backtest .cfg label select,#v-backtest .cfg label input[type=number]{width:100%;max-width:100%;min-width:0;box-sizing:border-box;font-weight:400}
@@ -118,11 +118,10 @@
   /* 佔滿整列的勾選欄（B 區停損/移動停損/再進場）：橫排單行不擠壓 */
   #v-auto .cfg label.full,#v-backtest .cfg label.full{grid-column:1/-1;white-space:nowrap;flex-wrap:wrap}
   #v-auto .cfg label.full .sub,#v-backtest .cfg label.full .sub{white-space:nowrap}
-  /* 均線參數：MA1~5 小格五個一列；「多空排/走勢」等寬欄各佔一半 */
-  #v-backtest .cfg.cfg-ma{grid-template-columns:repeat(10,minmax(0,1fr))}
+  /* 均線參數：左欄窄，MA1~5 兩個一列；「多空排/走勢」等寬欄整列 */
+  #v-backtest .cfg.cfg-ma{grid-template-columns:repeat(4,minmax(0,1fr))}
   #v-backtest .cfg.cfg-ma label{grid-column:span 2}
-  #v-backtest .cfg.cfg-ma label.w{grid-column:span 5}
-  @media(max-width:640px){#v-backtest .cfg.cfg-ma{grid-template-columns:repeat(4,minmax(0,1fr))}#v-backtest .cfg.cfg-ma label.w{grid-column:1/-1}}
+  #v-backtest .cfg.cfg-ma label.w{grid-column:1/-1}
   /* 按鈕與說明文字獨立佔一整列 */
   #v-auto .cfg .btn,#v-backtest .cfg .btn{grid-column:1/-1;justify-self:start}
   #v-backtest .cfg>p.hint,#v-backtest .cfg>span.hint{grid-column:1/-1}
@@ -254,15 +253,16 @@
   details.params[open]>summary::before{content:'▾ '}
   details.params fieldset{margin:8px 0}
   @media(max-width:560px){ .wz-head{flex-direction:column} .wz-tab + .wz-tab{border-left:none;border-top:1px solid var(--line)} .wz-tab.on::after{display:none} }
-  /* ③自動最佳化左欄較窄(固定內容寬)，跟寬度無關一律把步驟頁籤直排 */
-  #v-auto .autoLeft .wz-head{flex-direction:column}
-  #v-auto .autoLeft .wz-tab+.wz-tab{border-left:none;border-top:1px solid var(--line)}
-  #v-auto .autoLeft .wz-tab.on::after{left:0;right:auto;top:0;bottom:0;width:2px;height:auto}
-  /* 左右橫向工作區：左設定（固定窄欄）｜右結果（吃剩餘寬度） */
-  .bt-ws{display:grid;grid-template-columns:minmax(0,480px) minmax(0,1fr);gap:16px;align-items:start;margin-top:14px}
-  .bt-col-l,.bt-col-r{min-width:0}
+  /* ②③左欄都改窄欄(固定內容寬)，跟寬度無關一律把步驟頁籤直排 */
+  #v-auto .autoLeft .wz-head,.bt-col-l .wz-head{flex-direction:column}
+  #v-auto .autoLeft .wz-tab+.wz-tab,.bt-col-l .wz-tab+.wz-tab{border-left:none;border-top:1px solid var(--line)}
+  #v-auto .autoLeft .wz-tab.on::after,.bt-col-l .wz-tab.on::after{left:0;right:auto;top:0;bottom:0;width:2px;height:auto}
+  /* 左右橫向工作區：左設定（窄欄、吃內容寬度就好、sticky）｜右結果（吃剩餘寬度） */
+  .bt-ws{display:grid;grid-template-columns:clamp(230px,22vw,280px) minmax(0,1fr);gap:16px;align-items:start;margin-top:14px}
+  .bt-col-l{min-width:0;position:sticky;top:64px;max-height:calc(100vh - 78px);overflow-y:auto;overflow-x:hidden}   /* top留給上面sticky的.stratbar(約56px)，不重疊 */
+  .bt-col-r{min-width:0}
   .bt-col-r .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
-  @media(max-width:1080px){ .bt-ws{grid-template-columns:1fr} }
+  @media(max-width:1080px){ .bt-ws{grid-template-columns:1fr} .bt-col-l{position:static;max-height:none} }
 </style>
 </head>
 <body>
