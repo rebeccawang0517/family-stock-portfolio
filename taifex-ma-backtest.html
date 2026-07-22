@@ -626,6 +626,7 @@
       <label class="full" title="固定停損點數，從進場價算。勾了：單週期不再自動掃描停損、直接用這個點數；跨週期加上這個停損。不勾：單週期依「出場方式」自動掃描、跨週期不設停損"><input type="checkbox" id="mtfOptUseSL"> 加停損 <input type="number" id="mtfOptSL" value="80"> 點<span class="sub">（勾＝兩邊都用固定點數；不勾＝單週期自動掃描）</span></label>
       <label class="full" title="從最高點回吐這麼多點就出場＝鎖利。勾了：兩邊都用這個回吐點數；不勾：單週期自動測 不用/80 兩種、跨週期不設"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損 <input type="number" id="mtfOptTrail" value="80"> 點<span class="sub">（回吐鎖利）</span></label>
       <label class="full" title="出場後改用較嚴格的再次進場條件；會多試幾組，搜尋時間增加。此功能僅跨週期引擎支援"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件<span class="sub">（實驗，僅跨週期適用）</span></label>
+      <label class="full" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，凡含「多排(bull)」的候選組合，在標記日整天都不算成立，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="optSkipGapBull"> 開高走低日不做多排(bull)</label>
     </div>
       </div>
 
@@ -2497,7 +2498,7 @@ function simulate(cfg,i0,i1){
   const getEntry=i=> entryMode==='nextOpen'?(bars[i+1]?bars[i+1].o:null):bars[i].c;
   const passEntry=i=>{ const b=bars[i],x=ind[i]; if(!cfg.entry.length)return false;
     for(const c of cfg.entry){
-      if(c==='bull'&&!BULL(x))return false; if(c==='bear'&&!BEAR(x))return false;
+      if(c==='bull'&&(!BULL(x)||(cfg.skipGapBull&&x.gapDownDay)))return false; if(c==='bear'&&!BEAR(x))return false;
       if(c==='red'&&!x.red)return false;   if(c==='green'&&!x.green)return false;
       if(c==='overMA3'&&!(b.c>x.ma3))return false; if(c==='overMA4'&&!(b.c>x.ma4))return false;
       if(c==='underMA3'&&!(b.c<x.ma3))return false; if(c==='underMA4'&&!(b.c<x.ma4))return false;
@@ -2623,6 +2624,7 @@ async function optimize(){
     if(_srFilterFn) srList=[null,'ref']; else msg($('optMsg'),'需先匯入 60分 或 日線 資料才能算大週期壓力支撐，已略過該過濾',false); }
   let combos=[]; dirs.forEach(d=>combos=combos.concat(buildCombos(d,exitsBase,slList,tpList,trailList,alignList,srList)));
   const dso=$('optDayStop')&&$('optDayStop').checked; if(dso) combos.forEach(c=>c.dayStopOnly=true);   // 夜盤不停損(⑥自己的勾選框)
+  const sgb=$('optSkipGapBull')&&$('optSkipGapBull').checked; if(sgb) combos.forEach(c=>c.skipGapBull=true);   // 開高走低日不做多排
   optBusy=true;
   const res=[]; let t0=performance.now();
   for(let ci=0;ci<combos.length;ci++){
@@ -2647,7 +2649,8 @@ function cfgText(c){
   const al=c.alignN?` <span class="sub">[${c.alignN}條排]</span>`:'';
   const sr=c.srFilter?` <span class="sub" style="color:var(--acc)">[${SRLABEL[c.srFilter]}]</span>`:'';
   const ds=c.dayStopOnly?` <span class="sub" style="color:#b8cde8">[夜盤不停損]</span>`:'';
-  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds} 進:${e} ／ 出:${(x.join('+'))||'—'}`;
+  const gb=c.skipGapBull?` <span class="sub" style="color:#b8cde8">[開高走低日不做多排]</span>`:'';
+  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds}${gb} 進:${e} ／ 出:${(x.join('+'))||'—'}`;
 }
 // 報酬/回撤比（總點數÷最大回檔，越大＝越「又賺又穩」）；無回撤且賺錢→∞
 function marVal(st){ if(!st||!st.n) return null; if(st.mdd<=0) return st.total>0?Infinity:0; return st.total/st.mdd; }
@@ -2708,6 +2711,7 @@ function applyCfg(cfg){   // A單週期最佳化「套用」→填回②統一�
   $('mtfUseTP').checked=cfg.tp>0; if(cfg.tp>0)$('mtfTP').value=cfg.tp;
   $('mtfTrail').checked=cfg.trail>0; if(cfg.trail>0)$('mtfTrailPts').value=cfg.trail;
   $('mtfSR').checked=!!cfg.srFilter; if($('mtfSRExit'))$('mtfSRExit').checked=!!cfg.srExit; if($('dayStopOnly'))$('dayStopOnly').checked=!!cfg.dayStopOnly;
+  if($('mtfSkipGapBull'))$('mtfSkipGapBull').checked=!!cfg.skipGapBull;
   document.querySelector('#tabs button[data-v="backtest"]').click();   // 切②(會initMTF→syncBTMode鎖週期)
   runBT();
   msg($('runMsg'),`✔ 已套用最佳組合並跑完整結果（單週期 ${tfName($('btMode').value)}）`,true);
@@ -3129,6 +3133,7 @@ async function runMTFOpt(){
   const reBase = reOn ? REENTRY : [[]];
   const reList = dir==='long' ? reBase : reBase.map(a=>a.length?mir(a):a);
   const dsoMtf = $('mtfOptDayStop') && $('mtfOptDayStop').checked;   // 夜盤不停損(⑦自己的勾選框)
+  const sgbMtf = $('optSkipGapBull') && $('optSkipGapBull').checked;   // 開高走低日不做多排(與A共用同一個勾選框)
   // 要測的週期配對
   let pairs=[];
   if(allPairs){
@@ -3146,7 +3151,7 @@ async function runMTFOpt(){
     const ctx=getCtx(en,ex); if(ctx.err||ctx.enB.length<200) continue; okPairs++;
     const trainEnd=Math.floor(ctx.enB.length*split);
     for(const al of alignList)for(const e1 of ents)for(const x1 of exs)for(const re of reList)for(const sl of sls)for(const trail of trails)for(const sr of srList){ testedCombos++;
-      const cfg={dir,entry:e1,exit:x1,reentry:re,sl,trail,alignN:al,srFilter:sr,dayStopOnly:dsoMtf};
+      const cfg={dir,entry:e1,exit:x1,reentry:re,sl,trail,alignN:al,srFilter:sr,dayStopOnly:dsoMtf,skipGapBull:sgbMtf};
       const st=tradeStats(mtfTrades(ctx,cfg,0,trainEnd));
       if(st && st.n>=minN) res.push({enTF:en,exTF:ex,cfg,tr:st});
       if(performance.now()-t0>80){ msg($('mtfOptMsg'),`搜尋中… 配對 ${pIdx+1}/${pi}（已測 ${testedCombos} 種、符合 ${res.length} 組）`,true); await new Promise(r=>setTimeout(r)); t0=performance.now(); }
@@ -3172,7 +3177,8 @@ function mtfCfgText(c){
   const al=c.alignN?` <span class="sub">[${c.alignN}條排]</span>`:'';
   const sr=c.srFilter?` <span class="sub" style="color:var(--acc)">[${SRLABEL[c.srFilter]}]</span>`:'';
   const ds=c.dayStopOnly?` <span class="sub" style="color:#b8cde8">[夜盤不停損]</span>`:'';
-  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds} 進:${e}${re?` <span class="sub" style="color:var(--acc)">(再進:${re})</span>`:''} ／ 出:${x.join('+')||'—'}`;
+  const gb=c.skipGapBull?` <span class="sub" style="color:#b8cde8">[開高走低日不做多排]</span>`:'';
+  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds}${gb} 進:${e}${re?` <span class="sub" style="color:var(--acc)">(再進:${re})</span>`:''} ／ 出:${x.join('+')||'—'}`;
 }
 function renderMTFOpt(){
   const showPair=mtfOptAllPairs;
@@ -3207,6 +3213,7 @@ function applyMTFResult(r){   // B跨週期最佳化「套用」→填回②統�
   $('mtfUseTP').checked=false;                      // B自動不搜停利
   $('mtfTrail').checked=cfg.trail>0; if(cfg.trail>0)$('mtfTrailPts').value=cfg.trail;
   $('mtfSR').checked=!!cfg.srFilter; if($('mtfSRExit'))$('mtfSRExit').checked=!!cfg.srExit; if($('dayStopOnly'))$('dayStopOnly').checked=!!cfg.dayStopOnly;
+  if($('mtfSkipGapBull'))$('mtfSkipGapBull').checked=!!cfg.skipGapBull;
   if(cfg.alignN) $('alignN').value=cfg.alignN;
   document.querySelector('#tabs button[data-v="backtest"]').click();   // 切②(initMTF→syncBTMode解鎖週期)
   if($('mtfUseReentry')) $('mtfUseReentry').dispatchEvent(new Event('change'));   // 同步再進場框灰階
