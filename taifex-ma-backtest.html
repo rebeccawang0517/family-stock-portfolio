@@ -117,6 +117,11 @@
   /* 佔滿整列的勾選欄（B 區停損/移動停損/再進場）：橫排單行不擠壓 */
   #v-auto .cfg label.full,#v-backtest .cfg label.full{grid-column:1/-1;white-space:nowrap;flex-wrap:wrap}
   #v-auto .cfg label.full .sub,#v-backtest .cfg label.full .sub{white-space:nowrap}
+  /* 均線參數：MA1~5 小格五個一列；「多空排/走勢」等寬欄各佔一半 */
+  #v-backtest .cfg.cfg-ma{grid-template-columns:repeat(10,minmax(0,1fr))}
+  #v-backtest .cfg.cfg-ma label{grid-column:span 2}
+  #v-backtest .cfg.cfg-ma label.w{grid-column:span 5}
+  @media(max-width:640px){#v-backtest .cfg.cfg-ma{grid-template-columns:repeat(4,minmax(0,1fr))}#v-backtest .cfg.cfg-ma label.w{grid-column:1/-1}}
   /* 按鈕與說明文字獨立佔一整列 */
   #v-auto .cfg .btn,#v-backtest .cfg .btn{grid-column:1/-1;justify-self:start}
   #v-backtest .cfg>p.hint,#v-backtest .cfg>span.hint{grid-column:1/-1}
@@ -325,20 +330,20 @@
     <summary>⚙️ 參數設定（均線 MA1~5・回測週期・進場價・每點價值・成本）</summary>
   <fieldset>
     <legend>均線參數</legend>
-    <div class="cfg">
+    <div class="cfg cfg-ma">
       <label>MA1 <input type="number" id="ma1" value="5"></label>
       <label>MA2 <input type="number" id="ma2" value="10"></label>
       <label>MA3 <input type="number" id="ma3" value="20"></label>
       <label>MA4 <input type="number" id="ma4" value="60"></label>
       <label>MA5(長期) <input type="number" id="ma5" value="240"></label>
-      <label>多空排用幾條
+      <label class="w">多空排用幾條
         <select id="alignN">
           <option value="4" selected>4條 (MA1&gt;2&gt;3&gt;4)</option>
           <option value="3">3條 (MA1&gt;2&gt;3)</option>
         </select>
       </label>
-      <label class="hint" title="走勢＝最近 N 根收盤的線性回歸斜率（往上/往下）">走勢判斷回看（根）<input type="number" id="trendLB" value="5"></label>
-      <label class="hint" title="斜率每根平均要漲/跌超過這麼多點才算有走勢；0＝只要斜率不為0就算，盤整易翻可調大">走勢門檻（點/根）<input type="number" id="trendThr" value="0" step="0.1"></label>
+      <label class="hint w" title="走勢＝最近 N 根收盤的線性回歸斜率（往上/往下）">走勢判斷回看（根）<input type="number" id="trendLB" value="5"></label>
+      <label class="hint w" title="斜率每根平均要漲/跌超過這麼多點才算有走勢；0＝只要斜率不為0就算，盤整易翻可調大">走勢門檻（點/根）<input type="number" id="trendThr" value="0" step="0.1"></label>
     </div>
   </fieldset>
 
@@ -389,6 +394,7 @@
           <button type="button" data-dir="short">做空</button>
         </div>
         <select id="mtfDir" style="display:none"><option value="long">只做多</option><option value="short">只做空</option></select>
+        <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:8px 0 0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不用「多排(bull)」這個條件進場，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="mtfSkipGapBull"> 開高走低日不做多排(bull)</label>
         <div class="subhd">進場週期</div>
         <label class="hint"><select id="mtfEntryTF" class="mtfTF"></select></label>
         <div class="cfg mtf-en" style="display:none"></div>
@@ -1208,6 +1214,11 @@ function calcInd(B){
   for(let j=PK;j<B.length-PK;j++){ let hi=true,lo=true;
     for(let k=1;k<=PK;k++){ if(!(B[j].h>B[j-k].h&&B[j].h>B[j+k].h))hi=false; if(!(B[j].l<B[j-k].l&&B[j].l<B[j+k].l))lo=false; }
     pivHi[j]=hi; pivLo[j]=lo; }
+  // ── 開盤開高走低日：當天日盤第一根K「最高價=開盤價 且 收盤<開盤」→整個交易日(日盤)標記，供「開高走低日不做多排」勾選用 ──
+  const dateGapDown={};
+  { const seen=new Set();
+    for(let i=0;i<B.length;i++){ const dt=B[i].date||''; if(isDayBar(B[i]) && !seen.has(dt)){ seen.add(dt);
+      dateGapDown[dt]= Math.abs(B[i].h-B[i].o)<1e-6 && B[i].c<B[i].o; } } }
   // ── 布林通道 (20, 2σ)：滾動平均與標準差（只用已收完K棒，因果安全）──
   const BBN=20, BBK=2;
   const bbMA=new Array(B.length).fill(NaN), bbSD=new Array(B.length).fill(NaN);
@@ -1258,7 +1269,8 @@ function calcInd(B){
       trSlope, trUp, trDn, volR, hh, ll,
       ma3Up, ma3Dn, xUp4, xDn4, bullK3, bearK3, supL, resL,
       ma1TurnUp, ma1TurnDn, ma4TurnUp, ma4TurnDn,
-      bbU:bbMA[i]+BBK*bbSD[i], bbM:bbMA[i], bbL:bbMA[i]-BBK*bbSD[i]   // 布林上/中/下軌
+      bbU:bbMA[i]+BBK*bbSD[i], bbM:bbMA[i], bbL:bbMA[i]-BBK*bbSD[i],   // 布林上/中/下軌
+      gapDownDay: isDayBar(b) && !!dateGapDown[b.date||'']             // 這天日盤開高走低（只在日盤K棒為true，夜盤不受影響）
     };
   });
 }
@@ -2851,7 +2863,7 @@ function mtfTrades(ctx, cfg, i0, i1){
   const getEntry=i=> entryMode==='nextOpen'?(enB[i+1]?enB[i+1].o:null):enB[i].c;
   const warmOK=i=> !isNaN(enI[i].ma3) && (align!==4 || !isNaN(enI[i].ma4))
     && (!cfg.srFilter || !srFilter || srFilter(i,enB[i].c,cfg.dir));   // 暖身+壓撐過濾（進場碰到60分/日線壓撐就不進）
-  const condsOK=(codes,i)=> codes.length && codes.every(c=>condTrue(enB,enI,i,c,tol,align)) && warmOK(i);
+  const condsOK=(codes,i)=> codes.length && codes.every(c=> !(c==='bull'&&cfg.skipGapBull&&enI[i].gapDownDay) && condTrue(enB,enI,i,c,tol,align)) && warmOK(i);
   const enOK=i=> condsOK(cfg.entry,i);                                 // 首次進場條件
   const reCodes=(cfg.reentry&&cfg.reentry.length)?cfg.reentry:cfg.entry;// 再次進場條件（未設→沿用首次）
   const reOK=i=> condsOK(reCodes,i);                                   // 出場後再進場的閘
@@ -2949,7 +2961,8 @@ function runBT(){
   const cfg={ dir:$('mtfDir').value, entry:enConds, exit:exConds, reentry:reConds,
     sl:useSL?+$('mtfSL').value:0, tp:useTP?+$('mtfTP').value:0, trail:useTrail?+$('mtfTrailPts').value:0,
     srFilter:$('mtfSR').checked?'ref':null, srExit:useSRExit?'ref':null, alignN:+$('alignN').value===3?3:4,
-    dayStopOnly:$('dayStopOnly')&&$('dayStopOnly').checked };
+    dayStopOnly:$('dayStopOnly')&&$('dayStopOnly').checked,
+    skipGapBull:$('mtfSkipGapBull')&&$('mtfSkipGapBull').checked };
   if(cfg.srFilter && !ctx.srFilter) msg($('runMsg'),'（提示：未匯入60分/日線，壓力支撐過濾未生效）',false);
   if(cfg.srExit && !ctx.srFilter) msg($('runMsg'),'（提示：未匯入60分/日線，遇壓撐出場未生效）',false);
   const tr=mtfTrades(ctx,cfg);
@@ -2970,7 +2983,7 @@ function runBT(){
   const nT=trades.length, wins=trades.filter(t=>t.pts>0).length, total=trades.reduce((s,t)=>s+t.pts,0);
   let eq=0,pk=0,mdd=0; trades.forEach(t=>{eq+=t.pts;pk=Math.max(pk,eq);mdd=Math.max(mdd,pk-eq);});
   const maxMAE=trades.reduce((m,t)=>Math.max(m,t.mae||0),0);
-  lastRun={ cfg:{ dir:cfg.dir, entry:enConds, exit:exConds, reentry:reConds, sl:cfg.sl, tp:cfg.tp, trail:cfg.trail, srFilter:cfg.srFilter, srExit:cfg.srExit, alignN:cfg.alignN, dayStopOnly:cfg.dayStopOnly, enTF, exTF },
+  lastRun={ cfg:{ dir:cfg.dir, entry:enConds, exit:exConds, reentry:reConds, sl:cfg.sl, tp:cfg.tp, trail:cfg.trail, srFilter:cfg.srFilter, srExit:cfg.srExit, alignN:cfg.alignN, dayStopOnly:cfg.dayStopOnly, skipGapBull:cfg.skipGapBull, enTF, exTF },
     stat:{ n:nT, winRate:nT?wins/nT*100:0, total, mdd, exp:nT?total/nT:0, maxMAE } };
   msg($('runMsg'),`✔ 完成，共 ${trades.length} 筆交易（${wk}）`,true);
   const rb=$('resultBox'); if(rb) rb.scrollIntoView({behavior:'smooth',block:'start'});
@@ -3028,6 +3041,7 @@ function applyBTRecord(id){
   $('mtfUseTP').checked=c.tp>0; if(c.tp>0)$('mtfTP').value=c.tp;
   $('mtfTrail').checked=c.trail>0; if(c.trail>0)$('mtfTrailPts').value=c.trail;
   $('mtfSR').checked=!!c.srFilter; if($('mtfSRExit'))$('mtfSRExit').checked=!!c.srExit; if($('dayStopOnly'))$('dayStopOnly').checked=!!c.dayStopOnly;
+  if($('mtfSkipGapBull'))$('mtfSkipGapBull').checked=!!c.skipGapBull;
   syncBTMode(); runBT();
   msg($('recMsg'),'✔ 已還原此紀錄的設定並重跑',true);
 }
