@@ -101,9 +101,9 @@
   .flowStep .fnum{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;
     font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px}
   .flowStep .btn{margin:2px 0 0 8px;padding:3px 9px;font-size:12px;vertical-align:middle}
-  /* ③ 自動最佳化：設定左、結果＋名人堂右 兩欄 */
+  /* ③ 自動最佳化：設定左(窄、吃內容寬度就好)、結果＋名人堂右(吃剩下空間) 兩欄 */
   .autoGrid{display:flex;gap:16px;align-items:flex-start}
-  .autoLeft{flex:0 0 520px;min-width:0}
+  .autoLeft{flex:0 0 clamp(230px,22vw,280px);min-width:0;position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto}
   /* ②手動回測＋③自動最佳化：設定統一兩欄網格；欄名（含單位）在上、控制項在下，選單吃滿格寬不溢出 */
   #v-auto .cfg,#v-backtest .cfg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;align-items:start}
   #v-auto .cfg{grid-template-columns:1fr}   /* ③自動最佳化左欄較窄(520px)，單週期/跨週期設定改單欄直排，避免擠壓右邊回測結果 */
@@ -129,10 +129,9 @@
   @media(max-width:640px){#v-backtest .cfg{grid-template-columns:1fr}}
   #v-auto .cfg>span.hint{grid-column:1/-1}
   @media(max-width:640px){#v-auto .cfg{grid-template-columns:1fr}}
-  @media(max-width:960px){ .autoLeft{flex:1 1 auto} }
   .autoRight{flex:1 1 0;min-width:0}
   .autoRight .resHd{font-size:14px;font-weight:700;color:var(--acc);margin:0 0 6px}
-  @media(max-width:960px){ .autoGrid{flex-direction:column} .autoLeft{flex:1 1 auto} }
+  @media(max-width:960px){ .autoGrid{flex-direction:column} .autoLeft{flex:1 1 auto;position:static;max-height:none} }
   /* 捲軸美化 */
   ::-webkit-scrollbar{width:10px;height:10px}
   ::-webkit-scrollbar-thumb{background:#3a4150;border-radius:6px;border:2px solid transparent;background-clip:padding-box}
@@ -255,6 +254,10 @@
   details.params[open]>summary::before{content:'▾ '}
   details.params fieldset{margin:8px 0}
   @media(max-width:560px){ .wz-head{flex-direction:column} .wz-tab + .wz-tab{border-left:none;border-top:1px solid var(--line)} .wz-tab.on::after{display:none} }
+  /* ③自動最佳化左欄較窄(固定內容寬)，跟寬度無關一律把步驟頁籤直排 */
+  #v-auto .autoLeft .wz-head{flex-direction:column}
+  #v-auto .autoLeft .wz-tab+.wz-tab{border-left:none;border-top:1px solid var(--line)}
+  #v-auto .autoLeft .wz-tab.on::after{left:0;right:auto;top:0;bottom:0;width:2px;height:auto}
   /* 左右橫向工作區：左設定（固定窄欄）｜右結果（吃剩餘寬度） */
   .bt-ws{display:grid;grid-template-columns:minmax(0,480px) minmax(0,1fr);gap:16px;align-items:start;margin-top:14px}
   .bt-col-l,.bt-col-r{min-width:0}
