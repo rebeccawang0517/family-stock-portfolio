@@ -387,32 +387,33 @@
   <details class="side-sec" open>
     <summary><span class="num">1</span><span class="stt"><b>核心設定</b><small>均線・進場價・成本</small></span><span class="chev">▾</span></summary>
     <div class="side-sec-body">
-      <fieldset>
-        <legend>均線參數</legend>
-        <div class="cfg cfg-ma">
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div class="cfg" style="grid-template-columns:1fr;flex:1;min-width:120px">
           <label>MA1 <input type="number" id="ma1" value="5"></label>
           <label>MA2 <input type="number" id="ma2" value="10"></label>
           <label>MA3 <input type="number" id="ma3" value="20"></label>
           <label>MA4 <input type="number" id="ma4" value="60"></label>
           <label>MA5(長期) <input type="number" id="ma5" value="240"></label>
-          <label class="w">多空排用幾條
+        </div>
+        <div class="cfg" style="grid-template-columns:1fr;flex:1;min-width:120px">
+          <label>多空排用幾條
             <select id="alignN">
               <option value="4" selected>4條 (MA1&gt;2&gt;3&gt;4)</option>
               <option value="3">3條 (MA1&gt;2&gt;3)</option>
             </select>
           </label>
-          <label class="hint w" title="走勢＝最近 N 根收盤的線性回歸斜率（往上/往下）">走勢判斷回看（根）<input type="number" id="trendLB" value="5"></label>
-          <label class="hint w" title="斜率每根平均要漲/跌超過這麼多點才算有走勢；0＝只要斜率不為0就算，盤整易翻可調大">走勢門檻（點/根）<input type="number" id="trendThr" value="0" step="0.1"></label>
+          <label class="hint" title="走勢＝最近 N 根收盤的線性回歸斜率（往上/往下）">走勢判斷回看（根）<input type="number" id="trendLB" value="5"></label>
+          <label class="hint" title="斜率每根平均要漲/跌超過這麼多點才算有走勢；0＝只要斜率不為0就算，盤整易翻可調大">走勢門檻（點/根）<input type="number" id="trendThr" value="0" step="0.1"></label>
+          <label>來回成本（點）<input type="number" id="cost" value="2"></label>
         </div>
-      </fieldset>
-      <fieldset>
-        <legend>成本與成交細節</legend>
+      </div>
+      <fieldset style="margin-top:12px">
+        <legend>其他成交細節</legend>
         <div class="cfg">
           <label>進場價 <select id="entryPx"><option value="close">當根收盤</option><option value="nextOpen">次根開盤</option></select></label>
-          <label>來回成本（點）<input type="number" id="cost" value="2"></label>
           <label>觸及容差（%）<input type="number" id="tol" value="0.3"></label>
         </div>
-        <p class="hint">回測週期／方向／每點價值移到最上面的工具列（跟「▶ 執行回測」放一起）。選「跨週期」則進出場週期可在「2 進場邏輯」「3 出場與風控」各自選。停損停利在「3 出場與風控」。</p>
+        <p class="hint">回測週期／方向／每點價值在最上面的工具列。跨週期的進出場週期分別在「2 進場邏輯」「3 出場與風控」選；停損停利在「3 出場與風控」。</p>
       </fieldset>
     </div>
   </details>
@@ -420,51 +421,74 @@
   <details class="side-sec" open>
     <summary><span class="num">2</span><span class="stt"><b>進場邏輯</b><small id="wzSum0">—</small></span><span class="chev">▾</span></summary>
     <div class="side-sec-body">
-      <p class="hint" style="margin:0 0 12px">方向在最上面工具列選（做多／做空）。先決定做多或做空，再設「空手時要符合什麼才進場」。條件標籤：<b>×</b> 移除、<b>＋常用</b>快加、<b>全部條件（56）▾</b> 開條件選擇器（可搜尋／分類／方向篩選）；定義看「⑧ 名詞說明」。</p>
-      <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不用「多排(bull)」這個條件進場，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="mtfSkipGapBull"> 開高走低日不做多排(bull)</label><br>
-      <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="mtfSkipGapDay"> 開高走低日整天不進場(多空都不做)</label><br>
-      <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="mtfDayOnly"> 只做日盤(夜盤不進場)</label>
-      <div class="subhd">進場週期</div>
-      <label class="hint"><select id="mtfEntryTF" class="mtfTF"></select></label>
-      <div class="cfg mtf-en" style="display:none"></div>
-      <div class="subhd">① 首次進場條件（空手時，全部成立才進）</div>
-      <div class="condwrap entry"><div class="condset" id="enChips"></div><div class="addrow" id="enAdd"></div></div>
-      <div id="reentryBox" style="margin-top:12px">
-        <label class="subhd" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin:0 0 6px"><input type="checkbox" id="mtfUseReentry"> ② 再次進場條件（出場後改用這組，通常較嚴格；不勾＝沿用首次）</label>
-        <div class="cfg mtf-re" style="display:none"></div>
-        <div class="condwrap reentry"><div class="condset" id="reChips"></div><div class="addrow" id="reAdd"></div></div>
+      <div class="subhd" style="margin-top:0">方向</div>
+      <div class="seg" data-dirseg>
+        <button type="button" data-dir="long" class="on">做多</button>
+        <button type="button" data-dir="short">做空</button>
       </div>
+      <div class="subhd">首次進場條件（空手時，全部成立才進）</div>
+      <div class="condwrap entry"><div class="condset" id="enChips"></div></div>
+      <div class="row" style="margin-top:8px" id="enAdd"></div>
+      <div id="reentryBox" style="margin-top:12px">
+        <label class="subhd" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin:0 0 6px"><input type="checkbox" id="mtfUseReentry"> 啟用「再次進場」條件（出場後改用這組，通常較嚴格；不勾＝沿用首次）</label>
+        <div class="cfg mtf-re" style="display:none"></div>
+        <div class="condwrap reentry"><div class="condset" id="reChips"></div></div>
+        <div class="row" style="margin-top:8px" id="reAdd"></div>
+      </div>
+      <p class="hint" style="margin:10px 0 0">條件標籤 <b>×</b> 移除；點「✏️ 編輯條件」開條件選擇器（可搜尋／分類／方向篩選）；定義看「⑧ 名詞說明」。</p>
+
       <details id="stratLib" style="margin-top:12px">
-        <summary class="hint" style="cursor:pointer;font-weight:700">🎯 60K 策略庫（8 組預設組合，一鍵套用）</summary>
+        <summary class="hint" style="cursor:pointer;font-weight:700">60K 策略庫（8 組預設組合，一鍵套用）</summary>
         <p class="hint" style="margin:6px 0">策略庫不是另一套條件——就是用同一批 56 條件拼好的<b>預設組合</b>。「套用多／空」會清掉現有勾選、自動切 60分、均線 5/20/60 並直接回測；勾「疊加」＝只把條件加進現有勾選、不清除不自動跑。需先匯入 60分 K棒。</p>
         <label class="hint" style="display:inline-flex;gap:6px;align-items:center;background:#1b1c20;border:1px solid var(--line);border-radius:8px;padding:6px 12px;margin:2px 0 8px">
           <input type="checkbox" id="stratCombine"> <b>疊加模式</b>
         </label>
         <div class="scroll"><table id="stratTbl"></table></div>
       </details>
+
+      <details style="margin-top:12px">
+        <summary class="hint" style="cursor:pointer;font-weight:700">進階過濾（開高走低日、只做日盤）</summary>
+        <div style="margin-top:8px">
+          <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不用「多排(bull)」這個條件進場，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="mtfSkipGapBull"> 開高走低日不做多排(bull)</label><br>
+          <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="mtfSkipGapDay"> 開高走低日整天不進場(多空都不做)</label><br>
+          <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="mtfDayOnly"> 只做日盤(夜盤不進場)</label>
+        </div>
+      </details>
+
+      <div class="subhd" style="margin-top:12px">進場週期（跨週期模式才用）</div>
+      <label class="hint"><select id="mtfEntryTF" class="mtfTF"></select></label>
+      <div class="cfg mtf-en" style="display:none"></div>
     </div>
   </details>
 
   <details class="side-sec" open>
     <summary><span class="num">3</span><span class="stt"><b>出場與風控</b><small id="wzSum1">—</small></span><span class="chev">▾</span></summary>
     <div class="side-sec-body">
-      <p class="hint" style="margin:0 0 12px">持倉時符合<b>任一</b>出場條件就出場；風控（停損／停利／移動停損）與出場條件並行、先到先出。</p>
-      <div class="subhd" style="margin-top:0">出場週期</div>
-      <label class="hint"><select id="mtfExitTF" class="mtfTF"></select></label>
-      <div class="cfg mtf-ex" style="display:none"></div>
-      <div class="subhd">出場條件（任一成立就出）</div>
-      <div class="condwrap exit"><div class="condset" id="exChips"></div><div class="addrow" id="exAdd"></div></div>
+      <div class="subhd" style="margin-top:0">出場條件（任一成立就出）</div>
+      <div class="condwrap exit"><div class="condset" id="exChips"></div></div>
+      <div class="row" style="margin-top:8px" id="exAdd"></div>
       <div class="subhd" style="margin-top:12px">風控</div>
       <div class="cfg">
         <label><input type="checkbox" id="mtfUseSL" checked> 停損 <input type="number" id="mtfSL" value="80"> 點</label>
         <label><input type="checkbox" id="mtfUseTP"> 停利 <input type="number" id="mtfTP" value="150"> 點</label>
         <label><input type="checkbox" id="mtfTrail"> 移動停損 回吐 <input type="number" id="mtfTrailPts" value="60"> 點</label>
-        <label class="hint" title="台指日盤08:45-13:45才檢查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)。回測/最佳化都吃這個設定"><input type="checkbox" id="dayStopOnly"> 夜盤不停損<span class="sub">(只日盤查風控)</span></label>
-        <label class="hint" title="壓力支撐固定用60分＋日線算，進場價碰到就不進，因果版不看未來"><input type="checkbox" id="mtfSR"> 壓力支撐過濾（60分/日線）</label>
-        <label class="hint" title="持倉時：多單漲到碰60分/日線壓力、空單跌到碰支撐，就出場（跟「壓力支撐過濾」用同一套大週期壓撐，只是這個是出場、那個是擋進場）。需先匯入60分或日線資料"><input type="checkbox" id="mtfSRExit"> 遇壓撐出場<span class="sub">(多碰壓力/空碰支撐)</span></label>
-        <label class="hint" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="mtfEODClose"> 當日平倉（不留倉過夜）</label>
-        <label class="hint" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="mtfMidnightClose"> 半夜12點後不留倉</label>
       </div>
+      <div class="summary" id="riskSummary">目前啟用：—</div>
+
+      <details style="margin-top:12px">
+        <summary class="hint" style="cursor:pointer;font-weight:700">更多風控選項</summary>
+        <div class="cfg" style="margin-top:8px">
+          <label class="hint" title="台指日盤08:45-13:45才檢查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)。回測/最佳化都吃這個設定"><input type="checkbox" id="dayStopOnly"> 夜盤不停損<span class="sub">(只日盤查風控)</span></label>
+          <label class="hint" title="壓力支撐固定用60分＋日線算，進場價碰到就不進，因果版不看未來"><input type="checkbox" id="mtfSR"> 壓力支撐過濾（60分/日線）</label>
+          <label class="hint" title="持倉時：多單漲到碰60分/日線壓力、空單跌到碰支撐，就出場（跟「壓力支撐過濾」用同一套大週期壓撐，只是這個是出場、那個是擋進場）。需先匯入60分或日線資料"><input type="checkbox" id="mtfSRExit"> 遇壓撐出場<span class="sub">(多碰壓力/空碰支撐)</span></label>
+          <label class="hint" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="mtfEODClose"> 當日平倉（不留倉過夜）</label>
+          <label class="hint" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="mtfMidnightClose"> 半夜12點後不留倉</label>
+        </div>
+      </details>
+
+      <div class="subhd" style="margin-top:12px">出場週期（跨週期模式才用）</div>
+      <label class="hint"><select id="mtfExitTF" class="mtfTF"></select></label>
+      <div class="cfg mtf-ex" style="display:none"></div>
     </div>
   </details>
 
@@ -474,6 +498,9 @@
       <p class="hint" style="margin:0 0 12px">回測跑完才算得出倉位——用最新回測的 edge（期望值／勝率／回撤）反推<b>口數、首單、加碼與風險紅線</b>。</p>
       <div class="cfg">
         <label>本金（元）<input type="number" id="posCapital" value="500000"></label>
+        <label title="單筆停損最多虧本金的百分之幾——保護本金的鐵律，通常 1~2%">單筆風險上限（%）<input type="number" id="posRisk" value="1.5" step="0.1"></label>
+        <label title="第一次進場先下總口數的幾成（試單），其餘等浮盈順勢再加碼">首單比例（%）<input type="number" id="posFirst" value="50"></label>
+        <label title="每口原始保證金，會隨商品自動帶入，可自行改成券商公告值">保證金/口（元）<input type="number" id="posMargin" value="9200"></label>
         <label>月目標（元）<input type="number" id="posTarget" value="100000"></label>
         <label>試算商品
           <select id="posProduct">
@@ -482,10 +509,7 @@
             <option value="200">大台（200元/點）</option>
           </select>
         </label>
-        <label title="每口原始保證金，會隨商品自動帶入，可自行改成券商公告值">保證金/口（元）<input type="number" id="posMargin" value="9200"></label>
-        <label title="單筆停損最多虧本金的百分之幾——保護本金的鐵律，通常 1~2%">單筆風險上限（%）<input type="number" id="posRisk" value="1.5" step="0.1"></label>
-        <label title="第一次進場先下總口數的幾成（試單），其餘等浮盈順勢再加碼">首單比例（%）<input type="number" id="posFirst" value="50"></label>
-        <button class="btn" id="btnPos">🧮 試算</button>
+        <button class="btn" id="btnPos">🧮 試算（建議口數）</button>
       </div>
       <div id="posResult"></div>
       <p class="hint">你的設定＝<b>高勝率低頻率</b>（每天 1~3 筆、勝率 ≥ 58%、單筆風險嚴控、移動停損鎖利）。口數同時受<b>風控</b>與<b>保證金</b>兩道閘限制、取小的那個；數字用右邊回測結果的 edge（期望值/勝率/回撤），是試算不是保證。</p>
@@ -584,16 +608,10 @@
   </div>
   <div class="autoGrid">
   <div class="autoLeft">
-  <div class="wizard" style="margin-top:0">
-    <div class="wz-head">
-      <button type="button" class="wz-tab on" data-step="0"><span class="wz-num">1</span><span class="wz-tt"><b>單週期</b><small>在這個週期內找最佳</small></span></button>
-      <button type="button" class="wz-tab" data-step="1"><span class="wz-num">2</span><span class="wz-tt"><b>跨週期</b><small>進場、出場不同週期</small></span></button>
-      <button type="button" class="wz-tab" data-step="2"><span class="wz-num">3</span><span class="wz-tt"><b>共用選項</b><small>停損 · 壓撐 · 夜盤</small></span></button>
-    </div>
-    <div class="wz-body">
 
-      <!-- STEP 1：A 單週期 -->
-      <div class="wz-pane on" data-pane="0">
+  <details class="side-sec" open>
+    <summary><span class="num">1</span><span class="stt"><b>單週期最佳化</b><small>在這個週期內找最佳</small></span><span class="chev">▾</span></summary>
+    <div class="side-sec-body">
     <div class="cfg">
       <label title="就在這個週期的 K 棒上找最佳組合（跨週期另有進出場週期）">最佳化週期<span class="tfInfo sub" style="font-weight:400"></span>
         <select class="tfPick"></select>
@@ -614,24 +632,26 @@
           <option value="mddSafe">最大回撤最小（最安全）</option>
         </select>
       </label>
+      <label>最少交易次數 <input type="number" id="optMinN" value="30"></label>
+      <label>樣本內比例（%）<input type="number" id="optSplit" value="70"></label>
       <label>出場方式
         <select id="optExit">
           <option value="both">訊號＋掃停損停利點數</option>
           <option value="signal">只用均線/K棒訊號（不設點數停損停利）</option>
         </select>
       </label>
-      <label>最少交易次數 <input type="number" id="optMinN" value="30"></label>
-      <label>樣本內比例（%）<input type="number" id="optSplit" value="70"></label>
     </div>
     <div class="row">
       <button class="btn" id="btnOptimize">▶ 開始自動找最佳組合</button>
       <span id="optMsg" class="hint"></span>
     </div>
     <p class="hint">用前面比例的資料找最佳組合（樣本內），再用剩下沒看過的資料驗證（樣本外）。點右邊結果的「套用」會把該組設定填回「② 手動回測」設定。</p>
-      </div>
+    </div>
+  </details>
 
-      <!-- STEP 2：B 跨週期 -->
-      <div class="wz-pane" data-pane="1">
+  <details class="side-sec" open>
+    <summary><span class="num">2</span><span class="stt"><b>跨週期最佳化</b><small>進場、出場不同週期</small></span><span class="chev">▾</span></summary>
+    <div class="side-sec-body">
     <p class="hint" style="margin:0 0 12px">進場條件在<b>進場週期</b>判斷、出場用<b>出場週期</b>的均線/K棒訊號。想手動測一組跨週期 → 到「② 手動回測」把回測週期選「跨週期」。</p>
     <div class="cfg">
       <label>做 <select id="mtfOptDir"><option value="long">多</option><option value="short">空</option></select></label>
@@ -658,31 +678,37 @@
       </label>
       <label>最少交易次數 <input type="number" id="mtfMinN" value="20"></label>
       <label>樣本內比例（%）<input type="number" id="mtfSplit" value="70"></label>
-      <input type="checkbox" id="mtfOptDayStop" hidden><input type="checkbox" id="mtfOptSR" hidden><!-- 停損/移動停損/再進場/壓撐/夜盤 皆由頂部「共用進階選項」設定 -->
+      <input type="checkbox" id="mtfOptDayStop" hidden><input type="checkbox" id="mtfOptSR" hidden><!-- 停損/移動停損/再進場/壓撐/夜盤 皆由「3 共用選項」設定 -->
       <span class="hint">「固定週期」用上面選的進/出場週期（可進粗出細，如進15出5）＋完整網格；「所有配對」自動試所有週期組合（含進場比出場粗），為省時改用<b>精簡網格</b>——是粗略掃「哪組週期配對好」，選出配對後再用「固定週期」跑完整細節。搜尋中畫面會顯示進度%不會凍結（若仍卡住請先 Ctrl+Shift+R 硬重整）。成本/每點價值沿用②跨週期設定。</span>
     </div>
     <div class="row"><button class="btn" id="btnMTFOpt">▶ 開始自動找最佳組合</button><span id="mtfOptMsg" class="hint"></span></div>
-      </div>
+    </div>
+  </details>
 
-      <!-- STEP 3：共用選項（A、B 都適用） -->
-      <div class="wz-pane" data-pane="2">
-    <p class="hint" style="margin:0 0 12px">這裡的設定<b>同時作用於 1 單週期和 2 跨週期</b>，設一次就好。</p>
+  <details class="side-sec" open>
+    <summary><span class="num">3</span><span class="stt"><b>共用選項</b><small>停損 · 壓撐 · 夜盤</small></span><span class="chev">▾</span></summary>
+    <div class="side-sec-body">
+    <p class="hint" style="margin:0 0 12px">這裡的設定<b>同時作用於 1 單週期和 2 跨週期</b>，設一次就好（只出現這一次）。</p>
     <div class="cfg">
-      <label class="full" title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
       <label class="full" title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="optDayStop"> 夜盤不停損（僅日盤執行停損停利）</label>
       <label class="full" title="固定停損點數，從進場價算。勾了：單週期不再自動掃描停損、直接用這個點數；跨週期加上這個停損。不勾：單週期依「出場方式」自動掃描、跨週期不設停損"><input type="checkbox" id="mtfOptUseSL"> 加停損 <input type="number" id="mtfOptSL" value="80"> 點<span class="sub">（勾＝兩邊都用固定點數；不勾＝單週期自動掃描）</span></label>
       <label class="full" title="從最高點回吐這麼多點就出場＝鎖利。勾了：兩邊都用這個回吐點數；不勾：單週期自動測 不用/80 兩種、跨週期不設"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損 <input type="number" id="mtfOptTrail" value="80"> 點<span class="sub">（回吐鎖利）</span></label>
-      <label class="full" title="出場後改用較嚴格的再次進場條件；會多試幾組，搜尋時間增加。此功能僅跨週期引擎支援"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件<span class="sub">（實驗，僅跨週期適用）</span></label>
       <label class="full" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，凡含「多排(bull)」的候選組合，在標記日整天都不算成立，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="optSkipGapBull"> 開高走低日不做多排(bull)</label>
-      <label class="full" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，標記日整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="optSkipGapDay"> 開高走低日整天不進場(多空都不做)</label>
       <label class="full" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="optDayOnly"> 只做日盤(夜盤不進場)</label>
       <label class="full" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="optEODClose"> 當日平倉（不留倉過夜）</label>
-      <label class="full" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="optMidnightClose"> 半夜12點後不留倉</label>
+      <label class="full" title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
+      <details style="margin-top:6px;grid-column:1/-1">
+        <summary class="hint" style="cursor:pointer;font-weight:700">更多共用選項（規格未列，但功能需要保留）</summary>
+        <div class="cfg" style="margin-top:8px">
+          <label class="full" title="出場後改用較嚴格的再次進場條件；會多試幾組，搜尋時間增加。此功能僅跨週期引擎支援"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件<span class="sub">（實驗，僅跨週期適用）</span></label>
+          <label class="full" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，標記日整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="optSkipGapDay"> 開高走低日整天不進場(多空都不做)</label>
+          <label class="full" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="optMidnightClose"> 半夜12點後不留倉</label>
+        </div>
+      </details>
     </div>
-      </div>
+    </div>
+  </details>
 
-    </div><!-- /wz-body -->
-  </div><!-- /wizard -->
   </div><!-- /autoLeft -->
   <div class="autoRight">
     <div class="resHd">📋 A 單週期結果</div>
@@ -1992,8 +2018,15 @@ function renderStratBar(){
   // 精靈 tab 摘要＋方向 segmented 同步（吃同一批狀態）
   const s0=$('wzSum0'); if(s0) s0.textContent=`${dir==='long'?'多':'空'} · 首次${enN}條${(reOn&&reN)?` · 再進${reN}條`:''}`;
   const s1=$('wzSum1'); if(s1) s1.textContent=`${exArr.join('/')||'—'}${rk.length?' · '+rk.join('·'):''}`;
+  const rs=$('riskSummary'); if(rs){ const extra=[];
+    if($('dayStopOnly')&&$('dayStopOnly').checked) extra.push('夜盤不停損');
+    if($('mtfSR')&&$('mtfSR').checked) extra.push('壓力支撐過濾');
+    if($('mtfSRExit')&&$('mtfSRExit').checked) extra.push('遇壓撐出場');
+    if($('mtfEODClose')&&$('mtfEODClose').checked) extra.push('當日平倉');
+    if($('mtfMidnightClose')&&$('mtfMidnightClose').checked) extra.push('半夜不留倉');
+    rs.textContent=`目前啟用：${[...rk,...extra].join(' · ')||'無'}`; }
   const s2=$('wzSum2'); if(s2) s2.textContent=`本金 ${(+($('posCapital')?$('posCapital').value:0)||0).toLocaleString('en-US')} · 單筆風險 ${$('posRisk')?$('posRisk').value:'-'}%`;
-  document.querySelectorAll('#dirSeg button').forEach(b=>b.classList.toggle('on',b.dataset.dir===dir));
+  document.querySelectorAll('#dirSeg button,[data-dirseg] button').forEach(b=>b.classList.toggle('on',b.dataset.dir===dir));
 }
 //========================= 條件 chip 化 + 全部條件 picker（chip 只是上層 UI，真相仍是隱藏的 .mtfEc/.mtfXc/.mtfRc checkbox） =========================
 const KCLS={entry:'mtfEc',reentry:'mtfRc',exit:'mtfXc'};
@@ -2022,10 +2055,7 @@ function renderChipConds(){
         (i?`<span class="andsep">${kind==='exit'?'或':'且'}</span>`:'')+
         `<span class="cond">${CODEL[code]||code}<button class="x" data-cx="${kind}:${code}" title="移除">×</button></span>`).join('')
       : '<span class="cond-empty">尚未選條件</span>';
-    if(addBox){ const avail=COMMON.filter(c=>!sel.includes(c)).slice(0,5);
-      addBox.innerHTML=`<span class="albl">＋常用</span>`+
-        avail.map(c=>`<button class="addbtn" data-ca="${kind}:${c}">${CODEL[c]||c}</button>`).join('')+
-        `<button class="addbtn more" data-cmore="${kind}">全部條件（56）▾</button>`; }
+    if(addBox) addBox.innerHTML=`<button class="btn ghost" data-cmore="${kind}">✏️ 編輯條件</button>`;
   });
 }
 let bpkKindS=null,bpkQuery='',bpkCat=null,bpkDir='all';
@@ -3423,7 +3453,9 @@ document.querySelectorAll('.wz-tab').forEach(t=>t.onclick=()=>{
   wz.querySelectorAll('.wz-pane').forEach(p=>p.classList.toggle('on',p.dataset.pane===t.dataset.step));
 });
 // 方向 segmented → 寫回隱藏的 mtfDir select（JS 其他地方照讀 mtfDir）
-document.querySelectorAll('#dirSeg button').forEach(b=>b.onclick=()=>{ const d=$('mtfDir'); if(d) d.value=b.dataset.dir; renderStratBar(); renderChipConds&&renderChipConds(); });
+document.querySelectorAll('#dirSeg button,[data-dirseg] button').forEach(b=>b.onclick=()=>{ const d=$('mtfDir'); if(d) d.value=b.dataset.dir;
+  document.querySelectorAll('#dirSeg button,[data-dirseg] button').forEach(x=>x.classList.toggle('on',x.dataset.dir===b.dataset.dir));
+  renderStratBar(); renderChipConds&&renderChipConds(); });
 // ②回測頁：任何設定/勾選改動 → 更新置頂摘要列（＋條件 chip 若有）
 ['change','input'].forEach(ev=>document.addEventListener(ev,e=>{
   if(e.target.closest && e.target.closest('#v-backtest')){ renderStratBar(); renderChipConds&&renderChipConds(); }
