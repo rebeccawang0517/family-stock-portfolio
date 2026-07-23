@@ -218,13 +218,39 @@
   .pk-search{padding:0 18px 13px}
   .pk-search input{width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:9px;padding:9px 13px;color:var(--txt);font-size:13.5px;font-family:inherit}
   .pk-search input:focus{outline:none;border-color:var(--gold-line);box-shadow:0 0 0 3px var(--gold-soft)}
-  .pk-body{padding:4px 18px 20px}
+  .pk-dirtabs{display:flex;gap:6px;padding:0 18px 12px}
+  .pk-dirtabs button{flex:1;background:var(--panel2);border:1px solid var(--line2);color:var(--sub);border-radius:8px;padding:6px 0;font-size:12.5px;font-weight:700;cursor:pointer;transition:.13s;font-family:inherit}
+  .pk-dirtabs button:hover{color:var(--txt)}
+  .pk-dirtabs button.on{background:var(--gold-soft);border-color:var(--gold);color:var(--gold)}
+  .pk-modbody{display:flex;max-height:60vh}
+  .pk-cats{flex:0 0 150px;border-right:1px solid var(--line);overflow-y:auto;padding:8px}
+  .catpick{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;text-align:left;background:none;border:none;color:var(--sub);padding:8px 10px;border-radius:8px;font-size:12.5px;cursor:pointer;margin-bottom:2px;font-family:inherit}
+  .catpick:hover{background:var(--panel3);color:var(--txt)}
+  .catpick.on{background:var(--gold-soft);color:var(--gold);font-weight:700}
+  .catpick .ct{font-size:11px;color:var(--sub2);font-variant-numeric:tabular-nums}
+  .catpick.on .ct{color:var(--gold)}
+  .pk-body{flex:1;overflow-y:auto;padding:4px 18px 20px;min-width:0}
   .pk-grp{margin-top:16px} .pk-grp h5{font-size:11px;font-weight:700;color:var(--rust);text-transform:uppercase;letter-spacing:.7px;margin:0 0 9px}
-  .pk-grid{display:flex;flex-wrap:wrap;gap:7px}
-  .pick{font-size:13px;font-weight:600;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;color:var(--txt);cursor:pointer;transition:.12s}
-  .pick:hover{border-color:var(--gold-line);color:var(--gold)}
-  .pick.on{background:var(--gold-soft);border-color:var(--gold);color:var(--gold)} .pick.on::before{content:"✓ ";font-weight:800}
+  .cond-item{display:flex;align-items:center;gap:9px;padding:7px 2px;font-size:13px;color:var(--txt);cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04)}
+  .cond-item:hover{color:var(--gold)}
+  .cond-item input{width:16px;height:16px;flex-shrink:0;accent-color:var(--gold);cursor:pointer}
   .pk-none{color:var(--sub);font-size:13px;padding:22px 2px;text-align:center}
+  /* ②③左欄：可各自收合的編號區塊（取代原本的頁籤式精靈） */
+  .side-sec{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);box-shadow:var(--sh);margin:0 0 12px;overflow:hidden}
+  .side-sec>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:10px;background:var(--panel2);user-select:none;transition:.15s}
+  .side-sec>summary:hover{background:var(--panel3)}
+  .side-sec>summary::-webkit-details-marker{display:none}
+  .side-sec>summary .num{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--panel3);color:var(--sub);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;transition:.15s}
+  .side-sec[open]>summary .num{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .side-sec>summary .stt{flex:1;min-width:0}
+  .side-sec>summary .stt b{display:block;font-size:14px;font-weight:700}
+  .side-sec>summary .stt small{display:block;font-size:11.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side-sec[open]>summary .stt small{color:var(--acc)}
+  .side-sec>summary .chev{color:var(--sub);transition:.15s;flex-shrink:0;font-size:12px}
+  .side-sec[open]>summary .chev{transform:rotate(180deg)}
+  .side-sec-body{padding:14px}
+  .side-sec-body fieldset:first-child{margin-top:0}
+  .side-sec-body fieldset:last-child{margin-bottom:0}
   /* ② 三步精靈（demo 格式：進場/出場/算倉位 tab，一次一步） */
   .wizard{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--panel);box-shadow:var(--sh);margin:14px 0}
   .wz-head{display:flex;border-bottom:1px solid var(--line);background:var(--panel2)}
@@ -253,10 +279,10 @@
   details.params[open]>summary::before{content:'▾ '}
   details.params fieldset{margin:8px 0}
   @media(max-width:560px){ .wz-head{flex-direction:column} .wz-tab + .wz-tab{border-left:none;border-top:1px solid var(--line)} .wz-tab.on::after{display:none} }
-  /* ②③左欄都改窄欄(固定內容寬)，跟寬度無關一律把步驟頁籤直排 */
-  #v-auto .autoLeft .wz-head,.bt-col-l .wz-head{flex-direction:column}
-  #v-auto .autoLeft .wz-tab+.wz-tab,.bt-col-l .wz-tab+.wz-tab{border-left:none;border-top:1px solid var(--line)}
-  #v-auto .autoLeft .wz-tab.on::after,.bt-col-l .wz-tab.on::after{left:0;right:auto;top:0;bottom:0;width:2px;height:auto}
+  /* ③左欄較窄(固定內容寬)，跟寬度無關一律把步驟頁籤直排（②已改用側邊可收合區塊，不再用頁籤） */
+  #v-auto .autoLeft .wz-head{flex-direction:column}
+  #v-auto .autoLeft .wz-tab+.wz-tab{border-left:none;border-top:1px solid var(--line)}
+  #v-auto .autoLeft .wz-tab.on::after{left:0;right:auto;top:0;bottom:0;width:2px;height:auto}
   /* 左右橫向工作區：左設定（窄欄、吃內容寬度就好、sticky）｜右結果（吃剩餘寬度） */
   .bt-ws{display:grid;grid-template-columns:clamp(230px,22vw,280px) minmax(0,1fr);gap:16px;align-items:start;margin-top:14px}
   .bt-col-l{min-width:0;position:sticky;top:64px;max-height:calc(100vh - 78px);overflow-y:auto;overflow-x:hidden}   /* top留給上面sticky的.stratbar(約56px)，不重疊 */
@@ -329,143 +355,141 @@
   </div>
 
   <div class="bt-ws">
-  <div class="bt-col-l"><!-- ══ 左：條件設定 ══ -->
-  <details class="params">
-    <summary>⚙️ 參數設定（均線 MA1~5・回測週期・進場價・每點價值・成本）</summary>
-  <fieldset>
-    <legend>均線參數</legend>
-    <div class="cfg cfg-ma">
-      <label>MA1 <input type="number" id="ma1" value="5"></label>
-      <label>MA2 <input type="number" id="ma2" value="10"></label>
-      <label>MA3 <input type="number" id="ma3" value="20"></label>
-      <label>MA4 <input type="number" id="ma4" value="60"></label>
-      <label>MA5(長期) <input type="number" id="ma5" value="240"></label>
-      <label class="w">多空排用幾條
-        <select id="alignN">
-          <option value="4" selected>4條 (MA1&gt;2&gt;3&gt;4)</option>
-          <option value="3">3條 (MA1&gt;2&gt;3)</option>
-        </select>
-      </label>
-      <label class="hint w" title="走勢＝最近 N 根收盤的線性回歸斜率（往上/往下）">走勢判斷回看（根）<input type="number" id="trendLB" value="5"></label>
-      <label class="hint w" title="斜率每根平均要漲/跌超過這麼多點才算有走勢；0＝只要斜率不為0就算，盤整易翻可調大">走勢門檻（點/根）<input type="number" id="trendThr" value="0" step="0.1"></label>
-    </div>
-  </fieldset>
+  <div class="bt-col-l"><!-- ══ 左：條件設定（4個可各自收合的區塊，取代原本的3步驟精靈）══ -->
 
-  <fieldset>
-    <legend>回測設定</legend>
-    <div class="cfg">
-      <label>回測週期
-        <select id="btMode">
-          <option value="D">日線</option>
-          <option value="M60" selected>60分</option>
-          <option value="M30">30分</option>
-          <option value="M15">15分</option>
-          <option value="M5">5分</option>
-          <option value="cross">跨週期（進、出場不同週期）</option>
-        </select>
-      </label>
-      <label>進場價 <select id="entryPx"><option value="close">當根收盤</option><option value="nextOpen">次根開盤</option></select></label>
-      <label>每點價值（元）
-        <select id="ptVal">
-          <option value="10">10（微台）</option>
-          <option value="50">50（小台）</option>
-          <option value="200" selected>200（大台）</option>
-          <option value="100">100（個股期）</option>
-          <option value="500">500（個股期）</option>
-        </select>
-      </label>
-      <label>來回成本（點）<input type="number" id="cost" value="2"></label>
-      <label>觸及容差（%）<input type="number" id="tol" value="0.3"></label>
-    </div>
-    <p class="hint">選單週＝單週期回測（進出場週期鎖成同一個）；選「跨週期」則進出場週期可各自選。方向在「1 進場」、停損停利在「2 出場」。</p>
-  </fieldset>
-  </details>
-
-  <div class="wizard">
-    <div class="wz-head">
-      <button type="button" class="wz-tab on" data-step="0"><span class="wz-num">1</span><span class="wz-tt"><b>進場</b><small id="wzSum0">—</small></span></button>
-      <button type="button" class="wz-tab" data-step="1"><span class="wz-num">2</span><span class="wz-tt"><b>出場</b><small id="wzSum1">—</small></span></button>
-      <button type="button" class="wz-tab" data-step="2"><span class="wz-num">3</span><span class="wz-tt"><b>算倉位</b><small id="wzSum2">—</small></span></button>
-    </div>
-    <div class="wz-body">
-
-      <!-- STEP 1 進場 -->
-      <div class="wz-pane on" data-pane="0">
-        <p class="hint" style="margin:0 0 12px">先決定做多或做空，再設「空手時要符合什麼才進場」。條件標籤：<b>×</b> 移除、<b>＋常用</b>快加、<b>全部條件（56）▾</b> 開完整清單（可搜尋）；定義看「⑧ 名詞說明」。</p>
-        <div class="subhd" style="margin-top:0">方向</div>
-        <div class="seg" id="dirSeg">
-          <button type="button" data-dir="long" class="on">做多</button>
-          <button type="button" data-dir="short">做空</button>
-        </div>
-        <select id="mtfDir" style="display:none"><option value="long">只做多</option><option value="short">只做空</option></select>
-        <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:8px 0 0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不用「多排(bull)」這個條件進場，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="mtfSkipGapBull"> 開高走低日不做多排(bull)</label><br>
-        <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="mtfSkipGapDay"> 開高走低日整天不進場(多空都不做)</label><br>
-        <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="mtfDayOnly"> 只做日盤(夜盤不進場)</label>
-        <div class="subhd">進場週期</div>
-        <label class="hint"><select id="mtfEntryTF" class="mtfTF"></select></label>
-        <div class="cfg mtf-en" style="display:none"></div>
-        <div class="subhd">① 首次進場條件（空手時，全部成立才進）</div>
-        <div class="condwrap entry"><div class="condset" id="enChips"></div><div class="addrow" id="enAdd"></div></div>
-        <div id="reentryBox" style="margin-top:12px">
-          <label class="subhd" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin:0 0 6px"><input type="checkbox" id="mtfUseReentry"> ② 再次進場條件（出場後改用這組，通常較嚴格；不勾＝沿用首次）</label>
-          <div class="cfg mtf-re" style="display:none"></div>
-          <div class="condwrap reentry"><div class="condset" id="reChips"></div><div class="addrow" id="reAdd"></div></div>
-        </div>
-        <details id="stratLib" style="margin-top:12px">
-          <summary class="hint" style="cursor:pointer;font-weight:700">🎯 60K 策略庫（8 組預設組合，一鍵套用）</summary>
-          <p class="hint" style="margin:6px 0">策略庫不是另一套條件——就是用同一批 56 條件拼好的<b>預設組合</b>。「套用多／空」會清掉現有勾選、自動切 60分、均線 5/20/60 並直接回測；勾「疊加」＝只把條件加進現有勾選、不清除不自動跑。需先匯入 60分 K棒。</p>
-          <label class="hint" style="display:inline-flex;gap:6px;align-items:center;background:#1b1c20;border:1px solid var(--line);border-radius:8px;padding:6px 12px;margin:2px 0 8px">
-            <input type="checkbox" id="stratCombine"> <b>疊加模式</b>
-          </label>
-          <div class="scroll"><table id="stratTbl"></table></div>
-        </details>
-      </div>
-
-      <!-- STEP 2 出場 -->
-      <div class="wz-pane" data-pane="1">
-        <p class="hint" style="margin:0 0 12px">持倉時符合<b>任一</b>出場條件就出場；風控（停損／停利／移動停損）與出場條件並行、先到先出。</p>
-        <div class="subhd" style="margin-top:0">出場週期</div>
-        <label class="hint"><select id="mtfExitTF" class="mtfTF"></select></label>
-        <div class="cfg mtf-ex" style="display:none"></div>
-        <div class="subhd">出場條件（任一成立就出）</div>
-        <div class="condwrap exit"><div class="condset" id="exChips"></div><div class="addrow" id="exAdd"></div></div>
-        <div class="subhd" style="margin-top:12px">風控</div>
-        <div class="cfg">
-          <label><input type="checkbox" id="mtfUseSL" checked> 停損 <input type="number" id="mtfSL" value="80"> 點</label>
-          <label><input type="checkbox" id="mtfUseTP"> 停利 <input type="number" id="mtfTP" value="150"> 點</label>
-          <label><input type="checkbox" id="mtfTrail"> 移動停損 回吐 <input type="number" id="mtfTrailPts" value="60"> 點</label>
-          <label class="hint" title="台指日盤08:45-13:45才檢查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)。回測/最佳化都吃這個設定"><input type="checkbox" id="dayStopOnly"> 夜盤不停損<span class="sub">(只日盤查風控)</span></label>
-          <label class="hint" title="壓力支撐固定用60分＋日線算，進場價碰到就不進，因果版不看未來"><input type="checkbox" id="mtfSR"> 壓力支撐過濾（60分/日線）</label>
-          <label class="hint" title="持倉時：多單漲到碰60分/日線壓力、空單跌到碰支撐，就出場（跟「壓力支撐過濾」用同一套大週期壓撐，只是這個是出場、那個是擋進場）。需先匯入60分或日線資料"><input type="checkbox" id="mtfSRExit"> 遇壓撐出場<span class="sub">(多碰壓力/空碰支撐)</span></label>
-          <label class="hint" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="mtfEODClose"> 當日平倉（不留倉過夜）</label>
-          <label class="hint" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="mtfMidnightClose"> 半夜12點後不留倉</label>
-        </div>
-      </div>
-
-      <!-- STEP 3 算倉位 -->
-      <div class="wz-pane" data-pane="2" id="posBox">
-        <p class="hint" style="margin:0 0 12px">回測跑完才算得出倉位——用最新回測的 edge（期望值／勝率／回撤）反推<b>口數、首單、加碼與風險紅線</b>。</p>
-        <div class="cfg">
-          <label>本金（元）<input type="number" id="posCapital" value="500000"></label>
-          <label>月目標（元）<input type="number" id="posTarget" value="100000"></label>
-          <label>試算商品
-            <select id="posProduct">
-              <option value="10" selected>微台（10元/點）</option>
-              <option value="50">小台（50元/點）</option>
-              <option value="200">大台（200元/點）</option>
+  <details class="side-sec" open>
+    <summary><span class="num">1</span><span class="stt"><b>核心設定</b><small>均線・回測週期・成本</small></span><span class="chev">▾</span></summary>
+    <div class="side-sec-body">
+      <fieldset>
+        <legend>均線參數</legend>
+        <div class="cfg cfg-ma">
+          <label>MA1 <input type="number" id="ma1" value="5"></label>
+          <label>MA2 <input type="number" id="ma2" value="10"></label>
+          <label>MA3 <input type="number" id="ma3" value="20"></label>
+          <label>MA4 <input type="number" id="ma4" value="60"></label>
+          <label>MA5(長期) <input type="number" id="ma5" value="240"></label>
+          <label class="w">多空排用幾條
+            <select id="alignN">
+              <option value="4" selected>4條 (MA1&gt;2&gt;3&gt;4)</option>
+              <option value="3">3條 (MA1&gt;2&gt;3)</option>
             </select>
           </label>
-          <label title="每口原始保證金，會隨商品自動帶入，可自行改成券商公告值">保證金/口（元）<input type="number" id="posMargin" value="9200"></label>
-          <label title="單筆停損最多虧本金的百分之幾——保護本金的鐵律，通常 1~2%">單筆風險上限（%）<input type="number" id="posRisk" value="1.5" step="0.1"></label>
-          <label title="第一次進場先下總口數的幾成（試單），其餘等浮盈順勢再加碼">首單比例（%）<input type="number" id="posFirst" value="50"></label>
-          <button class="btn" id="btnPos">🧮 試算</button>
+          <label class="hint w" title="走勢＝最近 N 根收盤的線性回歸斜率（往上/往下）">走勢判斷回看（根）<input type="number" id="trendLB" value="5"></label>
+          <label class="hint w" title="斜率每根平均要漲/跌超過這麼多點才算有走勢；0＝只要斜率不為0就算，盤整易翻可調大">走勢門檻（點/根）<input type="number" id="trendThr" value="0" step="0.1"></label>
         </div>
-        <div id="posResult"></div>
-        <p class="hint">你的設定＝<b>高勝率低頻率</b>（每天 1~3 筆、勝率 ≥ 58%、單筆風險嚴控、移動停損鎖利）。口數同時受<b>風控</b>與<b>保證金</b>兩道閘限制、取小的那個；數字用右邊回測結果的 edge（期望值/勝率/回撤），是試算不是保證。</p>
-      </div>
-
+      </fieldset>
+      <fieldset>
+        <legend>回測設定</legend>
+        <div class="cfg">
+          <label>回測週期
+            <select id="btMode">
+              <option value="D">日線</option>
+              <option value="M60" selected>60分</option>
+              <option value="M30">30分</option>
+              <option value="M15">15分</option>
+              <option value="M5">5分</option>
+              <option value="cross">跨週期（進、出場不同週期）</option>
+            </select>
+          </label>
+          <label>進場價 <select id="entryPx"><option value="close">當根收盤</option><option value="nextOpen">次根開盤</option></select></label>
+          <label>每點價值（元）
+            <select id="ptVal">
+              <option value="10">10（微台）</option>
+              <option value="50">50（小台）</option>
+              <option value="200" selected>200（大台）</option>
+              <option value="100">100（個股期）</option>
+              <option value="500">500（個股期）</option>
+            </select>
+          </label>
+          <label>來回成本（點）<input type="number" id="cost" value="2"></label>
+          <label>觸及容差（%）<input type="number" id="tol" value="0.3"></label>
+        </div>
+        <p class="hint">選單週＝單週期回測（進出場週期鎖成同一個）；選「跨週期」則進出場週期可各自選。方向在「2 進場邏輯」、停損停利在「3 出場與風控」。</p>
+      </fieldset>
     </div>
-  </div>
+  </details>
+
+  <details class="side-sec" open>
+    <summary><span class="num">2</span><span class="stt"><b>進場邏輯</b><small id="wzSum0">—</small></span><span class="chev">▾</span></summary>
+    <div class="side-sec-body">
+      <p class="hint" style="margin:0 0 12px">先決定做多或做空，再設「空手時要符合什麼才進場」。條件標籤：<b>×</b> 移除、<b>＋常用</b>快加、<b>全部條件（56）▾</b> 開條件選擇器（可搜尋／分類／方向篩選）；定義看「⑧ 名詞說明」。</p>
+      <div class="subhd" style="margin-top:0">方向</div>
+      <div class="seg" id="dirSeg">
+        <button type="button" data-dir="long" class="on">做多</button>
+        <button type="button" data-dir="short">做空</button>
+      </div>
+      <select id="mtfDir" style="display:none"><option value="long">只做多</option><option value="short">只做空</option></select>
+      <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:8px 0 0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不用「多排(bull)」這個條件進場，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="mtfSkipGapBull"> 開高走低日不做多排(bull)</label><br>
+      <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="mtfSkipGapDay"> 開高走低日整天不進場(多空都不做)</label><br>
+      <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="mtfDayOnly"> 只做日盤(夜盤不進場)</label>
+      <div class="subhd">進場週期</div>
+      <label class="hint"><select id="mtfEntryTF" class="mtfTF"></select></label>
+      <div class="cfg mtf-en" style="display:none"></div>
+      <div class="subhd">① 首次進場條件（空手時，全部成立才進）</div>
+      <div class="condwrap entry"><div class="condset" id="enChips"></div><div class="addrow" id="enAdd"></div></div>
+      <div id="reentryBox" style="margin-top:12px">
+        <label class="subhd" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin:0 0 6px"><input type="checkbox" id="mtfUseReentry"> ② 再次進場條件（出場後改用這組，通常較嚴格；不勾＝沿用首次）</label>
+        <div class="cfg mtf-re" style="display:none"></div>
+        <div class="condwrap reentry"><div class="condset" id="reChips"></div><div class="addrow" id="reAdd"></div></div>
+      </div>
+      <details id="stratLib" style="margin-top:12px">
+        <summary class="hint" style="cursor:pointer;font-weight:700">🎯 60K 策略庫（8 組預設組合，一鍵套用）</summary>
+        <p class="hint" style="margin:6px 0">策略庫不是另一套條件——就是用同一批 56 條件拼好的<b>預設組合</b>。「套用多／空」會清掉現有勾選、自動切 60分、均線 5/20/60 並直接回測；勾「疊加」＝只把條件加進現有勾選、不清除不自動跑。需先匯入 60分 K棒。</p>
+        <label class="hint" style="display:inline-flex;gap:6px;align-items:center;background:#1b1c20;border:1px solid var(--line);border-radius:8px;padding:6px 12px;margin:2px 0 8px">
+          <input type="checkbox" id="stratCombine"> <b>疊加模式</b>
+        </label>
+        <div class="scroll"><table id="stratTbl"></table></div>
+      </details>
+    </div>
+  </details>
+
+  <details class="side-sec" open>
+    <summary><span class="num">3</span><span class="stt"><b>出場與風控</b><small id="wzSum1">—</small></span><span class="chev">▾</span></summary>
+    <div class="side-sec-body">
+      <p class="hint" style="margin:0 0 12px">持倉時符合<b>任一</b>出場條件就出場；風控（停損／停利／移動停損）與出場條件並行、先到先出。</p>
+      <div class="subhd" style="margin-top:0">出場週期</div>
+      <label class="hint"><select id="mtfExitTF" class="mtfTF"></select></label>
+      <div class="cfg mtf-ex" style="display:none"></div>
+      <div class="subhd">出場條件（任一成立就出）</div>
+      <div class="condwrap exit"><div class="condset" id="exChips"></div><div class="addrow" id="exAdd"></div></div>
+      <div class="subhd" style="margin-top:12px">風控</div>
+      <div class="cfg">
+        <label><input type="checkbox" id="mtfUseSL" checked> 停損 <input type="number" id="mtfSL" value="80"> 點</label>
+        <label><input type="checkbox" id="mtfUseTP"> 停利 <input type="number" id="mtfTP" value="150"> 點</label>
+        <label><input type="checkbox" id="mtfTrail"> 移動停損 回吐 <input type="number" id="mtfTrailPts" value="60"> 點</label>
+        <label class="hint" title="台指日盤08:45-13:45才檢查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)。回測/最佳化都吃這個設定"><input type="checkbox" id="dayStopOnly"> 夜盤不停損<span class="sub">(只日盤查風控)</span></label>
+        <label class="hint" title="壓力支撐固定用60分＋日線算，進場價碰到就不進，因果版不看未來"><input type="checkbox" id="mtfSR"> 壓力支撐過濾（60分/日線）</label>
+        <label class="hint" title="持倉時：多單漲到碰60分/日線壓力、空單跌到碰支撐，就出場（跟「壓力支撐過濾」用同一套大週期壓撐，只是這個是出場、那個是擋進場）。需先匯入60分或日線資料"><input type="checkbox" id="mtfSRExit"> 遇壓撐出場<span class="sub">(多碰壓力/空碰支撐)</span></label>
+        <label class="hint" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="mtfEODClose"> 當日平倉（不留倉過夜）</label>
+        <label class="hint" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="mtfMidnightClose"> 半夜12點後不留倉</label>
+      </div>
+    </div>
+  </details>
+
+  <details class="side-sec">
+    <summary><span class="num">4</span><span class="stt"><b>算倉位</b><small id="wzSum2">—</small></span><span class="chev">▾</span></summary>
+    <div class="side-sec-body" id="posBox">
+      <p class="hint" style="margin:0 0 12px">回測跑完才算得出倉位——用最新回測的 edge（期望值／勝率／回撤）反推<b>口數、首單、加碼與風險紅線</b>。</p>
+      <div class="cfg">
+        <label>本金（元）<input type="number" id="posCapital" value="500000"></label>
+        <label>月目標（元）<input type="number" id="posTarget" value="100000"></label>
+        <label>試算商品
+          <select id="posProduct">
+            <option value="10" selected>微台（10元/點）</option>
+            <option value="50">小台（50元/點）</option>
+            <option value="200">大台（200元/點）</option>
+          </select>
+        </label>
+        <label title="每口原始保證金，會隨商品自動帶入，可自行改成券商公告值">保證金/口（元）<input type="number" id="posMargin" value="9200"></label>
+        <label title="單筆停損最多虧本金的百分之幾——保護本金的鐵律，通常 1~2%">單筆風險上限（%）<input type="number" id="posRisk" value="1.5" step="0.1"></label>
+        <label title="第一次進場先下總口數的幾成（試單），其餘等浮盈順勢再加碼">首單比例（%）<input type="number" id="posFirst" value="50"></label>
+        <button class="btn" id="btnPos">🧮 試算</button>
+      </div>
+      <div id="posResult"></div>
+      <p class="hint">你的設定＝<b>高勝率低頻率</b>（每天 1~3 筆、勝率 ≥ 58%、單筆風險嚴控、移動停損鎖利）。口數同時受<b>風控</b>與<b>保證金</b>兩道閘限制、取小的那個；數字用右邊回測結果的 edge（期望值/勝率/回撤），是試算不是保證。</p>
+    </div>
+  </details>
+
   <span id="runMsg" class="hint"></span>
   </div><!-- /bt-col-l -->
 
@@ -494,14 +518,22 @@
   </div><!-- /bt-ws -->
   <span id="mtfMsg" class="hint" style="display:none"></span>
 
-  <!-- 全部條件 picker（56 條分類＋搜尋；勾選＝直接改上面隱藏的 checkbox） -->
+  <!-- 條件選擇器 Modal（56 條分類＋搜尋＋方向篩選；勾選＝直接改上面隱藏的 checkbox） -->
   <div class="pk-overlay" id="bpkOverlay">
-    <div class="picker" role="dialog" aria-modal="true" aria-label="全部條件">
+    <div class="picker" role="dialog" aria-modal="true" aria-label="條件選擇器">
       <div class="pk-top">
-        <div class="pk-head"><h4>全部條件</h4><span class="kindtag" id="bpkKind">首次進場</span><span class="cnt" id="bpkCnt"></span><button class="pk-x" id="bpkClose" aria-label="關閉">×</button></div>
+        <div class="pk-head"><h4>條件選擇器</h4><span class="kindtag" id="bpkKind">首次進場</span><span class="cnt" id="bpkCnt"></span><button class="pk-x" id="bpkClose" aria-label="關閉">×</button></div>
+        <div class="pk-dirtabs" id="bpkDirTabs">
+          <button type="button" class="on" data-dirf="all">全部</button>
+          <button type="button" data-dirf="long">只看多方</button>
+          <button type="button" data-dirf="short">只看空方</button>
+        </div>
         <div class="pk-search"><input type="search" id="bpkSearch" placeholder="🔍 搜尋條件（例：MA60、放量、交叉、紅K）" autocomplete="off"></div>
       </div>
-      <div class="pk-body" id="bpkBody"></div>
+      <div class="pk-modbody">
+        <div class="pk-cats" id="bpkCats"></div>
+        <div class="pk-body" id="bpkBody"></div>
+      </div>
     </div>
   </div>
 </section>
@@ -1989,26 +2021,41 @@ function renderChipConds(){
         `<button class="addbtn more" data-cmore="${kind}">全部條件（56）▾</button>`; }
   });
 }
-let bpkKindS=null,bpkQuery='';
-function openCondPicker(kind){ bpkKindS=kind; bpkQuery=''; $('bpkSearch').value=''; $('bpkKind').textContent=KINDNAME[kind]; renderCondPicker(); $('bpkOverlay').classList.add('show'); $('bpkSearch').focus(); }
+let bpkKindS=null,bpkQuery='',bpkCat=null,bpkDir='all';
+function openCondPicker(kind){ bpkKindS=kind; bpkQuery=''; bpkCat=null; bpkDir='all'; $('bpkSearch').value=''; $('bpkKind').textContent=KINDNAME[kind];
+  document.querySelectorAll('#bpkDirTabs button').forEach(b=>b.classList.toggle('on',b.dataset.dirf==='all'));
+  renderCondPicker(); $('bpkOverlay').classList.add('show'); $('bpkSearch').focus(); }
 function closeCondPicker(){ $('bpkOverlay').classList.remove('show'); bpkKindS=null; }
+function condPickHit(code,q){ return (!q||(CODEL[code]||'').toLowerCase().includes(q)||code.toLowerCase().includes(q))
+  && (bpkDir==='all' || condPolarity(code)==='neutral' || condPolarity(code)===bpkDir); }
 function renderCondPicker(){
   if(!bpkKindS) return;
   const sel=condSel(bpkKindS), q=bpkQuery.trim().toLowerCase();
-  const hit=code=>!q||(CODEL[code]||'').toLowerCase().includes(q)||code.toLowerCase().includes(q);
+  const hit=code=>condPickHit(code,q);
   let matches=0;
-  const html=CGROUPS.map(([title,keys])=>{ const ks=keys.filter(hit); matches+=ks.length; if(!ks.length) return '';
-    return `<div class="pk-grp"><h5>${title}</h5><div class="pk-grid">`+
-      ks.map(code=>`<button class="pick ${sel.includes(code)?'on':''}" data-cpick="${code}">${CODEL[code]||code}</button>`).join('')+`</div></div>`;}).join('');
+  // 左側分類導覽：每個分類旁邊顯示目前篩選下還剩幾條符合
+  const catsHtml=['<button class="catpick '+(bpkCat===null?'on':'')+'" data-cat="">全部分類</button>']
+    .concat(CGROUPS.map(([title,keys],gi)=>`<button class="catpick ${bpkCat===gi?'on':''}" data-cat="${gi}">${title}<span class="ct">${keys.filter(hit).length}</span></button>`))
+    .join('');
+  $('bpkCats').innerHTML=catsHtml;
+  const groups = bpkCat===null ? CGROUPS : [CGROUPS[bpkCat]];
+  const html=groups.map(([title,keys])=>{ const ks=keys.filter(hit); matches+=ks.length; if(!ks.length) return '';
+    return `<div class="pk-grp"><h5>${title}</h5>`+
+      ks.map(code=>`<label class="cond-item"><input type="checkbox" ${sel.includes(code)?'checked':''} data-cpick="${code}"> ${CODEL[code]||code}</label>`).join('')+`</div>`;}).join('');
   $('bpkCnt').textContent=q?`已選 ${sel.length}　·　符合 ${matches} 條`:`已選 ${sel.length} / 56 條`;
-  $('bpkBody').innerHTML=html||`<div class="pk-none">找不到「${bpkQuery}」相關條件，換個關鍵字（例：MA、量、影、K）</div>`;
+  $('bpkBody').innerHTML=html||`<div class="pk-none">找不到${bpkQuery?`「${bpkQuery}」相關`:''}條件，換個關鍵字或分類（例：MA、量、影、K）</div>`;
 }
 document.addEventListener('click',e=>{
   const cx=e.target.closest('[data-cx]'); if(cx){ const p=cx.dataset.cx.split(':'); setCond(p[0],p[1],false); renderChipConds(); renderStratBar(); return; }
   const ca=e.target.closest('[data-ca]'); if(ca){ const p=ca.dataset.ca.split(':'); setCond(p[0],p[1],true); renderChipConds(); renderStratBar(); return; }
   const cm=e.target.closest('[data-cmore]'); if(cm){ openCondPicker(cm.dataset.cmore); return; }
-  const cp=e.target.closest('[data-cpick]'); if(cp&&bpkKindS){ const b=document.querySelector('.'+KCLS[bpkKindS]+'[value="'+cp.dataset.cpick+'"]'); if(b) b.checked=!b.checked; renderCondPicker(); renderChipConds(); renderStratBar(); return; }
+  const catBtn=e.target.closest('[data-cat]'); if(catBtn&&bpkKindS){ bpkCat=catBtn.dataset.cat===''?null:+catBtn.dataset.cat; renderCondPicker(); return; }
+  const dirBtn=e.target.closest('#bpkDirTabs [data-dirf]'); if(dirBtn){ bpkDir=dirBtn.dataset.dirf;
+    document.querySelectorAll('#bpkDirTabs button').forEach(b=>b.classList.toggle('on',b===dirBtn)); renderCondPicker(); return; }
   if(e.target.id==='bpkClose'||e.target.id==='bpkOverlay'){ closeCondPicker(); return; }
+});
+document.addEventListener('change',e=>{
+  const cp=e.target.closest('[data-cpick]'); if(cp&&bpkKindS){ const b=document.querySelector('.'+KCLS[bpkKindS]+'[value="'+cp.dataset.cpick+'"]'); if(b) b.checked=cp.checked; renderChipConds(); renderStratBar(); return; }
 });
 document.addEventListener('input',e=>{ if(e.target.id==='bpkSearch'){ bpkQuery=e.target.value; renderCondPicker(); } });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&bpkKindS){ e.preventDefault(); if(bpkQuery){ bpkQuery=''; $('bpkSearch').value=''; renderCondPicker(); $('bpkSearch').focus(); } else closeCondPicker(); } });
@@ -2536,6 +2583,11 @@ const MIR={bull:'bear',bear:'bull',red:'green',green:'red',overMA3:'underMA3',un
   bbUpBk:'bbDnBk',bbDnBk:'bbUpBk',bbLowT:'bbUpT',bbUpT:'bbLowT',bbMidUp:'bbMidDn',bbMidDn:'bbMidUp',
   nightA:'nightD',nightD:'nightA',nightB:'nightC',nightC:'nightB'};
 const mir=arr=>arr.map(c=>MIR[c]||c);
+// 條件選擇器「只看多方/只看空方」篩選用：偏多方的代表代碼（另一半用 MIR 自動找出對應空方代碼）；沒列出的(如放量/爆量)＝中性，兩邊都顯示
+const LONG_SET=new Set(['bull','red','overMA1','overMA2','overMA3','overMA4','overMA5','sup','trendUp','loseBear',
+  'goldX','strRed','longLow','red2','red3','nearHigh','ma3Up','xUp4','bullK3','supL',
+  'ma1TurnUp','ma4TurnUp','bbUpBk','bbLowT','bbMidUp','nightA','nightB']);
+function condPolarity(code){ if(LONG_SET.has(code)) return 'long'; if(MIR[code]&&LONG_SET.has(MIR[code])) return 'short'; return 'neutral'; }
 // ⑦再次進場搜尋候選（空陣列=沿用首次進場；其餘為較嚴格組合）；做空自動鏡射
 const REENTRY=[[], ['bull','red'], ['bull','red','volUp'], ['bull','strRed']];
 
