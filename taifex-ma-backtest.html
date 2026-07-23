@@ -230,6 +230,9 @@
   .catpick .ct{font-size:11px;color:var(--sub2);font-variant-numeric:tabular-nums}
   .catpick.on .ct{color:var(--gold)}
   .pk-body{flex:1;overflow-y:auto;padding:4px 18px 20px;min-width:0}
+  .pk-foot{display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--line);background:var(--panel)}
+  .pk-foot .chips{flex:1;min-width:0;margin:0}
+  .pk-foot button.btn{padding:7px 14px;font-size:12.5px}
   .pk-grp{margin-top:16px} .pk-grp h5{font-size:11px;font-weight:700;color:var(--rust);text-transform:uppercase;letter-spacing:.7px;margin:0 0 9px}
   .cond-item{display:flex;align-items:center;gap:9px;padding:7px 2px;font-size:13px;color:var(--txt);cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04)}
   .cond-item:hover{color:var(--gold)}
@@ -350,6 +353,30 @@
 <section class="view" id="v-backtest">
   <div class="stratbar" id="btStratBar">
     <span class="sb-label"><span class="dot"></span>目前在測</span>
+    <label class="hint" style="margin:0">回測週期
+      <select id="btMode">
+        <option value="D">日線</option>
+        <option value="M60" selected>60分</option>
+        <option value="M30">30分</option>
+        <option value="M15">15分</option>
+        <option value="M5">5分</option>
+        <option value="cross">跨週期（進、出場不同週期）</option>
+      </select>
+    </label>
+    <div class="seg" id="dirSeg">
+      <button type="button" data-dir="long" class="on">做多</button>
+      <button type="button" data-dir="short">做空</button>
+    </div>
+    <select id="mtfDir" style="display:none"><option value="long">只做多</option><option value="short">只做空</option></select>
+    <label class="hint" style="margin:0">每點價值
+      <select id="ptVal">
+        <option value="10">10（微台）</option>
+        <option value="50">50（小台）</option>
+        <option value="200" selected>200（大台）</option>
+        <option value="100">100（個股期）</option>
+        <option value="500">500（個股期）</option>
+      </select>
+    </label>
     <div class="chips" id="btChips"></div>
     <button class="runbtn" id="btnBTbar">▶ 執行回測</button>
   </div>
@@ -358,7 +385,7 @@
   <div class="bt-col-l"><!-- ══ 左：條件設定（4個可各自收合的區塊，取代原本的3步驟精靈）══ -->
 
   <details class="side-sec" open>
-    <summary><span class="num">1</span><span class="stt"><b>核心設定</b><small>均線・回測週期・成本</small></span><span class="chev">▾</span></summary>
+    <summary><span class="num">1</span><span class="stt"><b>核心設定</b><small>均線・進場價・成本</small></span><span class="chev">▾</span></summary>
     <div class="side-sec-body">
       <fieldset>
         <legend>均線參數</legend>
@@ -379,32 +406,13 @@
         </div>
       </fieldset>
       <fieldset>
-        <legend>回測設定</legend>
+        <legend>成本與成交細節</legend>
         <div class="cfg">
-          <label>回測週期
-            <select id="btMode">
-              <option value="D">日線</option>
-              <option value="M60" selected>60分</option>
-              <option value="M30">30分</option>
-              <option value="M15">15分</option>
-              <option value="M5">5分</option>
-              <option value="cross">跨週期（進、出場不同週期）</option>
-            </select>
-          </label>
           <label>進場價 <select id="entryPx"><option value="close">當根收盤</option><option value="nextOpen">次根開盤</option></select></label>
-          <label>每點價值（元）
-            <select id="ptVal">
-              <option value="10">10（微台）</option>
-              <option value="50">50（小台）</option>
-              <option value="200" selected>200（大台）</option>
-              <option value="100">100（個股期）</option>
-              <option value="500">500（個股期）</option>
-            </select>
-          </label>
           <label>來回成本（點）<input type="number" id="cost" value="2"></label>
           <label>觸及容差（%）<input type="number" id="tol" value="0.3"></label>
         </div>
-        <p class="hint">選單週＝單週期回測（進出場週期鎖成同一個）；選「跨週期」則進出場週期可各自選。方向在「2 進場邏輯」、停損停利在「3 出場與風控」。</p>
+        <p class="hint">回測週期／方向／每點價值移到最上面的工具列（跟「▶ 執行回測」放一起）。選「跨週期」則進出場週期可在「2 進場邏輯」「3 出場與風控」各自選。停損停利在「3 出場與風控」。</p>
       </fieldset>
     </div>
   </details>
@@ -412,14 +420,8 @@
   <details class="side-sec" open>
     <summary><span class="num">2</span><span class="stt"><b>進場邏輯</b><small id="wzSum0">—</small></span><span class="chev">▾</span></summary>
     <div class="side-sec-body">
-      <p class="hint" style="margin:0 0 12px">先決定做多或做空，再設「空手時要符合什麼才進場」。條件標籤：<b>×</b> 移除、<b>＋常用</b>快加、<b>全部條件（56）▾</b> 開條件選擇器（可搜尋／分類／方向篩選）；定義看「⑧ 名詞說明」。</p>
-      <div class="subhd" style="margin-top:0">方向</div>
-      <div class="seg" id="dirSeg">
-        <button type="button" data-dir="long" class="on">做多</button>
-        <button type="button" data-dir="short">做空</button>
-      </div>
-      <select id="mtfDir" style="display:none"><option value="long">只做多</option><option value="short">只做空</option></select>
-      <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:8px 0 0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不用「多排(bull)」這個條件進場，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="mtfSkipGapBull"> 開高走低日不做多排(bull)</label><br>
+      <p class="hint" style="margin:0 0 12px">方向在最上面工具列選（做多／做空）。先決定做多或做空，再設「空手時要符合什麼才進場」。條件標籤：<b>×</b> 移除、<b>＋常用</b>快加、<b>全部條件（56）▾</b> 開條件選擇器（可搜尋／分類／方向篩選）；定義看「⑧ 名詞說明」。</p>
+      <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不用「多排(bull)」這個條件進場，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="mtfSkipGapBull"> 開高走低日不做多排(bull)</label><br>
       <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="mtfSkipGapDay"> 開高走低日整天不進場(多空都不做)</label><br>
       <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="mtfDayOnly"> 只做日盤(夜盤不進場)</label>
       <div class="subhd">進場週期</div>
@@ -533,6 +535,11 @@
       <div class="pk-modbody">
         <div class="pk-cats" id="bpkCats"></div>
         <div class="pk-body" id="bpkBody"></div>
+      </div>
+      <div class="pk-foot">
+        <div class="chips" id="bpkFootChips"></div>
+        <button class="btn ghost" id="bpkClear">清空</button>
+        <button class="btn" id="bpkApply">套用</button>
       </div>
     </div>
   </div>
@@ -2044,18 +2051,26 @@ function renderCondPicker(){
       ks.map(code=>`<label class="cond-item"><input type="checkbox" ${sel.includes(code)?'checked':''} data-cpick="${code}"> ${CODEL[code]||code}</label>`).join('')+`</div>`;}).join('');
   $('bpkCnt').textContent=q?`已選 ${sel.length}　·　符合 ${matches} 條`:`已選 ${sel.length} / 56 條`;
   $('bpkBody').innerHTML=html||`<div class="pk-none">找不到${bpkQuery?`「${bpkQuery}」相關`:''}條件，換個關鍵字或分類（例：MA、量、影、K）</div>`;
+  renderPkFootChips();
+}
+function renderPkFootChips(){
+  if(!bpkKindS) return; const box=$('bpkFootChips'); if(!box) return;
+  const sel=condSel(bpkKindS);
+  box.innerHTML = sel.length ? sel.map(code=>`<span class="chip">${CODEL[code]||code}<span class="x" data-cx="${bpkKindS}:${code}">×</span></span>`).join('')
+    : '<span style="color:var(--sub2);font-size:12.5px;font-style:italic">尚未選條件</span>';
 }
 document.addEventListener('click',e=>{
-  const cx=e.target.closest('[data-cx]'); if(cx){ const p=cx.dataset.cx.split(':'); setCond(p[0],p[1],false); renderChipConds(); renderStratBar(); return; }
+  const cx=e.target.closest('[data-cx]'); if(cx){ const p=cx.dataset.cx.split(':'); setCond(p[0],p[1],false); renderChipConds(); renderStratBar(); if(bpkKindS) renderCondPicker(); return; }
   const ca=e.target.closest('[data-ca]'); if(ca){ const p=ca.dataset.ca.split(':'); setCond(p[0],p[1],true); renderChipConds(); renderStratBar(); return; }
   const cm=e.target.closest('[data-cmore]'); if(cm){ openCondPicker(cm.dataset.cmore); return; }
   const catBtn=e.target.closest('[data-cat]'); if(catBtn&&bpkKindS){ bpkCat=catBtn.dataset.cat===''?null:+catBtn.dataset.cat; renderCondPicker(); return; }
   const dirBtn=e.target.closest('#bpkDirTabs [data-dirf]'); if(dirBtn){ bpkDir=dirBtn.dataset.dirf;
     document.querySelectorAll('#bpkDirTabs button').forEach(b=>b.classList.toggle('on',b===dirBtn)); renderCondPicker(); return; }
-  if(e.target.id==='bpkClose'||e.target.id==='bpkOverlay'){ closeCondPicker(); return; }
+  if(e.target.id==='bpkClear'&&bpkKindS){ condSel(bpkKindS).forEach(code=>setCond(bpkKindS,code,false)); renderChipConds(); renderStratBar(); renderCondPicker(); return; }
+  if(e.target.id==='bpkApply'||e.target.id==='bpkClose'||e.target.id==='bpkOverlay'){ closeCondPicker(); return; }
 });
 document.addEventListener('change',e=>{
-  const cp=e.target.closest('[data-cpick]'); if(cp&&bpkKindS){ const b=document.querySelector('.'+KCLS[bpkKindS]+'[value="'+cp.dataset.cpick+'"]'); if(b) b.checked=cp.checked; renderChipConds(); renderStratBar(); return; }
+  const cp=e.target.closest('[data-cpick]'); if(cp&&bpkKindS){ const b=document.querySelector('.'+KCLS[bpkKindS]+'[value="'+cp.dataset.cpick+'"]'); if(b) b.checked=cp.checked; renderChipConds(); renderStratBar(); renderPkFootChips(); return; }
 });
 document.addEventListener('input',e=>{ if(e.target.id==='bpkSearch'){ bpkQuery=e.target.value; renderCondPicker(); } });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&bpkKindS){ e.preventDefault(); if(bpkQuery){ bpkQuery=''; $('bpkSearch').value=''; renderCondPicker(); $('bpkSearch').focus(); } else closeCondPicker(); } });
