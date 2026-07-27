@@ -938,7 +938,7 @@
       <tr><td class="l">總點數</td><td class="l">整段賺賠的點數合計</td><td class="l">每筆點數(已扣成本)全部加總</td><td class="l">正=賺、負=賠</td></tr>
       <tr><td class="l">總損益(元)</td><td class="l">換算成金額</td><td class="l">總點數 × 每點價值</td><td class="l">—</td></tr>
       <tr><td class="l">期望值(點/筆)</td><td class="l">平均每筆賺賠幾點</td><td class="l">總點數 ÷ 交易筆數</td><td class="l">長期每筆的預期，正才有正期望</td></tr>
-      <tr><td class="l">獲利因子(PF)</td><td class="l">賺的錢是賠的幾倍</td><td class="l">總獲利點數 ÷ 總虧損點數(絕對值)</td><td class="l">&gt;1才整體賺錢；越大越好</td></tr>
+      <tr><td class="l">獲利因子(PF)</td><td class="l">賺的錢是賠的幾倍</td><td class="l">總獲利點數 ÷ 總虧損點數(絕對值)</td><td class="l"><b>&lt;1 虧錢</b>｜1~1.3 勉強(易被成本滑價吃掉)｜<b>1.3~1.75 不錯</b>｜<b>≥1.75 很好</b>｜&gt;3 且交易筆數少(&lt;30)要懷疑過度擬合或靠少數大單</td></tr>
       <tr><td class="l">最大回檔(MDD)</td><td class="l">最慘的一段連續回落</td><td class="l">累積點數從高點回落的最大幅度(點)</td><td class="l">衡量最壞情況，越小越好</td></tr>
     </table>
   </fieldset>
@@ -2019,7 +2019,8 @@ function renderResult(){
   const worstLoss = trades.reduce((m,t)=>Math.min(m, t.pts), 0);       // 單筆最大實現虧損
   const cards=[
     ['交易筆數',n],['勝率',fmt(winRate,1)+'%'],['總點數',fmt0(total)],
-    ['總損益(元)',fmt0(total*ptVal)],['獲利因子',fmt(pf,2)],
+    ['總損益(元)',fmt0(total*ptVal)],
+    ['獲利因子',`<span class="${pf>=1.3?'up':(pf<1?'dn':'')}">${fmt(pf,2)}</span> <span class="sub" style="font-size:11px">${pf>=3?(n<30?'很好(筆數少,防過擬)':'優'):pf>=1.75?'很好':pf>=1.3?'不錯':pf>=1?'勉強':'虧'}</span>`],
     ['平均獲利',fmt0(avgW)+'點'],['平均虧損',fmt0(avgL)+'點'],
     ['最大回檔',fmt0(mdd)+'點'],['期望值',fmt(n?total/n:0,1)+'點/筆'],
     ['單筆最大逆行',fmt0(maxMAE)+'點'],['最大逆行(元/口)','-'+fmt0(maxMAE*ptVal)],
