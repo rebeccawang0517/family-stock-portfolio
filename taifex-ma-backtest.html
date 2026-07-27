@@ -902,6 +902,7 @@
       <tr><td class="l"><b>D組（夜收下半+開低）</b></td><td class="l">夜盤收盤相對位置≤0.5，且今天日盤開盤價≤夜盤收盤價（開低/開平）。歷史統計上這組破夜盤低點機率最高（參考值約82%）</td><td class="l">做空進場（順勢破底，夜盤低點常作移動防守參考）</td></tr>
       <tr><td class="l"><b>夜低撐住（反彈買）</b></td><td class="l">日盤這根K<b>盤中最低回測到「當天夜盤最低點」附近</b>（觸及容差內），但<b>收盤仍守在夜低之上</b>＝夜低支撐撐住。＝「碰夜低、守住不破才買」的進場觸發，跟A~D分組獨立、可單用或搭配A組。只在日盤K棒且有前一夜盤資料時成立</td><td class="l">做多進場（夜低反彈）</td></tr>
       <tr><td class="l"><b>夜高壓回（反彈賣）</b></td><td class="l">盤中最高觸及「當天夜盤最高點」附近（容差內），但收盤被壓回夜高之下＝夜高壓力壓回（夜低撐住的空方鏡射）</td><td class="l">做空進場（夜高反彈空）</td></tr>
+      <tr><td class="l"><b>⏱ 近N根內曾成立（如「5根內曾[夜低撐住]」）</b></td><td class="l"><b>延遲觸發／曾發生型</b>：往回看最近 N 根（<b>含當根</b>、N=1~20 自訂），只要其中任一根該觸發條件成立過，就判定成立。只用當根及之前的資料，不看未來。在條件選擇器最下面的「⏱ 近N根內曾成立」建構器加入</td><td class="l">把「觸發型」變「前提」：解決「先發生A、之後再出現B」的時序組合（例：A組＋近5根內曾夜低撐住＋當根紅K＝最近回測過夜低、現在收紅才進）</td></tr>
     </table></div>
   </fieldset>
 
@@ -2125,6 +2126,7 @@ const DEF_BREAK=['xUp4','xDn4','bbUpBk','bbDnBk','nearHigh','nearLow','goldX','d
 const DEF_TREND=['bull','bear','bullK3','bearK3','trendUp','trendDn','overMA1','overMA2','overMA3','overMA4','overMA5','underMA1','underMA2','underMA3','underMA4','underMA5','bbMidUp','bbMidDn','ma3Up','ma3Dn'];
 function defenseHintText(codes){
   if(!codes.length) return '';
+  codes=codes.map(c=>{ const m=/^w\d+_(.+)$/.exec(c); return m?m[1]:c; });   // wN_碼剝前綴，用原始條件歸類
   const t=[],d=[];
   if(codes.some(c=>DEF_NIGHT.includes(c))){ t.push('夜盤情境'); d.push('<b>夜盤防守停損</b>（進場理由=夜低/夜高，破了就走）'); }
   if(codes.some(c=>DEF_REBOUND.includes(c))){ t.push('價位反彈'); d.push('<b>緊停損50~80點</b>（貼著支撐買，破支撐=看錯就認）＋出場配「觸壓力／遇壓撐」'); }
@@ -2214,13 +2216,24 @@ function renderCondPicker(){
     .join('');
   $('bpkCats').innerHTML=catsHtml;
   const groups = bpkCat===null ? CGROUPS : [CGROUPS[bpkCat]];
-  const html=groups.map(([title,keys,gdesc])=>{ const ks=keys.filter(hit); matches+=ks.length; if(!ks.length) return '';
+  let html=groups.map(([title,keys,gdesc])=>{ const ks=keys.filter(hit); matches+=ks.length; if(!ks.length) return '';
     return `<div class="pk-grp"><h5>${title}${gdesc?`<span class="grp-d">${gdesc}</span>`:''}</h5>`+
       ks.map(code=>`<label class="cond-item" title="${(CONDDEF[code]||'').replace(/"/g,'&quot;')}"><input type="checkbox" ${sel.includes(code)?'checked':''} data-cpick="${code}"> <span class="ci-n">${CODEL[code]||code}</span><span class="ci-d">${SHORTDEF[code]||''}</span></label>`).join('')+`</div>`;}).join('');
+  // ⏱ 近N根內曾成立 建構器：把「觸發型」變「前提」（wN_碼，全部分類或無搜尋時顯示在最下面）
+  if(bpkCat===null && !q){
+    const wSel=sel.filter(c=>/^w\d+_/.test(c));
+    html+=`<div class="pk-grp"><h5>⏱ 近N根內曾成立<span class="grp-d">把「觸發型」變「前提」：N根內出現過就算（因果安全，只看過去）</span></h5>
+      <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">近 <input type="number" id="wbN" value="5" min="1" max="20" style="width:58px"> 根內曾出現
+      <select id="wbCode" style="max-width:190px">${W_TRIGGERS.map(c=>`<option value="${c}">${CODEL[c]||c}</option>`).join('')}</select>
+      <button class="btn ghost" id="wbAdd" type="button" style="padding:5px 12px">＋加入</button></div>
+      <div class="chips" style="margin-top:8px">${wSel.length?wSel.map(c=>`<span class="chip">${CODEL[c]||c}<span class="x" data-cx="${bpkKindS}:${c}">×</span></span>`).join(''):'<span class="cond-empty">尚未加入（例：近5根內曾[夜低撐住]＋當根紅K＝最近回測過夜低才進）</span>'}</div></div>`;
+  }
   $('bpkCnt').textContent=q?`已選 ${sel.length}　·　符合 ${matches} 條`:`已選 ${sel.length} / ${COND_TOTAL} 條`;
   $('bpkBody').innerHTML=html||`<div class="pk-none">找不到${bpkQuery?`「${bpkQuery}」相關`:''}條件，換個關鍵字或分類（例：MA、量、影、K）</div>`;
   renderPkFootChips();
 }
+// 建構器可選的「觸發型」條件（事件只在發生當根成立的那批）
+const W_TRIGGERS=['goldX','deadX','xUp4','xDn4','ma1TurnUp','ma1TurnDn','ma4TurnUp','ma4TurnDn','bbUpBk','bbDnBk','bbLowT','bbUpT','nightLoT','nightHiT','supL','resL','longLow','longUp','strRed','strGreen'];
 function renderPkFootChips(){
   if(!bpkKindS) return; const box=$('bpkFootChips'); if(!box) return;
   const sel=condSel(bpkKindS);
@@ -2234,6 +2247,9 @@ document.addEventListener('click',e=>{
   const catBtn=e.target.closest('[data-cat]'); if(catBtn&&bpkKindS){ bpkCat=catBtn.dataset.cat===''?null:+catBtn.dataset.cat; renderCondPicker(); return; }
   const dirBtn=e.target.closest('#bpkDirTabs [data-dirf]'); if(dirBtn){ bpkDir=dirBtn.dataset.dirf;
     document.querySelectorAll('#bpkDirTabs button').forEach(b=>b.classList.toggle('on',b===dirBtn)); renderCondPicker(); return; }
+  if(e.target.id==='wbAdd'&&bpkKindS){ const N=Math.min(20,Math.max(1,+($('wbN')&&$('wbN').value)||5));   // ⏱ 建構器：加入 wN_碼
+    const code='w'+N+'_'+$('wbCode').value; regWCond(code); setCond(bpkKindS,code,true);
+    renderChipConds(); renderStratBar(); renderCondPicker(); return; }
   if(e.target.id==='bpkClear'&&bpkKindS){ condSel(bpkKindS).forEach(code=>setCond(bpkKindS,code,false)); renderChipConds(); renderStratBar(); renderCondPicker(); return; }
   if(e.target.id==='bpkApply'||e.target.id==='bpkClose'||e.target.id==='bpkOverlay'){ closeCondPicker(); return; }
 });
@@ -2826,8 +2842,8 @@ function simulate(cfg,i0,i1){
       if(c==='bbUpT'&&!(!isNaN(x.bbU)&&b.h>=x.bbU&&b.c<x.bbU))return false;    // 觸上軌壓回
       if(c==='bbMidUp'&&!(!isNaN(x.bbM)&&b.c>x.bbM))return false;              // 站上中軌
       if(c==='bbMidDn'&&!(!isNaN(x.bbM)&&b.c<x.bbM))return false;              // 跌破中軌
-      // 夜盤分組(A/B/C/D)＋夜低撐住/夜高壓回：委派中央 condTrue 判斷(單一真相，避免這份內嵌清單漏掉)
-      if((c==='nightA'||c==='nightB'||c==='nightC'||c==='nightD'||c==='nightLoT'||c==='nightHiT')&&!condTrue(bars,ind,i,c,tol,alignN))return false;
+      // 夜盤分組(A/B/C/D)＋夜低撐住/夜高壓回＋wN_曾成立碼：委派中央 condTrue 判斷(單一真相，避免這份內嵌清單漏掉)
+      if((c==='nightA'||c==='nightB'||c==='nightC'||c==='nightD'||c==='nightLoT'||c==='nightHiT'||/^w\d+_/.test(c))&&!condTrue(bars,ind,i,c,tol,alignN))return false;
     }
     if(cfg.srFilter && _srFilterFn && !_srFilterFn(i,b.c,cfg.dir)) return false;   // 碰到60分/日線壓撐不進(因果)
     return true; };
@@ -2861,7 +2877,8 @@ function simulate(cfg,i0,i1){
       if(c==='bbMidDn'&&!isNaN(x.bbM)&&b.c<x.bbM)return 'sig';                 // 跌破布林中軌
       if(c==='bbMidUp'&&!isNaN(x.bbM)&&b.c>x.bbM)return 'sig';                 // 站上布林中軌
       if(c==='bbUpBk'&&i>0&&!isNaN(x.bbU)&&!isNaN(ind[i-1].bbU)&&bars[i-1].c<=ind[i-1].bbU&&b.c>x.bbU)return 'sig';   // 突破上軌
-      if(c==='bbDnBk'&&i>0&&!isNaN(x.bbL)&&!isNaN(ind[i-1].bbL)&&bars[i-1].c>=ind[i-1].bbL&&b.c<x.bbL)return 'sig'; } // 跌破下軌
+      if(c==='bbDnBk'&&i>0&&!isNaN(x.bbL)&&!isNaN(ind[i-1].bbL)&&bars[i-1].c>=ind[i-1].bbL&&b.c<x.bbL)return 'sig';   // 跌破下軌
+      if(/^w\d+_/.test(c)&&condTrue(bars,ind,i,c,tol,alignN))return 'sig'; }                                          // wN_曾成立碼(委派中央判斷)
     if(cfg.srExit && _srFilterFn && !_srFilterFn(i,b.c,cfg.dir)) return 'sig';               // 遇大週期壓撐出場(多碰壓力/空碰支撐)
     return null; };
   let pos=null, peak=0; const pl=[]; const trail=cfg.trail||0;
@@ -3016,6 +3033,7 @@ function applyCfg(cfg){   // A單週期最佳化「套用」→填回②統一�
   if(cfg.alignN) $('alignN').value=cfg.alignN;
   $('btMode').value = TFS.includes(TF)?TF:'M60';   // A是在②上方選的全域週期上找的
   $('mtfDir').value = cfg.dir;
+  [...(cfg.entry||[]),...(cfg.exit||[]),...(cfg.reentry||[])].forEach(regWCond);   // wN_碼先補建checkbox
   document.querySelectorAll('.mtfEc').forEach(e=>e.checked=cfg.entry.includes(e.value));
   document.querySelectorAll('.mtfXc').forEach(e=>e.checked=cfg.exit.includes(e.value));
   $('mtfUseSL').checked=cfg.sl>0; if(cfg.sl>0)$('mtfSL').value=cfg.sl;
@@ -3042,7 +3060,12 @@ function parseTimeArr(B){ return B.map((b,i)=>{ const s=((b.date||'')+' '+(b.tim
   const m=s.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
   return m? new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0)).getTime() : i; }); }   // 解析失敗(如無日期)用索引，維持相對順序不讓 NaN 破壞排序/合併
 // 單一條件是否成立（給定某週期的 bars/ind 與索引）
-function condTrue(B,I,i,code,tol,align){ const b=B[i],x=I[i];
+function condTrue(B,I,i,code,tol,align){
+  const wm=/^w(\d+)_(.+)$/.exec(code);   // 「近N根內曾成立」修飾碼：wN_原始碼（如 w5_nightLoT＝近5根內曾出現夜低撐住）
+  if(wm){ const N=Math.min(20,Math.max(1,+wm[1]));
+    for(let k=Math.max(0,i-N+1);k<=i;k++){ if(condTrue(B,I,k,wm[2],tol,align)) return true; }   // 只往回看(含當根)，因果安全
+    return false; }
+  const b=B[i],x=I[i];
   const bull = align===3?x.bull3:(align===4?x.bull4:x.bull);
   const bear = align===3?x.bear3:(align===4?x.bear4:x.bear);
   switch(code){
@@ -3164,6 +3187,18 @@ function buildMTFConds(){
   document.querySelector('.mtf-ex').innerHTML=mk('mtfXc',['deadX']);
   const re=document.querySelector('.mtf-re'); if(re) re.innerHTML=mk('mtfRc',['bull']);
   mtfBuilt=true;
+}
+// 「近N根內曾成立」動態碼註冊：補標籤/定義＋在三個隱藏條件容器裡建 checkbox（新建或還原舊紀錄時都要先呼叫）
+function regWCond(code){
+  const m=/^w(\d+)_(.+)$/.exec(code); if(!m) return;
+  const inner=CODEL[m[2]]||m[2];
+  if(!CODEL[code]) CODEL[code]=m[1]+'根內曾['+inner+']';
+  if(!CONDDEF[code]) CONDDEF[code]='近'+m[1]+'根內（含當根）曾出現「'+inner+'」：往回看'+m[1]+'根，任一根該條件成立過就算成立。把「觸發型」條件變成「前提」用（例：近5根內曾夜低撐住＋當根紅K），只看當根及之前的資料、因果安全';
+  [['mtf-en','mtfEc'],['mtf-re','mtfRc'],['mtf-ex','mtfXc']].forEach(([box,cls])=>{
+    const host=document.querySelector('.'+box);
+    if(host && !host.querySelector('.'+cls+'[value="'+code+'"]'))
+      host.insertAdjacentHTML('beforeend',`<label title="${CONDDEF[code]}"><input type="checkbox" class="${cls}" value="${code}"> ${CODEL[code]}</label>`);
+  });
 }
 function initMTF(){
   if(!mtfBuilt) buildMTFConds();
@@ -3393,6 +3428,7 @@ function applyBTRecord(id){
   $('btMode').value = c.enTF===c.exTF ? c.enTF : 'cross';
   $('mtfEntryTF').value=c.enTF; $('mtfExitTF').value=c.exTF;
   $('mtfDir').value=c.dir;
+  [...(c.entry||[]),...(c.exit||[]),...(c.reentry||[])].forEach(regWCond);   // wN_碼先補建checkbox
   document.querySelectorAll('.mtfEc').forEach(e=>e.checked=c.entry.includes(e.value));
   document.querySelectorAll('.mtfXc').forEach(e=>e.checked=c.exit.includes(e.value));
   $('mtfUseSL').checked=c.sl>0; if(c.sl>0)$('mtfSL').value=c.sl;
@@ -3587,6 +3623,7 @@ function applyMTFResult(r){   // B跨週期最佳化「套用」→填回②統�
   $('btMode').value='cross';                       // 進出場不同週期→跨週期模式
   if(r.enTF){ $('mtfEntryTF').value=r.enTF; $('mtfExitTF').value=r.exTF; }
   $('mtfDir').value=cfg.dir;
+  [...(cfg.entry||[]),...(cfg.exit||[]),...(cfg.reentry||[])].forEach(regWCond);   // wN_碼先補建checkbox
   document.querySelectorAll('.mtfEc').forEach(e=>e.checked=cfg.entry.includes(e.value));
   document.querySelectorAll('.mtfXc').forEach(e=>e.checked=cfg.exit.includes(e.value));
   const reHas=cfg.reentry&&cfg.reentry.length;
@@ -3878,6 +3915,7 @@ function hofApply(idx){
   if(h.kind==='single'){ $('btMode').value=h.tf; }
   else { $('btMode').value=(h.enTF===h.exTF?h.enTF:'cross'); $('mtfEntryTF').value=h.enTF; $('mtfExitTF').value=h.exTF; }
   $('mtfDir').value=c.dir;
+  [...(c.entry||[]),...(c.exit||[]),...(c.reentry||[])].forEach(regWCond);   // wN_碼先補建checkbox
   document.querySelectorAll('.mtfEc').forEach(e=>e.checked=c.entry.includes(e.value));
   document.querySelectorAll('.mtfXc').forEach(e=>e.checked=c.exit.includes(e.value));
   const reHas=c.reentry&&c.reentry.length;
