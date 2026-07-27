@@ -2047,7 +2047,7 @@ const CGROUPS=[
   ['量能',['volUp','volSpike']],
   ['壓撐 / 位置',['sup','res','supL','resL','nearHigh','nearLow']],
   ['布林通道 (20, 2σ)',['bbUpBk','bbDnBk','bbLowT','bbUpT','bbMidUp','bbMidDn']],
-  ['夜盤位置 × 開盤跳空',['nightA','nightB','nightC','nightD']]
+  ['夜盤位置 × 開盤跳空',['nightA','nightB','nightC','nightD','nightLoT','nightHiT']]
 ];
 function condSel(kind){ return [...document.querySelectorAll('.'+KCLS[kind]+':checked')].map(e=>e.value); }
 function setCond(kind,code,state){ const b=document.querySelector('.'+KCLS[kind]+'[value="'+code+'"]'); if(b) b.checked=state; }
@@ -2593,7 +2593,8 @@ const CODEL={bull:'多排',bear:'空排',red:'紅K',green:'黑K',overMA1:'站上
   ma3Up:'MA20↑',ma3Dn:'MA20↓',xUp4:'穿MA60↑',xDn4:'穿MA60↓',bullK3:'三線多',bearK3:'三線空',supL:'左支撐',resL:'左壓力',
   ma1TurnUp:'MA5上彎',ma1TurnDn:'MA5下彎',ma4TurnUp:'MA60上彎',ma4TurnDn:'MA60下彎',
   bbUpBk:'突破布林上軌',bbDnBk:'跌破布林下軌',bbLowT:'觸布林下軌',bbUpT:'觸布林上軌',bbMidUp:'站上布林中軌',bbMidDn:'破布林中軌',
-  nightA:'A組(夜收上半+開高)',nightB:'B組(夜收上半+開低)',nightC:'C組(夜收下半+開高)',nightD:'D組(夜收下半+開低)'};
+  nightA:'A組(夜收上半+開高)',nightB:'B組(夜收上半+開低)',nightC:'C組(夜收下半+開高)',nightD:'D組(夜收下半+開低)',
+  nightLoT:'夜低撐住(反彈買)',nightHiT:'夜高壓回(反彈賣)'};
 // 做多候選（條件碼）；做空用鏡射自動產生
 const L_ENTRY=[['bull'],['bull','red'],['bull','red','overMA3'],['bull','overMA3'],['bull','sup'],
   ['bull','sup','red'],['bull','trendUp'],['bull','red','trendUp'],['red','overMA3'],
@@ -2609,7 +2610,8 @@ const L_ENTRY=[['bull'],['bull','red'],['bull','red','overMA3'],['bull','overMA3
   ['supL'],['supL','ma3Up'],['supL','bull'],['sup','ma3Up'],
   ['ma4TurnUp'],['ma4TurnUp','bull'],['ma1TurnUp','overMA3'],['bullK3','ma1TurnUp'],
   ['bbLowT'],['bbLowT','longLow'],['bbLowT','bull'],['bull','bbUpBk'],['bbUpBk','volUp'],['bull','bbMidUp'],
-  ['nightA'],['nightA','red'],['nightA','sup']];   // 60K策略＋拐點＋布林＋夜盤A組(防守多)：觸下軌反彈/突破上軌追多/中軌之上/夜收上半開高（做空自動鏡射，nightA→nightD）
+  ['nightA'],['nightA','red'],['nightA','sup'],
+  ['nightLoT'],['nightLoT','nightA'],['nightLoT','red']];   // 60K策略＋拐點＋布林＋夜盤A組(防守多)＋夜低撐住反彈買（做空自動鏡射，nightA→nightD、nightLoT→nightHiT）
 const L_EXIT=[['underMA3'],['loseBull'],['bear'],['deadX'],['underMA5'],['underMA3','deadX'],['underMA3','loseBull'],['ma3Dn'],['bearK3'],['bbMidDn'],['bbUpT'],[]];   // 破MA5/MA10留在SIG_EXIT(便宜路徑)搜，不進SLS×TPS昂貴路徑；新增MA20下彎/三線轉空/布林中軌·上軌出場
 // 純訊號出場（不設點數停損停利）用的出場組合，每組至少要有一個訊號
 const SIG_EXIT=[['underMA3'],['underMA4'],['deadX'],['loseBull'],['bear'],['underMA5'],
@@ -2620,7 +2622,7 @@ const SIG_EXIT=[['underMA3'],['underMA4'],['deadX'],['loseBull'],['bear'],['unde
   ['bbMidDn'],['bbUpT'],['bbMidDn','underMA1']];   // 新增：MA20下彎/三線轉空/價跌破MA60/MA5·MA60剛下彎/布林中軌·上軌（60K策略＋拐點＋布林出場）
 // 「掃所有週期配對」用的精簡候選（老條件精選＋60K/拐點新條件混合，讓全配對也採樣得到新策略；數量維持10進/6出→速度差不多）
 const MTF_ALL_ENTRY=[['bull'],['bull','red','overMA3'],['bull','trendUp'],['bull','sup'],['bull','red'],
-  ['bullK3'],['bullK3','overMA3'],['ma3Up','overMA3'],['ma4TurnUp','bull'],['supL','bull'],['bbLowT'],['nightA']];   // 後7組＝60K三線/三線+站上MA20/60/20表態/MA60剛上彎+多排/左側支撐+多排/觸布林下軌/夜盤A組(防守多)
+  ['bullK3'],['bullK3','overMA3'],['ma3Up','overMA3'],['ma4TurnUp','bull'],['supL','bull'],['bbLowT'],['nightA'],['nightLoT']];   // 後8組＝60K三線/三線+站上MA20/60/20表態/MA60剛上彎+多排/左側支撐+多排/觸布林下軌/夜盤A組(防守多)/夜低撐住反彈買
 const MTF_ALL_EXIT=[['underMA3'],['deadX'],['bear'],['ma3Dn'],['bearK3'],['ma1TurnDn'],['bbMidDn']];      // 後4組＝MA20下彎/三線轉空/MA5剛下彎/破布林中軌
 const SLS=[50,80,120,200], TPS=[0,120,200,300];
 const MIR={bull:'bear',bear:'bull',red:'green',green:'red',overMA3:'underMA3',underMA3:'overMA3',
@@ -2632,12 +2634,12 @@ const MIR={bull:'bear',bear:'bull',red:'green',green:'red',overMA3:'underMA3',un
   ma3Up:'ma3Dn',ma3Dn:'ma3Up',xUp4:'xDn4',xDn4:'xUp4',bullK3:'bearK3',bearK3:'bullK3',supL:'resL',resL:'supL',
   ma1TurnUp:'ma1TurnDn',ma1TurnDn:'ma1TurnUp',ma4TurnUp:'ma4TurnDn',ma4TurnDn:'ma4TurnUp',
   bbUpBk:'bbDnBk',bbDnBk:'bbUpBk',bbLowT:'bbUpT',bbUpT:'bbLowT',bbMidUp:'bbMidDn',bbMidDn:'bbMidUp',
-  nightA:'nightD',nightD:'nightA',nightB:'nightC',nightC:'nightB'};
+  nightA:'nightD',nightD:'nightA',nightB:'nightC',nightC:'nightB',nightLoT:'nightHiT',nightHiT:'nightLoT'};
 const mir=arr=>arr.map(c=>MIR[c]||c);
 // 條件選擇器「只看多方/只看空方」篩選用：偏多方的代表代碼（另一半用 MIR 自動找出對應空方代碼）；沒列出的(如放量/爆量)＝中性，兩邊都顯示
 const LONG_SET=new Set(['bull','red','overMA1','overMA2','overMA3','overMA4','overMA5','sup','trendUp','loseBear',
   'goldX','strRed','longLow','red2','red3','nearHigh','ma3Up','xUp4','bullK3','supL',
-  'ma1TurnUp','ma4TurnUp','bbUpBk','bbLowT','bbMidUp','nightA','nightB']);
+  'ma1TurnUp','ma4TurnUp','bbUpBk','bbLowT','bbMidUp','nightA','nightB','nightLoT']);
 function condPolarity(code){ if(LONG_SET.has(code)) return 'long'; if(MIR[code]&&LONG_SET.has(MIR[code])) return 'short'; return 'neutral'; }
 // ⑦再次進場搜尋候選（空陣列=沿用首次進場；其餘為較嚴格組合）；做空自動鏡射
 const REENTRY=[[], ['bull','red'], ['bull','red','volUp'], ['bull','strRed']];
@@ -2692,6 +2694,8 @@ function simulate(cfg,i0,i1){
       if(c==='bbUpT'&&!(!isNaN(x.bbU)&&b.h>=x.bbU&&b.c<x.bbU))return false;    // 觸上軌壓回
       if(c==='bbMidUp'&&!(!isNaN(x.bbM)&&b.c>x.bbM))return false;              // 站上中軌
       if(c==='bbMidDn'&&!(!isNaN(x.bbM)&&b.c<x.bbM))return false;              // 跌破中軌
+      // 夜盤分組(A/B/C/D)＋夜低撐住/夜高壓回：委派中央 condTrue 判斷(單一真相，避免這份內嵌清單漏掉)
+      if((c==='nightA'||c==='nightB'||c==='nightC'||c==='nightD'||c==='nightLoT'||c==='nightHiT')&&!condTrue(bars,ind,i,c,tol,alignN))return false;
     }
     if(cfg.srFilter && _srFilterFn && !_srFilterFn(i,b.c,cfg.dir)) return false;   // 碰到60分/日線壓撐不進(因果)
     return true; };
@@ -2950,6 +2954,9 @@ function condTrue(B,I,i,code,tol,align){ const b=B[i],x=I[i];
     case 'nightB':return !isNaN(x.nightRelPos)&&x.nightRelPos>0.5&&x.dayOpenPx<=x.nightClose;  // B組：夜收上半+開低/平
     case 'nightC':return !isNaN(x.nightRelPos)&&x.nightRelPos<=0.5&&x.dayOpenPx>x.nightClose;  // C組：夜收下半+開高
     case 'nightD':return !isNaN(x.nightRelPos)&&x.nightRelPos<=0.5&&x.dayOpenPx<=x.nightClose; // D組：夜收下半+開低/平
+    // ── 夜低撐住/夜高壓回（回測到夜盤低/高點但守住＝反彈進場，非A/B/C/D分組）──
+    case 'nightLoT':return !isNaN(x.nightLo)&&b.l<=x.nightLo*(1+tol)&&b.c>x.nightLo;   // 盤中觸夜低但收盤守在其上＝夜低撐住(反彈買)
+    case 'nightHiT':return !isNaN(x.nightHi)&&b.h>=x.nightHi*(1-tol)&&b.c<x.nightHi;   // 盤中觸夜高但收盤壓回其下＝夜高壓回(反彈賣)
   } return false; }
 const MTF_CONDS=[['bull','多排'],['bear','空排'],['red','紅K'],['green','黑K'],
   ['overMA1','站上MA5'],['underMA1','跌破MA5'],['overMA2','站上MA10'],['underMA2','跌破MA10'],
@@ -2965,7 +2972,8 @@ const MTF_CONDS=[['bull','多排'],['bear','空排'],['red','紅K'],['green','�
   ['bullK3','60K三線多排'],['bearK3','60K三線空排'],['supL','左側支撐(收腳)'],['resL','左側壓力(壓回)'],
   ['ma1TurnUp','MA5剛上彎'],['ma1TurnDn','MA5剛下彎'],['ma4TurnUp','MA60剛上彎'],['ma4TurnDn','MA60剛下彎'],
   ['bbUpBk','突破布林上軌'],['bbDnBk','跌破布林下軌'],['bbLowT','觸布林下軌(收回)'],['bbUpT','觸布林上軌(壓回)'],['bbMidUp','站上布林中軌'],['bbMidDn','跌破布林中軌'],
-  ['nightA','A組(夜收上半+開高)'],['nightB','B組(夜收上半+開低)'],['nightC','C組(夜收下半+開高)'],['nightD','D組(夜收下半+開低)']];
+  ['nightA','A組(夜收上半+開高)'],['nightB','B組(夜收上半+開低)'],['nightC','C組(夜收下半+開高)'],['nightD','D組(夜收下半+開低)'],
+  ['nightLoT','夜低撐住(反彈買)'],['nightHiT','夜高壓回(反彈賣)']];
 // 每個條件的定義（滑鼠移上去顯示；MA1~5=你在均線參數設的值，預設5/10/20/60/240）
 const CONDDEF={
   bull:'均線多頭排列：MA1>MA2>MA3>MA4（在「多空排用幾條」設3條時只看 MA1>MA2>MA3）',
@@ -3014,7 +3022,9 @@ const CONDDEF={
   nightA:'A組（夜收上半+開高）：夜盤收盤相對位置=(夜收-夜低)/(夜高-夜低)>0.5，且今天日盤開盤價>夜盤收盤價＝夜盤收在區間上半、日盤又跳空開高。歷史統計上這組破夜盤低點的機率最低（參考值約10%），夜盤低點可視為當天最強的多單防守支撐',
   nightB:'B組（夜收上半+開低）：夜盤收盤相對位置>0.5，但今天日盤開盤價≤夜盤收盤價＝夜盤收在上半，日盤卻開低/開平。夜低支撐力道比A組弱不少（參考值約43%破底機率），適合觀望或快速站回夜低上方才轉偏多，不建議重倉防守夜低',
   nightC:'C組（夜收下半+開高）：夜盤收盤相對位置≤0.5，但今天日盤開盤價>夜盤收盤價＝夜盤收在下半，日盤卻開高。屬中性偏空、容易回測（參考值約30%破底機率），不建議追多',
-  nightD:'D組（夜收下半+開低）：夜盤收盤相對位置≤0.5，且今天日盤開盤價≤夜盤收盤價＝夜盤收在區間下半、日盤又開低/開平。歷史統計上這組破夜盤低點的機率最高（參考值約82%），夜盤低點很容易被打穿，可作為順勢空單的參考防守/移動出場價'};
+  nightD:'D組（夜收下半+開低）：夜盤收盤相對位置≤0.5，且今天日盤開盤價≤夜盤收盤價＝夜盤收在區間下半、日盤又開低/開平。歷史統計上這組破夜盤低點的機率最高（參考值約82%），夜盤低點很容易被打穿，可作為順勢空單的參考防守/移動出場價',
+  nightLoT:'夜低撐住(反彈買)：日盤這根K盤中最低回測到「當天夜盤最低點」附近(容差內)，但收盤仍守在夜低之上＝夜低支撐撐住、反彈進多單。是「碰夜低守住才買」的進場觸發（跟A/B/C/D分組獨立，可單用或搭A組）。只在日盤K棒且有前一夜盤資料時成立',
+  nightHiT:'夜高壓回(反彈賣)：日盤這根K盤中最高觸及「當天夜盤最高點」附近(容差內)，但收盤被壓回夜高之下＝夜高壓力壓回、反彈進空單（夜低撐住的鏡射空方版）。只在日盤K棒且有前一夜盤資料時成立'};
 let mtfBuilt=false;
 function buildMTFConds(){
   const mk=(cls,def)=>MTF_CONDS.map(([v,l])=>`<label title="${CONDDEF[v]||l}"><input type="checkbox" class="${cls}" value="${v}" ${def.includes(v)?'checked':''}> ${l}</label>`).join('');
@@ -3281,6 +3291,9 @@ const STRAT_LIB=[
   {name:'夜盤A/D組 防守', stars:5, note:'夜低幾乎不破(A多10.8%)/夜低易破(D空80%)',
    logic:'A組(夜收上半+開高)→多、以夜低為防守停損｜D組(夜收下半+開低)→空、以夜高為防守停損',
    long:['nightA'], short:['nightD'], lx:['underMA3'], sx:['overMA3'], nightStop:true},
+  {name:'夜低反彈買/夜高反彈賣', stars:4, note:'碰夜低守住才買、碰夜高壓回才賣',
+   logic:'盤中回測夜低但收盤守住→反彈買，夜低當防守停損｜盤中觸夜高被壓回→反彈賣，夜高當防守停損',
+   long:['nightLoT'], short:['nightHiT'], lx:['underMA3'], sx:['overMA3'], nightStop:true},
 ];
 function renderStratLib(){
   const el=$('stratTbl'); if(!el) return;
