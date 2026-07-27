@@ -36,7 +36,7 @@
                white-space:nowrap;flex-shrink:0;border-bottom:2.5px solid transparent;transition:.15s}
   .tabs button:hover{color:var(--txt)}
   .tabs button.on{color:var(--txt);border-bottom-color:var(--acc)}
-  main{padding:18px 26px;max-width:1920px;margin:0 auto}   /* 大螢幕吃滿寬度：②左欄固定寬、右結果區自動撐開成真兩欄 */
+  main{padding:18px 26px;max-width:2440px;margin:0 auto}   /* 大螢幕吃滿寬度（2560解析度扣邊距） */
   .view{display:none;animation:fade .25s ease}.view.on{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
   textarea{width:100%;height:170px;background:#17181c;color:var(--txt);border:1px solid var(--line);border-radius:var(--radius);
@@ -312,6 +312,12 @@
   .bt-col-r .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   @media(min-width:1500px){ .bt-col-r .kpis{grid-template-columns:repeat(4,minmax(0,1fr))} }   /* 大螢幕右欄夠寬→KPI一排四張 */
   @media(max-width:1080px){ .bt-ws{grid-template-columns:1fr} .bt-col-l{position:static;max-height:none} }
+  /* ≥1600px 大螢幕：左「條件參數策略」與右「結果」各佔一半，設定欄位改兩欄排 */
+  @media(min-width:1600px){
+    .bt-ws{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+    .autoLeft{flex:0 0 48%}
+    #v-backtest .cfg,#v-auto .cfg{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
 </style>
 </head>
 <body>
@@ -480,6 +486,7 @@
           <label><input type="checkbox" id="mtfTrail"> 移動停損 回吐 <input type="number" id="mtfTrailPts" value="60"> 點</label>
         </div>
         <div class="summary" id="riskSummary">目前啟用：—</div>
+        <div id="defHint" class="hint" style="margin-top:6px;display:none;line-height:1.6"></div>
       </fieldset>
     </div>
   </details>
@@ -2090,8 +2097,25 @@ function renderStratBar(){
     if($('mtfMidnightClose')&&$('mtfMidnightClose').checked) extra.push('半夜不留倉');
     if($('mtfNightStop')&&$('mtfNightStop').checked) extra.push('夜盤防守停損');
     rs.textContent=`目前啟用：${[...rk,...extra].join(' · ')||'無'}`; }
+  const dh=$('defHint'); if(dh){ const enCodes=[...document.querySelectorAll('.mtfEc:checked')].map(e=>e.value);
+    const txt=defenseHintText(enCodes); dh.innerHTML=txt; dh.style.display=txt?'':'none'; }
   const s2=$('wzSum2'); if(s2) s2.textContent=`本金 ${(+($('posCapital')?$('posCapital').value:0)||0).toLocaleString('en-US')} · 單筆風險 ${$('posRisk')?$('posRisk').value:'-'}%`;
   document.querySelectorAll('#dirSeg button,[data-dirseg] button').forEach(b=>b.classList.toggle('on',b.dataset.dir===dir));
+}
+// 進場條件→建議防守配對（依交易邏輯：進場理由是什麼，防守就守什麼）
+const DEF_NIGHT=['nightA','nightB','nightC','nightD','nightLoT','nightHiT'];
+const DEF_REBOUND=['sup','supL','bbLowT','longLow','res','resL','bbUpT','longUp'];
+const DEF_BREAK=['xUp4','xDn4','bbUpBk','bbDnBk','nearHigh','nearLow','goldX','deadX','ma1TurnUp','ma1TurnDn','ma4TurnUp','ma4TurnDn'];
+const DEF_TREND=['bull','bear','bullK3','bearK3','trendUp','trendDn','overMA1','overMA2','overMA3','overMA4','overMA5','underMA1','underMA2','underMA3','underMA4','underMA5','bbMidUp','bbMidDn','ma3Up','ma3Dn'];
+function defenseHintText(codes){
+  if(!codes.length) return '';
+  const t=[],d=[];
+  if(codes.some(c=>DEF_NIGHT.includes(c))){ t.push('夜盤情境'); d.push('<b>夜盤防守停損</b>（進場理由=夜低/夜高，破了就走）'); }
+  if(codes.some(c=>DEF_REBOUND.includes(c))){ t.push('價位反彈'); d.push('<b>緊停損50~80點</b>（貼著支撐買，破支撐=看錯就認）＋出場配「觸壓力／遇壓撐」'); }
+  if(codes.some(c=>DEF_BREAK.includes(c))){ t.push('突破觸發'); d.push('<b>移動停損鎖利</b>＋緊停損防假突破'); }
+  if(codes.some(c=>DEF_TREND.includes(c))){ t.push('趨勢排列'); d.push('<b>移動停損</b>讓利潤跑＋訊號出場（跌破MA20／排列消失）'); }
+  if(!d.length) return '';
+  return `💡 這組進場屬「${t.join('＋')}」→ 建議防守：${d.join('；')}`;
 }
 //========================= 條件 chip 化 + 全部條件 picker（chip 只是上層 UI，真相仍是隱藏的 .mtfEc/.mtfXc/.mtfRc checkbox） =========================
 const KCLS={entry:'mtfEc',reentry:'mtfRc',exit:'mtfXc'};
@@ -3369,28 +3393,29 @@ function applyBTRecord(id){
 }
 //========================= 60K 策略庫（一鍵套用進場條件） =========================
 // long/short=進場條件碼；lx/sx=對應出場條件碼。皆走中央 condTrue，故與②勾選框、⑥掃描一致
+// def＝這組進場邏輯「天生對應」的防守（套用時自動帶入）：sl=停損點/0=不設、trail=移動停損回吐點/0=不設、nightStop=夜盤防守
 const STRAT_LIB=[
   {name:'60/20 金叉表態', stars:5, note:'夜盤最核心均線',
    logic:'60/20 上揚＋價站上 → 多｜60/20 下彎＋價跌破 → 空',
-   long:['ma3Up','overMA3'], short:['ma3Dn','underMA3'], lx:['underMA3'], sx:['overMA3']},
+   long:['ma3Up','overMA3'], short:['ma3Dn','underMA3'], lx:['underMA3'], sx:['overMA3'], def:{sl:80,trail:60}},
   {name:'60/60 突破', stars:5, note:'「60/60 過去後注意下殺」',
    logic:'價向上穿越 60/60 → 偏多｜向下穿越 → 偏空',
-   long:['xUp4'], short:['xDn4'], lx:['underMA4'], sx:['overMA4']},
+   long:['xUp4'], short:['xDn4'], lx:['underMA4'], sx:['overMA4'], def:{sl:80,trail:60}},
   {name:'60K 三線排列', stars:5, note:'趨勢確認（可配重倉）',
    logic:'5>20>60 全多排 → 重倉多｜全空排 → 重倉空',
-   long:['bullK3'], short:['bearK3'], lx:['underMA3'], sx:['overMA3']},
+   long:['bullK3'], short:['bearK3'], lx:['underMA3'], sx:['overMA3'], def:{sl:80,trail:60}},
   {name:'左邊支撐/壓力', stars:4, note:'歷史高低點偵測（轉折±3根）',
    logic:'碰左邊平台低點收腳 → 多｜碰左邊高點壓回 → 空',
-   long:['supL'], short:['resL'], lx:['underMA3'], sx:['overMA3']},
+   long:['supL'], short:['resL'], lx:['underMA3'], sx:['overMA3'], def:{sl:60,trail:0}},
   {name:'價格 vs 均線', stars:3, note:'型態描述，較主觀',
    logic:'價撐著等上揚均線 → 續抱/加碼（均線上揚+回踩守住）',
-   long:['sup','ma3Up'], short:['res','ma3Dn'], lx:['underMA3'], sx:['overMA3']},
+   long:['sup','ma3Up'], short:['res','ma3Dn'], lx:['underMA3'], sx:['overMA3'], def:{sl:80,trail:60}},
   {name:'夜盤A/D組 防守', stars:5, note:'夜低幾乎不破(A多10.8%)/夜低易破(D空80%)',
    logic:'A組(夜收上半+開高)→多、以夜低為防守停損｜D組(夜收下半+開低)→空、以夜高為防守停損',
-   long:['nightA'], short:['nightD'], lx:['underMA3'], sx:['overMA3'], nightStop:true},
+   long:['nightA'], short:['nightD'], lx:['underMA3'], sx:['overMA3'], nightStop:true, def:{sl:80,trail:0}},
   {name:'夜低反彈買/夜高反彈賣', stars:4, note:'碰夜低守住才買、碰夜高壓回才賣',
    logic:'盤中回測夜低但收盤守住→反彈買，夜低當防守停損｜盤中觸夜高被壓回→反彈賣，夜高當防守停損',
-   long:['nightLoT'], short:['nightHiT'], lx:['underMA3'], sx:['overMA3'], nightStop:true},
+   long:['nightLoT'], short:['nightHiT'], lx:['underMA3'], sx:['overMA3'], nightStop:true, def:{sl:60,trail:0}},
 ];
 function renderStratLib(){
   const el=$('stratTbl'); if(!el) return;
@@ -3427,6 +3452,10 @@ function applyStrat(idx,dir){
   document.querySelectorAll('.mtfEc').forEach(e=>e.checked=en.includes(e.value));
   document.querySelectorAll('.mtfXc').forEach(e=>e.checked=ex.includes(e.value));
   if($('mtfNightStop')) $('mtfNightStop').checked=!!s.nightStop;   // 取代模式：夜盤防守停損跟著策略設定(A/D組開、其餘關)
+  if(s.def){   // 取代模式：帶入這組進場邏輯「天生對應」的防守（趨勢/突破=停損+移動停損；反彈=緊停損；夜盤=夜盤防守+保底停損）
+    if($('mtfUseSL')){ $('mtfUseSL').checked=s.def.sl>0; if(s.def.sl>0)$('mtfSL').value=s.def.sl; }
+    if($('mtfTrail')){ $('mtfTrail').checked=s.def.trail>0; if(s.def.trail>0)$('mtfTrailPts').value=s.def.trail; }
+  }
   if($('mtfUseReentry')) $('mtfUseReentry').checked=false;
   syncBTMode();
   if($('btNote')) $('btNote').value=`${s.name}（${dir==='long'?'多':'空'}）`;
