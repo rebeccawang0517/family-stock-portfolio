@@ -587,6 +587,7 @@
           <button type="button" data-dirf="short">只看空方</button>
           <button type="button" class="on" data-dirf="all">全部</button>
         </div>
+        <div class="pk-hint" id="bpkTfRow" style="display:none;align-items:center;gap:8px"><b id="bpkTfLab" style="color:var(--txt)">週期</b><select id="bpkTF" style="max-width:180px"></select><span class="sub" id="bpkTfNote"></span></div>
         <div class="pk-hint">💡 組高勝率策略照分類順序拿：<b>①趨勢</b> ＋ <b>③價位或④觸發</b> ＋ <b>⑤K棒/⑥量能確認</b>，2~4 條剛好——條件越多越嚴、訊號越少</div>
         <div class="pk-search"><input type="search" id="bpkSearch" placeholder="🔍 搜尋條件（例：MA60、放量、交叉、紅K、支撐）" autocomplete="off"></div>
       </div>
@@ -2201,8 +2202,18 @@ function renderChipConds(){
 let bpkKindS=null,bpkQuery='',bpkCat=null,bpkDir='all';
 function openCondPicker(kind){ bpkKindS=kind; bpkQuery=''; bpkCat=null; bpkDir='all'; $('bpkSearch').value=''; $('bpkKind').textContent=KINDNAME[kind];
   document.querySelectorAll('#bpkDirTabs button').forEach(b=>b.classList.toggle('on',b.dataset.dirf==='all'));
+  // 週期下拉鏡射：編輯進場/再進場→進場週期、編輯出場→出場週期；單週期模式下鎖定(由上方回測週期決定)
+  const tfSel=$('bpkTF'), src=$(kind==='exit'?'mtfExitTF':'mtfEntryTF'), tfRow=$('bpkTfRow');
+  if(tfSel&&src&&src.options.length){ tfSel.innerHTML=src.innerHTML; tfSel.value=src.value; tfSel.disabled=src.disabled;
+    $('bpkTfLab').textContent=(kind==='exit'?'出場週期':'進場週期');
+    $('bpkTfNote').textContent=src.disabled?'單週期模式下由上方「回測週期」決定；選「跨週期」才可在此改':'';
+    tfRow.style.display='flex';
+  } else if(tfRow) tfRow.style.display='none';
   renderCondPicker(); $('bpkOverlay').classList.add('show'); $('bpkSearch').focus(); }
 function closeCondPicker(){ $('bpkOverlay').classList.remove('show'); bpkKindS=null; }
+document.addEventListener('change',e=>{   // picker內改週期→寫回真正的進/出場週期下拉（再刷一次摘要列，避免委派順序造成顯示舊值）
+  if(e.target.id==='bpkTF'&&bpkKindS){ const t=$(bpkKindS==='exit'?'mtfExitTF':'mtfEntryTF'); if(t){ t.value=e.target.value; } renderStratBar&&renderStratBar(); }
+});
 function condPickHit(code,q){ return (!q||(CODEL[code]||'').toLowerCase().includes(q)||code.toLowerCase().includes(q)||(SHORTDEF[code]||'').toLowerCase().includes(q))
   && (bpkDir==='all' || condPolarity(code)==='neutral' || condPolarity(code)===bpkDir); }
 function renderCondPicker(){
