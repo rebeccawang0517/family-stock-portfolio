@@ -871,8 +871,15 @@
       <tr><td class="l"><b>跌破 MA5 / MA10 / MA20 / MA60 / MA240</b></td><td class="l">收盤 &lt; MA1(5) / MA2(10) / MA3(20) / MA4(60) / MA5(240)</td><td class="l">做多出場／做空進場</td></tr>
       <tr><td class="l"><b>黃金交叉 (MA1↑MA2)</b></td><td class="l">MA1 由下往上穿過 MA2（快線升破慢線）</td><td class="l">做多進場／做空出場</td></tr>
       <tr><td class="l"><b>死亡交叉 (MA1↓MA2)</b></td><td class="l">MA1 由上往下跌破 MA2（快線跌破慢線）</td><td class="l">做多出場／做空進場</td></tr>
+      <tr><td class="l"><b>價穿MA60↑ / ↓</b></td><td class="l">前一根收盤還在 MA4(60) 之下、這根收盤站上＝向上突破60均；反之＝向下跌破。用已收完K棒判斷，非未來函數</td><td class="l">60/60 突破做多／破線做空</td></tr>
+      <tr><td class="l"><b>MA20上揚 / 下彎</b></td><td class="l">MA3(預設20) 最近 N 根（走勢判斷回看）的斜率 &gt;0＝上揚、&lt;0＝下彎</td><td class="l">60/20 表態；順勢過濾／出場</td></tr>
+      <tr><td class="l"><b>MA5剛上彎 / 剛下彎</b></td><td class="l">MA1(5) 前一根還走平或反向、這根轉向＝<b>剛拐頭</b>。只在轉折當根成立，比「持續上揚」更早抓到轉向</td><td class="l">短線轉強／轉弱早訊</td></tr>
+      <tr><td class="l"><b>MA60剛上彎 / 剛下彎</b></td><td class="l">MA4(60) 前一根走平或反向、這根轉向＝主軸均線剛翻揚／剛下彎</td><td class="l">趨勢由弱轉強／「60/60過去後注意下殺」</td></tr>
+      <tr><td class="l"><b>60K三線多排 / 空排</b></td><td class="l">MA1&gt;MA3&gt;MA4（預設 5&gt;20&gt;60 三線全多排）＝多頭趨勢確認；全空排反之</td><td class="l">趨勢確認，配重倉多／空</td></tr>
       <tr><td class="l"><b>MA支撐</b></td><td class="l">盤中<b>最低觸及 MA20 或 MA60 附近</b>（容差內），但<b>收盤仍站在該均線之上</b>（被均線撐住沒跌破）</td><td class="l">做多進場</td></tr>
       <tr><td class="l"><b>MA壓力</b></td><td class="l">盤中<b>最高觸及 MA20 或 MA60 附近</b>，但<b>收盤仍在該均線之下</b>（被均線壓回沒站上）</td><td class="l">做空進場</td></tr>
+      <tr><td class="l"><b>左側支撐（收腳）</b></td><td class="l">這根最低觸及「<b>左邊已確認的轉折低點</b>」（容差內），但收盤守在其上且留下影＝在左邊平台低點收腳。轉折低＝左右各3根的區域最低、且已收完才確認，因果安全</td><td class="l">做多進場（歷史低點接手）</td></tr>
+      <tr><td class="l"><b>左側壓力（壓回）</b></td><td class="l">這根最高觸及「左邊已確認的轉折高點」（容差內），但被壓回收在其下且留上影＝在左邊高點被壓回</td><td class="l">做空進場（歷史高點壓制）</td></tr>
       <tr><td class="l"><b>走勢向上 ↑ / 向下 ↓</b></td><td class="l"><b>最近 N 根收盤的線性回歸斜率</b>（N＝「走勢判斷回看」）：斜率 &gt; 走勢門檻＝向上、&lt; −門檻＝向下。門檻＝每根平均要漲/跌超過幾點才算，0＝只要斜率不為0（盤整易翻可調大）</td><td class="l">順勢過濾</td></tr>
       <tr><td class="l"><b>放量</b></td><td class="l">這根成交量 ≥ <b>前20根均量的 1.5 倍</b></td><td class="l">配紅K/多排＝有量的攻擊</td></tr>
       <tr><td class="l"><b>爆量</b></td><td class="l">這根成交量 ≥ <b>前20根均量的 2.5 倍</b>（量能大增）</td><td class="l">配紅K偏續攻、配黑K偏轉弱</td></tr>
@@ -889,6 +896,8 @@
       <tr><td class="l"><b>B組（夜收上半+開低）</b></td><td class="l">夜盤收盤相對位置&gt;0.5，但今天日盤開盤價≤夜盤收盤價（開低/開平）。夜低支撐力道比A組弱不少（參考值約43%破底機率）</td><td class="l">謹慎偏多／觀望（不建議重倉防守夜低）</td></tr>
       <tr><td class="l"><b>C組（夜收下半+開高）</b></td><td class="l">夜盤收盤相對位置≤0.5，但今天日盤開盤價&gt;夜盤收盤價（開高）。中性偏空、容易回測（參考值約30%破底機率）</td><td class="l">中性偏空（不建議追多）</td></tr>
       <tr><td class="l"><b>D組（夜收下半+開低）</b></td><td class="l">夜盤收盤相對位置≤0.5，且今天日盤開盤價≤夜盤收盤價（開低/開平）。歷史統計上這組破夜盤低點機率最高（參考值約82%）</td><td class="l">做空進場（順勢破底，夜盤低點常作移動防守參考）</td></tr>
+      <tr><td class="l"><b>夜低撐住（反彈買）</b></td><td class="l">日盤這根K<b>盤中最低回測到「當天夜盤最低點」附近</b>（觸及容差內），但<b>收盤仍守在夜低之上</b>＝夜低支撐撐住。＝「碰夜低、守住不破才買」的進場觸發，跟A~D分組獨立、可單用或搭配A組。只在日盤K棒且有前一夜盤資料時成立</td><td class="l">做多進場（夜低反彈）</td></tr>
+      <tr><td class="l"><b>夜高壓回（反彈賣）</b></td><td class="l">盤中最高觸及「當天夜盤最高點」附近（容差內），但收盤被壓回夜高之下＝夜高壓力壓回（夜低撐住的空方鏡射）</td><td class="l">做空進場（夜高反彈空）</td></tr>
     </table></div>
   </fieldset>
 
@@ -900,6 +909,7 @@
       <tr><td class="l">進場價</td><td class="l">進場成交在哪</td><td class="l">可選「當根收盤」或「次根開盤」（②設定）</td><td class="l">預設當根收盤</td></tr>
       <tr><td class="l">訊號判斷</td><td class="l">條件何時算成立</td><td class="l">用<b>收盤</b>數據判斷（如收盤跌破MA20、MA1下穿MA2）</td><td class="l">收盤價回測，較保守、貼近看收盤下單</td></tr>
       <tr><td class="l">停利 / 停損</td><td class="l">賺/賠到設定點數就出</td><td class="l">用<b>收盤價</b>−進場價的點數差判斷</td><td class="l">不是用盤中最高/最低點，是收盤價</td></tr>
+      <tr><td class="l">夜盤防守停損</td><td class="l">用夜盤高低點當防守線</td><td class="l">多單<b>收盤跌破當天夜盤最低點</b>就出場；空單<b>收盤突破夜盤最高點</b>就出場</td><td class="l">依統計 A組破夜低僅約10%＝多單最強防守；D組約80%＝空單順勢。只在日盤K棒檢查，設定在②「3 進階與倉位→🛡️停損防守」／③共用選項</td></tr>
       <tr><td class="l">每點價值</td><td class="l">1點=多少錢</td><td class="l">大台預設 200 元/點（可改）</td><td class="l">總損益(元)=總點數×它</td></tr>
       <tr><td class="l">來回成本</td><td class="l">每筆交易的成本</td><td class="l">每筆交易扣掉的點數（手續費+滑價估）</td><td class="l">預設2點，已從每筆點數扣掉</td></tr>
       <tr><td class="l">觸及容差</td><td class="l">判定「觸及均線」的誤差</td><td class="l">支撐/壓力條件允許的%誤差</td><td class="l">預設0.3%</td></tr>
