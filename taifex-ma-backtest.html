@@ -452,12 +452,10 @@
         </div>
         <div class="subhd" style="margin-top:0" title="空手時，勾選的條件要「全部同時成立」才進場">首次進場條件<span class="sub">（全部成立才進）</span></div>
         <div class="condwrap entry"><div class="condset" id="enChips"></div></div>
-        <div class="row" style="margin-top:8px" id="enAdd"></div>
         <div id="reentryBox" style="margin-top:12px">
           <label class="subhd" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin:0 0 6px" title="出場後改用這組（通常較嚴格）的條件才再進場；不勾＝出場後沿用首次進場條件"><input type="checkbox" id="mtfUseReentry"> 啟用「再次進場」條件<span class="sub">（較嚴格，不勾＝沿用首次）</span></label>
           <div class="cfg mtf-re" style="display:none"></div>
           <div class="condwrap reentry"><div class="condset" id="reChips"></div></div>
-          <div class="row" style="margin-top:8px" id="reAdd"></div>
         </div>
         <div class="crossOnly">
           <div class="subhd" style="margin-top:12px">進場週期<span class="sub">（跨週期模式）</span></div>
@@ -470,7 +468,6 @@
         <legend>📤 出場</legend>
         <div class="subhd" style="margin-top:0" title="持倉時，勾選的條件「任一成立」就出場">出場條件<span class="sub">（任一成立就出）</span></div>
         <div class="condwrap exit"><div class="condset" id="exChips"></div></div>
-        <div class="row" style="margin-top:8px" id="exAdd"></div>
         <div class="crossOnly">
           <div class="subhd" style="margin-top:12px">出場週期<span class="sub">（跨週期模式）</span></div>
           <label class="hint"><select id="mtfExitTF" class="mtfTF"></select></label>
@@ -2172,11 +2169,12 @@ function renderChipConds(){
     const sel=condSel(kind);
     const chipBox=$(kind==='entry'?'enChips':kind==='reentry'?'reChips':'exChips');
     const addBox=$(kind==='entry'?'enAdd':kind==='reentry'?'reAdd':'exAdd');
-    if(chipBox) chipBox.innerHTML = sel.length ? sel.map((code,i)=>
+    if(chipBox) chipBox.innerHTML = (sel.length ? sel.map((code,i)=>
         (i?`<span class="andsep">${kind==='exit'?'或':'且'}</span>`:'')+
         `<span class="cond">${CODEL[code]||code}<button class="x" data-cx="${kind}:${code}" title="移除">×</button></span>`).join('')
-      : '<span class="cond-empty">尚未選條件</span>';
-    if(addBox) addBox.innerHTML=`<button class="btn ghost" data-cmore="${kind}">✏️ 編輯條件</button>`;
+      : '<span class="cond-empty">尚未選條件</span>')
+      + `<button class="btn ghost" data-cmore="${kind}" style="padding:4px 11px;margin-left:2px">✏️ 編輯條件</button>`;   // 編輯鈕跟chips同一行，不另佔一排
+    if(addBox) addBox.innerHTML='';
   });
 }
 let bpkKindS=null,bpkQuery='',bpkCat=null,bpkDir='all';
