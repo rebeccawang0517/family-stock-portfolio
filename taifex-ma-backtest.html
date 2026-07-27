@@ -495,6 +495,7 @@
         <label class="hint" title="持倉時：多單漲到碰60分/日線壓力、空單跌到碰支撐，就出場（跟「壓力支撐過濾」用同一套大週期壓撐，只是這個是出場、那個是擋進場）。需先匯入60分或日線資料"><input type="checkbox" id="mtfSRExit"> 遇壓撐出場<span class="sub">(多碰壓力/空碰支撐)</span></label>
         <label class="hint" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="mtfEODClose"> 當日平倉（不留倉過夜）</label>
         <label class="hint" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="mtfMidnightClose"> 半夜12點後不留倉</label>
+        <label class="hint" title="多單持倉：收盤跌破「當天夜盤最低點」就出場(夜低＝防守支撐)；空單持倉：收盤突破「當天夜盤最高點」就出場。依統計 A組(夜收上半+開高)幾乎不破夜低(約10.8%)＝做多用夜低防守；D組(夜收下半+開低)極易破夜低(約80%)＝順勢空、夜高防守。只在日盤K棒生效(需前一夜盤資料)，日線/週線不受影響"><input type="checkbox" id="mtfNightStop"> 夜盤低點防守停損<span class="sub">(多守夜低/空守夜高)</span></label>
       </div>
 
       <div class="subhd" style="margin-top:16px">算倉位</div>
@@ -700,6 +701,7 @@
       <label class="full" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="optDayOnly"> 只做日盤(夜盤不進場)</label>
       <label class="full" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="optEODClose"> 當日平倉（不留倉過夜）</label>
       <label class="full" title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
+      <label class="full" title="夜盤低點/高點防守停損：多單收破當天夜低出場、空單收破當天夜高出場。勾了會「有/無兩種一起測」讓最佳化自己比哪種好(＝不只單一出場模式)。統計上A組(夜收上半+開高)幾乎不破夜低(約10.8%)＝防守多；D組(夜收下半+開低)極易破夜低(約80%)＝順勢空。只在日盤K棒生效"><input type="checkbox" id="optNightStop"> 納入夜盤防守停損（多守夜低/空守夜高，有/無一起測）</label>
       <details style="margin-top:6px;grid-column:1/-1">
         <summary class="hint" style="cursor:pointer;font-weight:700">更多共用選項（規格未列，但功能需要保留）</summary>
         <div class="cfg" style="margin-top:8px">
@@ -2027,6 +2029,7 @@ function renderStratBar(){
     if($('mtfSRExit')&&$('mtfSRExit').checked) extra.push('遇壓撐出場');
     if($('mtfEODClose')&&$('mtfEODClose').checked) extra.push('當日平倉');
     if($('mtfMidnightClose')&&$('mtfMidnightClose').checked) extra.push('半夜不留倉');
+    if($('mtfNightStop')&&$('mtfNightStop').checked) extra.push('夜盤防守停損');
     rs.textContent=`目前啟用：${[...rk,...extra].join(' · ')||'無'}`; }
   const s2=$('wzSum2'); if(s2) s2.textContent=`本金 ${(+($('posCapital')?$('posCapital').value:0)||0).toLocaleString('en-US')} · 單筆風險 ${$('posRisk')?$('posRisk').value:'-'}%`;
   document.querySelectorAll('#dirSeg button,[data-dirseg] button').forEach(b=>b.classList.toggle('on',b.dataset.dir===dir));
@@ -2695,7 +2698,9 @@ function simulate(cfg,i0,i1){
   const passExit=(i,e,checkStop)=>{ const b=bars[i],x=ind[i];       // 回傳 'stop'停損停利(優先) / 'sig'訊號出場 / null
     if(checkStop){                                                  // 夜盤不停損時 checkStop=false → 夜盤跳過停損停利
       if(cfg.tp>0){const p=side==='L'?b.c-e:e-b.c; if(p>=cfg.tp)return 'stop';}   // 停損/停利最優先(風控)
-      if(cfg.sl>0){const p=side==='L'?e-b.c:b.c-e; if(p>=cfg.sl)return 'stop';} }
+      if(cfg.sl>0){const p=side==='L'?e-b.c:b.c-e; if(p>=cfg.sl)return 'stop';}
+      if(cfg.nightStop){   // 夜盤低點/高點防守停損：多單收破夜低、空單收破夜高即出(夜低/高只在日盤K棒有值,夜盤K自然no-op)
+        if(side==='L'){ if(!isNaN(x.nightLo)&&b.c<x.nightLo)return 'stop'; } else { if(!isNaN(x.nightHi)&&b.c>x.nightHi)return 'stop'; } } }
     for(const c of cfg.exit){
       if(c==='underMA3'&&b.c<x.ma3)return 'sig'; if(c==='overMA3'&&b.c>x.ma3)return 'sig';
       if(c==='underMA4'&&b.c<x.ma4)return 'sig'; if(c==='overMA4'&&b.c>x.ma4)return 'sig';
@@ -2788,6 +2793,8 @@ async function optimize(){
   const donly=$('optDayOnly')&&$('optDayOnly').checked; if(donly) combos.forEach(c=>c.dayOnly=true);   // 只做日盤
   const eod=$('optEODClose')&&$('optEODClose').checked; if(eod) combos.forEach(c=>c.eodClose=true);   // 當日平倉(不留倉過夜)
   const midc=$('optMidnightClose')&&$('optMidnightClose').checked; if(midc) combos.forEach(c=>c.midnightClose=true);   // 半夜12點後不留倉
+  const nst=$('optNightStop')&&$('optNightStop').checked;   // 夜盤防守停損：勾了就「有/無」兩種一起測(多一種出場模式讓數據自己比)
+  if(nst){ const ext=combos.map(c=>({...c,nightStop:true})); combos=combos.concat(ext); }
   optBusy=true;
   const res=[]; let t0=performance.now();
   for(let ci=0;ci<combos.length;ci++){
@@ -2817,7 +2824,8 @@ function cfgText(c){
   const dO=c.dayOnly?` <span class="sub" style="color:#b8cde8">[只做日盤]</span>`:'';
   const eo=c.eodClose?` <span class="sub" style="color:#b8cde8">[當日平倉]</span>`:'';
   const mc=c.midnightClose?` <span class="sub" style="color:#b8cde8">[半夜不留倉]</span>`:'';
-  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds}${gb}${gd}${dO}${eo}${mc} 進:${e} ／ 出:${(x.join('+'))||'—'}`;
+  const ns=c.nightStop?` <span class="sub" style="color:#e3b341">[夜盤防守停損]</span>`:'';
+  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds}${gb}${gd}${dO}${eo}${mc}${ns} 進:${e} ／ 出:${(x.join('+'))||'—'}`;
 }
 // 報酬/回撤比（總點數÷最大回檔，越大＝越「又賺又穩」）；無回撤且賺錢→∞
 function marVal(st){ if(!st||!st.n) return null; if(st.mdd<=0) return st.total>0?Infinity:0; return st.total/st.mdd; }
@@ -2883,6 +2891,7 @@ function applyCfg(cfg){   // A單週期最佳化「套用」→填回②統一�
   if($('mtfDayOnly'))$('mtfDayOnly').checked=!!cfg.dayOnly;
   if($('mtfEODClose'))$('mtfEODClose').checked=!!cfg.eodClose;
   if($('mtfMidnightClose'))$('mtfMidnightClose').checked=!!cfg.midnightClose;
+  if($('mtfNightStop'))$('mtfNightStop').checked=!!cfg.nightStop;
   document.querySelector('#tabs button[data-v="backtest"]').click();   // 切②(會initMTF→syncBTMode鎖週期)
   runBT();
   msg($('runMsg'),`✔ 已套用最佳組合並跑完整結果（單週期 ${tfName($('btMode').value)}）`,true);
@@ -3055,6 +3064,8 @@ function mtfTrades(ctx, cfg, i0, i1){
   const stopReason=(i,e)=>{   // 停損/停利：最優先，一定出（風控）
     if(cfg.tp>0){ const p=side==='L'?enB[i].c-e:e-enB[i].c; if(p>=cfg.tp) return '停利'; }
     if(cfg.sl>0){ const p=side==='L'?e-enB[i].c:enB[i].c-e; if(p>=cfg.sl) return '停損'; }
+    if(cfg.nightStop){ const x=enI[i];   // 夜盤低點/高點防守停損：多單收破夜低、空單收破夜高(夜低/高只在日盤K棒有值)
+      if(side==='L'){ if(!isNaN(x.nightLo)&&enB[i].c<x.nightLo) return '夜低防守'; } else { if(!isNaN(x.nightHi)&&enB[i].c>x.nightHi) return '夜高防守'; } }
     return null; };
   const sigReason=(i)=>{ const k=hi[i];   // 訊號出場（均線/K棒）
     if(k>=(same?0:1)){ for(const c of cfg.exit){ if(condTrue(exB,exI,k,c,tol,align)) return CODEL[c]||c; } } return null; };
@@ -3076,6 +3087,8 @@ function mtfTrades(ctx, cfg, i0, i1){
         if(stopActive){
           if(cfg.tp>0){ const p=side==='L'?b.c-pos.e:pos.e-b.c; if(p>=cfg.tp) r='停利'; }
           if(!r && cfg.sl>0){ const p=side==='L'?pos.e-b.c:b.c-pos.e; if(p>=cfg.sl) r='停損'; }
+          if(!r && cfg.nightStop){ const x=exI[d];   // 夜盤低點/高點防守停損(進粗出細：用出場細K的夜低/高)
+            if(side==='L'){ if(!isNaN(x.nightLo)&&b.c<x.nightLo) r='夜低防守'; } else { if(!isNaN(x.nightHi)&&b.c>x.nightHi) r='夜高防守'; } }
           if(!r && trail>0){ const retr=side==='L'?pos.peak-b.c:b.c-pos.peak; if(retr>=trail) r='移動停損'; }
         }
         if(!r){ for(const c of cfg.exit){ if(condTrue(exB,exI,d,c,tol,align)){ r=CODEL[c]||c; break; } } }  // 出場訊號用細K這根(已收完)
@@ -3148,7 +3161,8 @@ function runBT(){
   const useSRExit=$('mtfSRExit')&&$('mtfSRExit').checked;
   const useEODClose=$('mtfEODClose')&&$('mtfEODClose').checked;
   const useMidnightClose=$('mtfMidnightClose')&&$('mtfMidnightClose').checked;
-  if(!exConds.length && !useSL && !useTP && !useTrail && !useSRExit && !useEODClose && !useMidnightClose){ msg($('runMsg'),'請至少勾一個出場條件，或加停損/停利/移動停損/遇壓撐出場/當日平倉/半夜不留倉',false); return; }
+  const useNightStop=$('mtfNightStop')&&$('mtfNightStop').checked;
+  if(!exConds.length && !useSL && !useTP && !useTrail && !useSRExit && !useEODClose && !useMidnightClose && !useNightStop){ msg($('runMsg'),'請至少勾一個出場條件，或加停損/停利/移動停損/遇壓撐出場/當日平倉/半夜不留倉/夜盤防守停損',false); return; }
   const cfg={ dir:$('mtfDir').value, entry:enConds, exit:exConds, reentry:reConds,
     sl:useSL?+$('mtfSL').value:0, tp:useTP?+$('mtfTP').value:0, trail:useTrail?+$('mtfTrailPts').value:0,
     srFilter:$('mtfSR').checked?'ref':null, srExit:useSRExit?'ref':null, alignN:+$('alignN').value===3?3:4,
@@ -3157,7 +3171,8 @@ function runBT(){
     skipGapDay:$('mtfSkipGapDay')&&$('mtfSkipGapDay').checked,
     dayOnly:$('mtfDayOnly')&&$('mtfDayOnly').checked,
     eodClose:useEODClose,
-    midnightClose:useMidnightClose };
+    midnightClose:useMidnightClose,
+    nightStop:$('mtfNightStop')&&$('mtfNightStop').checked };
   if(cfg.srFilter && !ctx.srFilter) msg($('runMsg'),'（提示：未匯入60分/日線，壓力支撐過濾未生效）',false);
   if(cfg.srExit && !ctx.srFilter) msg($('runMsg'),'（提示：未匯入60分/日線，遇壓撐出場未生效）',false);
   const tr=mtfTrades(ctx,cfg);
@@ -3170,7 +3185,7 @@ function runBT(){
   const nm=cfg.dir==='long'?'多':'空';
   const enTxt=enConds.map(c=>CODEL[c]||c).join('、'), exTxt=exConds.map(c=>CODEL[c]||c).join('、');
   const reTxt=reConds.length?reConds.map(c=>CODEL[c]||c).join('、'):'';
-  const extra=[]; if(cfg.tp)extra.push('停利'+cfg.tp); if(cfg.sl)extra.push('停損'+cfg.sl); if(cfg.trail)extra.push('移動停損'+cfg.trail); if(cfg.srExit)extra.push('遇壓撐出場'); if(cfg.srFilter)extra.push('避大週期壓撐'); if(cfg.eodClose)extra.push('當日平倉'); if(cfg.midnightClose)extra.push('半夜不留倉');
+  const extra=[]; if(cfg.tp)extra.push('停利'+cfg.tp); if(cfg.sl)extra.push('停損'+cfg.sl); if(cfg.trail)extra.push('移動停損'+cfg.trail); if(cfg.srExit)extra.push('遇壓撐出場'); if(cfg.srFilter)extra.push('避大週期壓撐'); if(cfg.eodClose)extra.push('當日平倉'); if(cfg.midnightClose)extra.push('半夜不留倉'); if(cfg.nightStop)extra.push('夜盤防守停損');
   const wk = enTF===exTF ? tfName(enTF) : `進${tfName(enTF)}→出${tfName(exTF)}`;
   lastStrategyText = `[${cfg.alignN}條排] ${nm}〔進：${enTxt}${reTxt?`｜再進：${reTxt}`:''}｜出：${[exTxt,...extra].filter(Boolean).join('、')||'—'}〕（${wk}）`;
   chartMarks = { tf:markTF, list:trades.map(t=>({entryIdx:t.entryIdx,exitIdx:t.exitIdx,side:t.side})), strategy:lastStrategyText };
@@ -3178,7 +3193,7 @@ function runBT(){
   const nT=trades.length, wins=trades.filter(t=>t.pts>0).length, total=trades.reduce((s,t)=>s+t.pts,0);
   let eq=0,pk=0,mdd=0; trades.forEach(t=>{eq+=t.pts;pk=Math.max(pk,eq);mdd=Math.max(mdd,pk-eq);});
   const maxMAE=trades.reduce((m,t)=>Math.max(m,t.mae||0),0);
-  lastRun={ cfg:{ dir:cfg.dir, entry:enConds, exit:exConds, reentry:reConds, sl:cfg.sl, tp:cfg.tp, trail:cfg.trail, srFilter:cfg.srFilter, srExit:cfg.srExit, alignN:cfg.alignN, dayStopOnly:cfg.dayStopOnly, skipGapBull:cfg.skipGapBull, skipGapDay:cfg.skipGapDay, dayOnly:cfg.dayOnly, eodClose:cfg.eodClose, midnightClose:cfg.midnightClose, enTF, exTF },
+  lastRun={ cfg:{ dir:cfg.dir, entry:enConds, exit:exConds, reentry:reConds, sl:cfg.sl, tp:cfg.tp, trail:cfg.trail, srFilter:cfg.srFilter, srExit:cfg.srExit, alignN:cfg.alignN, dayStopOnly:cfg.dayStopOnly, skipGapBull:cfg.skipGapBull, skipGapDay:cfg.skipGapDay, dayOnly:cfg.dayOnly, eodClose:cfg.eodClose, midnightClose:cfg.midnightClose, nightStop:cfg.nightStop, enTF, exTF },
     stat:{ n:nT, winRate:nT?wins/nT*100:0, total, mdd, exp:nT?total/nT:0, maxMAE } };
   msg($('runMsg'),`✔ 完成，共 ${trades.length} 筆交易（${wk}）`,true);
   const rb=$('resultBox'); if(rb) rb.scrollIntoView({behavior:'smooth',block:'start'});
@@ -3241,6 +3256,7 @@ function applyBTRecord(id){
   if($('mtfDayOnly'))$('mtfDayOnly').checked=!!c.dayOnly;
   if($('mtfEODClose'))$('mtfEODClose').checked=!!c.eodClose;
   if($('mtfMidnightClose'))$('mtfMidnightClose').checked=!!c.midnightClose;
+  if($('mtfNightStop'))$('mtfNightStop').checked=!!c.nightStop;
   syncBTMode(); runBT();
   msg($('recMsg'),'✔ 已還原此紀錄的設定並重跑',true);
 }
@@ -3262,6 +3278,9 @@ const STRAT_LIB=[
   {name:'價格 vs 均線', stars:3, note:'型態描述，較主觀',
    logic:'價撐著等上揚均線 → 續抱/加碼（均線上揚+回踩守住）',
    long:['sup','ma3Up'], short:['res','ma3Dn'], lx:['underMA3'], sx:['overMA3']},
+  {name:'夜盤A/D組 防守', stars:5, note:'夜低幾乎不破(A多10.8%)/夜低易破(D空80%)',
+   logic:'A組(夜收上半+開高)→多、以夜低為防守停損｜D組(夜收下半+開低)→空、以夜高為防守停損',
+   long:['nightA'], short:['nightD'], lx:['underMA3'], sx:['overMA3'], nightStop:true},
 ];
 function renderStratLib(){
   const el=$('stratTbl'); if(!el) return;
@@ -3286,6 +3305,7 @@ function applyStrat(idx,dir){
   if(combine){   // 疊加：把本組條件「加進」現有勾選(不清除)、AND一起成立才進場；不動週期/均線、不自動跑
     en.forEach(v=>{ const cb=document.querySelector('.mtfEc[value="'+v+'"]'); if(cb) cb.checked=true; });
     ex.forEach(v=>{ const cb=document.querySelector('.mtfXc[value="'+v+'"]'); if(cb) cb.checked=true; });
+    if(s.nightStop && $('mtfNightStop')) $('mtfNightStop').checked=true;   // 夜盤A/D組策略：疊加時只開啟夜盤防守停損、不關別的
     syncBTMode();
     const enNow=[...document.querySelectorAll('.mtfEc:checked')].map(e=>CODEL[e.value]||e.value);
     msg($('runMsg'),`✔ 已把「${s.name}」加入現有勾選（${dir==='long'?'多':'空'}）。目前進場：${enNow.join(' ＋ ')||'—'}　可再加別組或手動勾，最後按「▶ 執行回測」一起測（要全部同時成立才進場）`,true);
@@ -3296,6 +3316,7 @@ function applyStrat(idx,dir){
   if(TFS.includes('M60')) $('btMode').value='M60';                   // 60分策略→鎖60分週期
   document.querySelectorAll('.mtfEc').forEach(e=>e.checked=en.includes(e.value));
   document.querySelectorAll('.mtfXc').forEach(e=>e.checked=ex.includes(e.value));
+  if($('mtfNightStop')) $('mtfNightStop').checked=!!s.nightStop;   // 取代模式：夜盤防守停損跟著策略設定(A/D組開、其餘關)
   if($('mtfUseReentry')) $('mtfUseReentry').checked=false;
   syncBTMode();
   if($('btNote')) $('btNote').value=`${s.name}（${dir==='long'?'多':'空'}）`;
@@ -3333,6 +3354,8 @@ async function runMTFOpt(){
   const donlyMtf = $('optDayOnly') && $('optDayOnly').checked;   // 只做日盤(與A共用同一個勾選框)
   const eodMtf = $('optEODClose') && $('optEODClose').checked;   // 當日平倉(與A共用同一個勾選框)
   const midcMtf = $('optMidnightClose') && $('optMidnightClose').checked;   // 半夜12點後不留倉(與A共用同一個勾選框)
+  const nstMtf = $('optNightStop') && $('optNightStop').checked;   // 夜盤防守停損(與A共用)：有/無兩種一起測
+  const nsList = nstMtf ? [false,true] : [false];
   // 要測的週期配對
   let pairs=[];
   if(allPairs){
@@ -3349,8 +3372,8 @@ async function runMTFOpt(){
   for(let pIdx=0;pIdx<pi;pIdx++){ const [en,ex]=pairs[pIdx];
     const ctx=getCtx(en,ex); if(ctx.err||ctx.enB.length<200) continue; okPairs++;
     const trainEnd=Math.floor(ctx.enB.length*split);
-    for(const al of alignList)for(const e1 of ents)for(const x1 of exs)for(const re of reList)for(const sl of sls)for(const trail of trails)for(const sr of srList){ testedCombos++;
-      const cfg={dir,entry:e1,exit:x1,reentry:re,sl,trail,alignN:al,srFilter:sr,dayStopOnly:dsoMtf,skipGapBull:sgbMtf,skipGapDay:sgdMtf,dayOnly:donlyMtf,eodClose:eodMtf,midnightClose:midcMtf};
+    for(const al of alignList)for(const e1 of ents)for(const x1 of exs)for(const re of reList)for(const sl of sls)for(const trail of trails)for(const sr of srList)for(const nsF of nsList){ testedCombos++;
+      const cfg={dir,entry:e1,exit:x1,reentry:re,sl,trail,alignN:al,srFilter:sr,dayStopOnly:dsoMtf,skipGapBull:sgbMtf,skipGapDay:sgdMtf,dayOnly:donlyMtf,eodClose:eodMtf,midnightClose:midcMtf,nightStop:nsF};
       const st=tradeStats(mtfTrades(ctx,cfg,0,trainEnd));
       if(st && st.n>=minN) res.push({enTF:en,exTF:ex,cfg,tr:st});
       if(performance.now()-t0>80){ msg($('mtfOptMsg'),`搜尋中… 配對 ${pIdx+1}/${pi}（已測 ${testedCombos} 種、符合 ${res.length} 組）`,true); await new Promise(r=>setTimeout(r)); t0=performance.now(); }
@@ -3381,7 +3404,8 @@ function mtfCfgText(c){
   const dO=c.dayOnly?` <span class="sub" style="color:#b8cde8">[只做日盤]</span>`:'';
   const eo=c.eodClose?` <span class="sub" style="color:#b8cde8">[當日平倉]</span>`:'';
   const mc=c.midnightClose?` <span class="sub" style="color:#b8cde8">[半夜不留倉]</span>`:'';
-  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds}${gb}${gd}${dO}${eo}${mc} 進:${e}${re?` <span class="sub" style="color:var(--acc)">(再進:${re})</span>`:''} ／ 出:${x.join('+')||'—'}`;
+  const ns=c.nightStop?` <span class="sub" style="color:#e3b341">[夜盤防守停損]</span>`:'';
+  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds}${gb}${gd}${dO}${eo}${mc}${ns} 進:${e}${re?` <span class="sub" style="color:var(--acc)">(再進:${re})</span>`:''} ／ 出:${x.join('+')||'—'}`;
 }
 function renderMTFOpt(){
   const showPair=mtfOptAllPairs;
@@ -3421,6 +3445,7 @@ function applyMTFResult(r){   // B跨週期最佳化「套用」→填回②統�
   if($('mtfDayOnly'))$('mtfDayOnly').checked=!!cfg.dayOnly;
   if($('mtfEODClose'))$('mtfEODClose').checked=!!cfg.eodClose;
   if($('mtfMidnightClose'))$('mtfMidnightClose').checked=!!cfg.midnightClose;
+  if($('mtfNightStop'))$('mtfNightStop').checked=!!cfg.nightStop;
   if(cfg.alignN) $('alignN').value=cfg.alignN;
   document.querySelector('#tabs button[data-v="backtest"]').click();   // 切②(initMTF→syncBTMode解鎖週期)
   if($('mtfUseReentry')) $('mtfUseReentry').dispatchEvent(new Event('change'));   // 同步再進場框灰階
@@ -3707,6 +3732,7 @@ function hofApply(idx){
   if($('mtfDayOnly'))$('mtfDayOnly').checked=!!c.dayOnly;
   if($('mtfEODClose'))$('mtfEODClose').checked=!!c.eodClose;
   if($('mtfMidnightClose'))$('mtfMidnightClose').checked=!!c.midnightClose;
+  if($('mtfNightStop'))$('mtfNightStop').checked=!!c.nightStop;
   syncBTMode(); runBT();
   msg($('runMsg'),'✅ 已套用名人堂組合並回測（用目前全部資料驗證它是否仍有效）',true);
 }
