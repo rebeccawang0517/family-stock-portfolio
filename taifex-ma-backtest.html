@@ -438,39 +438,49 @@
   <details class="side-sec" open>
     <summary><span class="num">2</span><span class="stt"><b>進出場條件</b><small id="wzSum0">—</small><small id="wzSum1">—</small></span><span class="chev">▾</span></summary>
     <div class="side-sec-body">
-      <div class="subhd" style="margin-top:0">方向</div>
-      <div class="seg" data-dirseg>
-        <button type="button" data-dir="long" class="on">做多</button>
-        <button type="button" data-dir="short">做空</button>
-      </div>
-      <div class="subhd">首次進場條件（空手時，全部成立才進）</div>
-      <div class="condwrap entry"><div class="condset" id="enChips"></div></div>
-      <div class="row" style="margin-top:8px" id="enAdd"></div>
-      <div id="reentryBox" style="margin-top:12px">
-        <label class="subhd" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin:0 0 6px"><input type="checkbox" id="mtfUseReentry"> 啟用「再次進場」條件（出場後改用這組，通常較嚴格；不勾＝沿用首次）</label>
-        <div class="cfg mtf-re" style="display:none"></div>
-        <div class="condwrap reentry"><div class="condset" id="reChips"></div></div>
-        <div class="row" style="margin-top:8px" id="reAdd"></div>
-      </div>
-      <div class="subhd" style="margin-top:12px">進場週期（跨週期模式才用）</div>
-      <label class="hint"><select id="mtfEntryTF" class="mtfTF"></select></label>
-      <div class="cfg mtf-en" style="display:none"></div>
+      <fieldset style="margin-top:0">
+        <legend>📥 進場</legend>
+        <div class="seg" data-dirseg style="margin-bottom:10px">
+          <button type="button" data-dir="long" class="on">做多</button>
+          <button type="button" data-dir="short">做空</button>
+        </div>
+        <div class="subhd" style="margin-top:0" title="空手時，勾選的條件要「全部同時成立」才進場">首次進場條件<span class="sub">（全部成立才進）</span></div>
+        <div class="condwrap entry"><div class="condset" id="enChips"></div></div>
+        <div class="row" style="margin-top:8px" id="enAdd"></div>
+        <div id="reentryBox" style="margin-top:12px">
+          <label class="subhd" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;margin:0 0 6px" title="出場後改用這組（通常較嚴格）的條件才再進場；不勾＝出場後沿用首次進場條件"><input type="checkbox" id="mtfUseReentry"> 啟用「再次進場」條件<span class="sub">（較嚴格，不勾＝沿用首次）</span></label>
+          <div class="cfg mtf-re" style="display:none"></div>
+          <div class="condwrap reentry"><div class="condset" id="reChips"></div></div>
+          <div class="row" style="margin-top:8px" id="reAdd"></div>
+        </div>
+        <div class="crossOnly">
+          <div class="subhd" style="margin-top:12px">進場週期<span class="sub">（跨週期模式）</span></div>
+          <label class="hint"><select id="mtfEntryTF" class="mtfTF"></select></label>
+        </div>
+        <div class="cfg mtf-en" style="display:none"></div>
+      </fieldset>
 
-      <div class="subhd" style="margin-top:16px">出場條件（任一成立就出）</div>
-      <div class="condwrap exit"><div class="condset" id="exChips"></div></div>
-      <div class="row" style="margin-top:8px" id="exAdd"></div>
-      <p class="hint" style="margin:10px 0 0">條件標籤 <b>×</b> 移除；點「✏️ 編輯條件」開條件選擇器（可搜尋／分類／方向篩選）；定義看「⑧ 名詞說明」。</p>
-      <div class="subhd" style="margin-top:12px">出場週期（跨週期模式才用）</div>
-      <label class="hint"><select id="mtfExitTF" class="mtfTF"></select></label>
-      <div class="cfg mtf-ex" style="display:none"></div>
+      <fieldset>
+        <legend>📤 出場</legend>
+        <div class="subhd" style="margin-top:0" title="持倉時，勾選的條件「任一成立」就出場">出場條件<span class="sub">（任一成立就出）</span></div>
+        <div class="condwrap exit"><div class="condset" id="exChips"></div></div>
+        <div class="row" style="margin-top:8px" id="exAdd"></div>
+        <div class="crossOnly">
+          <div class="subhd" style="margin-top:12px">出場週期<span class="sub">（跨週期模式）</span></div>
+          <label class="hint"><select id="mtfExitTF" class="mtfTF"></select></label>
+        </div>
+        <div class="cfg mtf-ex" style="display:none"></div>
+      </fieldset>
 
-      <div class="subhd" style="margin-top:16px">風控</div>
-      <div class="cfg">
-        <label><input type="checkbox" id="mtfUseSL" checked> 停損 <input type="number" id="mtfSL" value="80"> 點</label>
-        <label><input type="checkbox" id="mtfUseTP"> 停利 <input type="number" id="mtfTP" value="150"> 點</label>
-        <label><input type="checkbox" id="mtfTrail"> 移動停損 回吐 <input type="number" id="mtfTrailPts" value="60"> 點</label>
-      </div>
-      <div class="summary" id="riskSummary">目前啟用：—</div>
+      <fieldset style="margin-bottom:0">
+        <legend>🛡️ 風控</legend>
+        <div class="cfg">
+          <label><input type="checkbox" id="mtfUseSL" checked> 停損 <input type="number" id="mtfSL" value="80"> 點</label>
+          <label><input type="checkbox" id="mtfUseTP"> 停利 <input type="number" id="mtfTP" value="150"> 點</label>
+          <label><input type="checkbox" id="mtfTrail"> 移動停損 回吐 <input type="number" id="mtfTrailPts" value="60"> 點</label>
+        </div>
+        <div class="summary" id="riskSummary">目前啟用：—</div>
+      </fieldset>
     </div>
   </details>
 
@@ -3224,6 +3234,7 @@ function syncBTMode(){
   const en=$('mtfEntryTF'), ex=$('mtfExitTF');
   if(en) en.disabled=!cross; if(ex) ex.disabled=!cross;
   if(!cross){ if(en)en.value=mode; if(ex)ex.value=mode; }
+  document.querySelectorAll('#v-backtest .crossOnly').forEach(e=>e.style.display=cross?'':'none');   // 單週期模式→整個隱藏進/出場週期列，不佔版面
 }
 // 統一手動回測（單週期＝進出場同週期；跨週期＝進出場不同週期）。用跨週期引擎，含停利/逆行/移動停損。
 function runBT(){
