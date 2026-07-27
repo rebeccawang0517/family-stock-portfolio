@@ -234,6 +234,11 @@
   .pk-foot .chips{flex:1;min-width:0;margin:0}
   .pk-foot button.btn{padding:7px 14px;font-size:12.5px}
   .pk-grp{margin-top:16px} .pk-grp h5{font-size:11px;font-weight:700;color:var(--rust);text-transform:uppercase;letter-spacing:.7px;margin:0 0 9px}
+  .pk-grp h5 .grp-d{font-weight:400;color:var(--sub2);font-size:11px;letter-spacing:0;margin-left:8px;text-transform:none}
+  .cond-item .ci-n{flex-shrink:0}
+  .cond-item .ci-d{color:var(--sub2);font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+  .pk-hint{padding:0 18px 11px;font-size:11.5px;color:var(--sub2);line-height:1.5}
+  .pk-hint b{color:var(--sub)}
   .cond-item{display:flex;align-items:center;gap:9px;padding:7px 2px;font-size:13px;color:var(--txt);cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04)}
   .cond-item:hover{color:var(--gold)}
   .cond-item input{width:16px;height:16px;flex-shrink:0;accent-color:var(--gold);cursor:pointer}
@@ -471,32 +476,40 @@
   <details class="side-sec" id="advSec">
     <summary><span class="num">3</span><span class="stt"><b>進階與倉位</b><small id="wzSum2">—</small></span><span class="chev">▾</span></summary>
     <div class="side-sec-body">
-      <div class="subhd" style="margin-top:0">進階過濾</div>
-      <div style="margin-bottom:4px">
-        <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不用「多排(bull)」這個條件進場，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="mtfSkipGapBull"> 開高走低日不做多排(bull)</label><br>
-        <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="mtfSkipGapDay"> 開高走低日整天不進場(多空都不做)</label><br>
-        <label class="hint" style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 0" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="mtfDayOnly"> 只做日盤(夜盤不進場)</label>
+      <div class="subhd" style="margin-top:0">🕐 時段限制<span class="sub">（什麼時候做單）</span></div>
+      <div class="cfg">
+        <label class="hint" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="mtfDayOnly"> 只做日盤（夜盤不進場）<span class="sub">— 夜盤K棒不開新倉</span></label>
+        <label class="hint" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="mtfEODClose"> 當日平倉（不留倉過夜）<span class="sub">— 日盤最後一根強制出</span></label>
+        <label class="hint" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="mtfMidnightClose"> 半夜12點後不留倉<span class="sub">— 跨午夜前強制出</span></label>
       </div>
 
-      <div class="subhd">60K策略庫</div>
-      <p class="hint" style="margin:6px 0">策略庫不是另一套條件——就是用同一批 56 條件拼好的<b>預設組合</b>。「套用多／空」會清掉現有勾選、自動切 60分、均線 5/20/60 並直接回測；勾「疊加」＝只把條件加進現有勾選、不清除不自動跑。需先匯入 60分 K棒。</p>
+      <div class="subhd" style="margin-top:14px">🚫 特殊日過濾<span class="sub">（哪些天不做）</span></div>
+      <div class="cfg">
+        <label class="hint" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不用「多排(bull)」這個條件進場，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="mtfSkipGapBull"> 開高走低日不做多排(bull)<span class="sub">— 該日多排失效一天</span></label>
+        <label class="hint" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，只要偵測到這根，當天(日盤)整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="mtfSkipGapDay"> 開高走低日整天不進場<span class="sub">— 該日多空都休息</span></label>
+      </div>
+
+      <div class="subhd" style="margin-top:14px">🛡️ 停損防守<span class="sub">（點數停損/停利在「2 進出場條件」）</span></div>
+      <div class="cfg">
+        <label class="hint" title="台指日盤08:45-13:45才檢查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)。回測/最佳化都吃這個設定"><input type="checkbox" id="dayStopOnly"> 夜盤不停損<span class="sub">— 夜盤持倉不查停損停利</span></label>
+        <label class="hint" title="多單持倉：收盤跌破「當天夜盤最低點」就出場(夜低＝防守支撐)；空單持倉：收盤突破「當天夜盤最高點」就出場。依統計 A組(夜收上半+開高)幾乎不破夜低(約10.8%)＝做多用夜低防守；D組(夜收下半+開低)極易破夜低(約80%)＝順勢空、夜高防守。只在日盤K棒生效(需前一夜盤資料)，日線/週線不受影響"><input type="checkbox" id="mtfNightStop"> 夜盤防守停損<span class="sub">— 多守夜低／空守夜高</span></label>
+      </div>
+
+      <div class="subhd" style="margin-top:14px">⛰️ 大週期壓撐<span class="sub">（60分/日線，別逆著大關卡）</span></div>
+      <div class="cfg">
+        <label class="hint" title="壓力支撐固定用60分＋日線算，進場價碰到就不進，因果版不看未來"><input type="checkbox" id="mtfSR"> 壓力支撐過濾<span class="sub">— 進場價碰壓撐就不進</span></label>
+        <label class="hint" title="持倉時：多單漲到碰60分/日線壓力、空單跌到碰支撐，就出場（跟「壓力支撐過濾」用同一套大週期壓撐，只是這個是出場、那個是擋進場）。需先匯入60分或日線資料"><input type="checkbox" id="mtfSRExit"> 遇壓撐出場<span class="sub">— 多碰壓力／空碰支撐出</span></label>
+      </div>
+
+      <div class="subhd" style="margin-top:16px">📚 60K策略庫</div>
+      <p class="hint" style="margin:6px 0">策略庫不是另一套條件——就是用同一批條件拼好的<b>預設組合</b>。「套用多／空」會清掉現有勾選、自動切 60分、均線 5/20/60 並直接回測；勾「疊加」＝只把條件加進現有勾選、不清除不自動跑。需先匯入 60分 K棒。</p>
       <label class="hint" style="display:inline-flex;gap:6px;align-items:center;background:#1b1c20;border:1px solid var(--line);border-radius:8px;padding:6px 12px;margin:2px 0 8px">
-        <input type="checkbox" id="stratCombine"> <b>疊加模式</b>
+        <input type="checkbox" id="stratCombine"> <b>疊加模式</b><span class="sub">— 只加條件、不清現有勾選</span>
       </label>
       <details id="stratLib">
-        <summary class="hint" style="cursor:pointer;font-weight:700">開啟策略組合表（8 組預設組合，一鍵套用）</summary>
+        <summary class="hint" style="cursor:pointer;font-weight:700">開啟策略組合表（一鍵套用）</summary>
         <div class="scroll"><table id="stratTbl"></table></div>
       </details>
-
-      <div class="subhd" style="margin-top:16px">更多風控</div>
-      <div class="cfg">
-        <label class="hint" title="台指日盤08:45-13:45才檢查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)。回測/最佳化都吃這個設定"><input type="checkbox" id="dayStopOnly"> 夜盤不停損<span class="sub">(只日盤查風控)</span></label>
-        <label class="hint" title="壓力支撐固定用60分＋日線算，進場價碰到就不進，因果版不看未來"><input type="checkbox" id="mtfSR"> 壓力支撐過濾（60分/日線）</label>
-        <label class="hint" title="持倉時：多單漲到碰60分/日線壓力、空單跌到碰支撐，就出場（跟「壓力支撐過濾」用同一套大週期壓撐，只是這個是出場、那個是擋進場）。需先匯入60分或日線資料"><input type="checkbox" id="mtfSRExit"> 遇壓撐出場<span class="sub">(多碰壓力/空碰支撐)</span></label>
-        <label class="hint" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="mtfEODClose"> 當日平倉（不留倉過夜）</label>
-        <label class="hint" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="mtfMidnightClose"> 半夜12點後不留倉</label>
-        <label class="hint" title="多單持倉：收盤跌破「當天夜盤最低點」就出場(夜低＝防守支撐)；空單持倉：收盤突破「當天夜盤最高點」就出場。依統計 A組(夜收上半+開高)幾乎不破夜低(約10.8%)＝做多用夜低防守；D組(夜收下半+開低)極易破夜低(約80%)＝順勢空、夜高防守。只在日盤K棒生效(需前一夜盤資料)，日線/週線不受影響"><input type="checkbox" id="mtfNightStop"> 夜盤低點防守停損<span class="sub">(多守夜低/空守夜高)</span></label>
-      </div>
 
       <div class="subhd" style="margin-top:16px">算倉位</div>
       <p class="hint" style="margin:6px 0 12px">回測跑完才算得出倉位——用最新回測的 edge（期望值／勝率／回撤）反推<b>口數、首單、加碼與風險紅線</b>。</p>
@@ -558,7 +571,8 @@
           <button type="button" data-dirf="short">只看空方</button>
           <button type="button" class="on" data-dirf="all">全部</button>
         </div>
-        <div class="pk-search"><input type="search" id="bpkSearch" placeholder="🔍 搜尋條件（例：MA60、放量、交叉、紅K）" autocomplete="off"></div>
+        <div class="pk-hint">💡 組高勝率策略照分類順序拿：<b>①趨勢</b> ＋ <b>③價位或④觸發</b> ＋ <b>⑤K棒/⑥量能確認</b>，2~4 條剛好——條件越多越嚴、訊號越少</div>
+        <div class="pk-search"><input type="search" id="bpkSearch" placeholder="🔍 搜尋條件（例：MA60、放量、交叉、紅K、支撐）" autocomplete="off"></div>
       </div>
       <div class="pk-modbody">
         <div class="pk-cats" id="bpkCats"></div>
@@ -690,26 +704,39 @@
   </details>
 
   <details class="side-sec" open>
-    <summary><span class="num">3</span><span class="stt"><b>共用選項</b><small>停損 · 壓撐 · 夜盤</small></span><span class="chev">▾</span></summary>
+    <summary><span class="num">3</span><span class="stt"><b>共用選項</b><small>時段 · 特殊日 · 停損防守 · 壓撐</small></span><span class="chev">▾</span></summary>
     <div class="side-sec-body">
-    <p class="hint" style="margin:0 0 12px">這裡的設定<b>同時作用於 1 單週期和 2 跨週期</b>，設一次就好（只出現這一次）。</p>
+    <p class="hint" style="margin:0 0 12px">這裡的設定<b>同時作用於 1 單週期和 2 跨週期</b>，設一次就好（只出現這一次）。分組跟「②手動回測 → 3 進階與倉位」一模一樣，兩邊好對照。</p>
+
+    <div class="subhd" style="margin-top:0">🕐 時段限制<span class="sub">（什麼時候做單）</span></div>
     <div class="cfg">
-      <label class="full" title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="optDayStop"> 夜盤不停損（僅日盤執行停損停利）</label>
-      <label class="full" title="固定停損點數，從進場價算。勾了：單週期不再自動掃描停損、直接用這個點數；跨週期加上這個停損。不勾：單週期依「出場方式」自動掃描、跨週期不設停損"><input type="checkbox" id="mtfOptUseSL"> 加停損 <input type="number" id="mtfOptSL" value="80"> 點<span class="sub">（勾＝兩邊都用固定點數；不勾＝單週期自動掃描）</span></label>
-      <label class="full" title="從最高點回吐這麼多點就出場＝鎖利。勾了：兩邊都用這個回吐點數；不勾：單週期自動測 不用/80 兩種、跨週期不設"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損 <input type="number" id="mtfOptTrail" value="80"> 點<span class="sub">（回吐鎖利）</span></label>
-      <label class="full" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，凡含「多排(bull)」的候選組合，在標記日整天都不算成立，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="optSkipGapBull"> 開高走低日不做多排(bull)</label>
-      <label class="full" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="optDayOnly"> 只做日盤(夜盤不進場)</label>
-      <label class="full" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="optEODClose"> 當日平倉（不留倉過夜）</label>
-      <label class="full" title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 納入壓力支撐過濾（60分/日線，實驗）</label>
-      <label class="full" title="夜盤低點/高點防守停損：多單收破當天夜低出場、空單收破當天夜高出場。勾了會「有/無兩種一起測」讓最佳化自己比哪種好(＝不只單一出場模式)。統計上A組(夜收上半+開高)幾乎不破夜低(約10.8%)＝防守多；D組(夜收下半+開低)極易破夜低(約80%)＝順勢空。只在日盤K棒生效"><input type="checkbox" id="optNightStop"> 納入夜盤防守停損（多守夜低/空守夜高，有/無一起測）</label>
-      <details style="margin-top:6px;grid-column:1/-1">
-        <summary class="hint" style="cursor:pointer;font-weight:700">更多共用選項（規格未列，但功能需要保留）</summary>
-        <div class="cfg" style="margin-top:8px">
-          <label class="full" title="出場後改用較嚴格的再次進場條件；會多試幾組，搜尋時間增加。此功能僅跨週期引擎支援"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件<span class="sub">（實驗，僅跨週期適用）</span></label>
-          <label class="full" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，標記日整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="optSkipGapDay"> 開高走低日整天不進場(多空都不做)</label>
-          <label class="full" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="optMidnightClose"> 半夜12點後不留倉</label>
-        </div>
-      </details>
+      <label class="hint" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="optDayOnly"> 只做日盤（夜盤不進場）<span class="sub">— 夜盤K棒不開新倉</span></label>
+      <label class="hint" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="optEODClose"> 當日平倉（不留倉過夜）<span class="sub">— 日盤最後一根強制出</span></label>
+      <label class="hint" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="optMidnightClose"> 半夜12點後不留倉<span class="sub">— 跨午夜前強制出</span></label>
+    </div>
+
+    <div class="subhd" style="margin-top:14px">🚫 特殊日過濾<span class="sub">（哪些天不做）</span></div>
+    <div class="cfg">
+      <label class="hint" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，凡含「多排(bull)」的候選組合，在標記日整天都不算成立，其餘條件不受影響；不影響空排/其他條件，也不影響夜盤"><input type="checkbox" id="optSkipGapBull"> 開高走低日不做多排(bull)<span class="sub">— 該日多排失效一天</span></label>
+      <label class="hint" title="判定：當天日盤第一根K「最高價＝開盤價 且 收盤&lt;開盤」＝開最高後只跌沒再創高，收黑。勾選後，標記日整天都不進場——不論多單或空單、不論條件是什麼；已持有的倉位不受影響，也不影響夜盤"><input type="checkbox" id="optSkipGapDay"> 開高走低日整天不進場<span class="sub">— 該日多空都休息</span></label>
+    </div>
+
+    <div class="subhd" style="margin-top:14px">🛡️ 停損防守<span class="sub">（怎麼守）</span></div>
+    <div class="cfg">
+      <label class="hint" title="固定停損點數，從進場價算。勾了：單週期不再自動掃描停損、直接用這個點數；跨週期加上這個停損。不勾：單週期依「出場方式」自動掃描、跨週期不設停損"><input type="checkbox" id="mtfOptUseSL"> 加停損 <input type="number" id="mtfOptSL" value="80"> 點<span class="sub">— 勾＝固定點數；不勾＝單週期自動掃描</span></label>
+      <label class="hint" title="從最高點回吐這麼多點就出場＝鎖利。勾了：兩邊都用這個回吐點數；不勾：單週期自動測 不用/80 兩種、跨週期不設"><input type="checkbox" id="mtfOptUseTrail"> 加移動停損 <input type="number" id="mtfOptTrail" value="80"> 點<span class="sub">— 回吐鎖利</span></label>
+      <label class="hint" title="台指日盤08:45-13:45才查停損/停利/移動停損；夜盤持倉抱著不被假跌破洗掉(訊號出場照常)"><input type="checkbox" id="optDayStop"> 夜盤不停損<span class="sub">— 夜盤持倉不查停損停利</span></label>
+      <label class="hint" title="夜盤低點/高點防守停損：多單收破當天夜低出場、空單收破當天夜高出場。勾了會「有/無兩種一起測」讓最佳化自己比哪種好(＝不只單一出場模式)。統計上A組(夜收上半+開高)幾乎不破夜低(約10.8%)＝防守多；D組(夜收下半+開低)極易破夜低(約80%)＝順勢空。只在日盤K棒生效"><input type="checkbox" id="optNightStop"> 夜盤防守停損<span class="sub">— 多守夜低／空守夜高，有/無一起測</span></label>
+    </div>
+
+    <div class="subhd" style="margin-top:14px">⛰️ 大週期壓撐<span class="sub">（60分/日線，別逆著大關卡）</span></div>
+    <div class="cfg">
+      <label class="hint" title="壓力支撐固定用「60分＋日線」算(不看小週期)，因果版不偷看未來。過濾=進場價碰到60分或日線的壓力(多單)/支撐(空單)就不進。會同時測有/無過濾讓數據自己比。需先匯入60分或日線資料"><input type="checkbox" id="optSR"> 壓力支撐過濾<span class="sub">— 進場價碰壓撐就不進，有/無一起測（實驗）</span></label>
+    </div>
+
+    <div class="subhd" style="margin-top:14px">🔍 搜尋加項</div>
+    <div class="cfg">
+      <label class="hint" title="出場後改用較嚴格的再次進場條件；會多試幾組，搜尋時間增加。此功能僅跨週期引擎支援"><input type="checkbox" id="mtfOptReentry"> 搜尋「再次進場」條件<span class="sub">— 實驗，僅跨週期適用</span></label>
     </div>
     </div>
   </details>
@@ -2038,17 +2065,49 @@ function renderStratBar(){
 const KCLS={entry:'mtfEc',reentry:'mtfRc',exit:'mtfXc'};
 const KINDNAME={entry:'首次進場',reentry:'再次進場',exit:'出場'};
 const COMMON=['bull','overMA3','volUp','red','goldX','overMA4','trendUp','ma4TurnUp','nearHigh','strRed'];
+// 分類依「交易思維」排序＝組策略的順序：①先看趨勢→②③找位置→④等觸發→⑤⑥確認→⑦⑧輔助情境；每組內核心條件在前
 const CGROUPS=[
-  ['排列 / 趨勢',['bull','bear','loseBull','loseBear','trendUp','trendDn','bullK3','bearK3']],
-  ['均線位置（站上 / 跌破）',['overMA1','underMA1','overMA2','underMA2','overMA3','underMA3','overMA4','underMA4','overMA5','underMA5']],
-  ['交叉 / 穿越',['goldX','deadX','xUp4','xDn4']],
-  ['均線拐點 / 斜率',['ma3Up','ma3Dn','ma1TurnUp','ma1TurnDn','ma4TurnUp','ma4TurnDn']],
-  ['K棒型態',['red','green','strRed','strGreen','longLow','longUp','red2','red3','green2','green3']],
-  ['量能',['volUp','volSpike']],
-  ['壓撐 / 位置',['sup','res','supL','resL','nearHigh','nearLow']],
-  ['布林通道 (20, 2σ)',['bbUpBk','bbDnBk','bbLowT','bbUpT','bbMidUp','bbMidDn']],
-  ['夜盤位置 × 開盤跳空',['nightA','nightB','nightC','nightD','nightLoT','nightHiT']]
+  ['① 趨勢方向',['bull','bear','bullK3','bearK3','trendUp','trendDn','loseBull','loseBear'],'先確認大方向，順勢交易勝率高'],
+  ['② 均線多空',['overMA3','underMA3','overMA4','underMA4','overMA1','underMA1','overMA2','underMA2','overMA5','underMA5'],'價格站上/跌破均線＝多空分界（20/60 最核心）'],
+  ['③ 關鍵價位',['sup','res','supL','resL','nearHigh','nearLow'],'支撐買、壓力空——贏在進場位置'],
+  ['④ 進場觸發',['goldX','deadX','xUp4','xDn4','ma3Up','ma3Dn','ma4TurnUp','ma4TurnDn','ma1TurnUp','ma1TurnDn'],'交叉／穿越／拐點＝扣板機的時機'],
+  ['⑤ K棒確認',['red','green','strRed','strGreen','longLow','longUp','red2','green2','red3','green3'],'進場那根K的長相——多一層保險'],
+  ['⑥ 量能確認',['volUp','volSpike'],'放量＝有人跟，訊號更可信'],
+  ['⑦ 布林通道',['bbUpBk','bbDnBk','bbLowT','bbUpT','bbMidUp','bbMidDn'],'波動軌道：突破軌道順勢、觸軌收回反轉'],
+  ['⑧ 夜盤情境',['nightA','nightD','nightLoT','nightHiT','nightB','nightC'],'夜盤高低點＝日盤天然支撐壓力（日內限定）']
 ];
+const COND_TOTAL=CGROUPS.reduce((s,g)=>s+g[1].length,0);
+// 每個條件的一行白話說明（顯示在選擇器名稱旁；完整定義仍在 CONDDEF tooltip）
+const SHORTDEF={
+  bull:'均線多頭排列，趨勢偏多', bear:'均線空頭排列，趨勢偏空',
+  bullK3:'MA5>20>60 全多排＝強多趨勢', bearK3:'MA5<20<60 全空排＝強空趨勢',
+  trendUp:'近N根收盤斜率向上', trendDn:'近N根收盤斜率向下',
+  loseBull:'多頭排列剛消失＝轉弱警訊', loseBear:'空頭排列剛消失＝轉強警訊',
+  overMA3:'收盤站上MA20＝多方掌控', underMA3:'收盤跌破MA20＝轉弱',
+  overMA4:'收盤站上MA60＝中期偏多', underMA4:'收盤跌破MA60＝中期轉空',
+  overMA1:'收盤站上MA5＝短線強', underMA1:'收盤跌破MA5＝短線弱',
+  overMA2:'收盤站上MA10', underMA2:'收盤跌破MA10',
+  overMA5:'收盤站上MA240 長期線', underMA5:'收盤跌破MA240 長期線',
+  sup:'回測MA20/60守住＝均線支撐', res:'反彈MA20/60被壓回＝均線壓力',
+  supL:'觸左側轉折低點收腳＝平台支撐', resL:'觸左側轉折高點壓回＝平台壓力',
+  nearHigh:'收在近20根高點附近＝突破在即', nearLow:'收在近20根低點附近＝破底邊緣',
+  goldX:'MA1由下往上穿MA2＝黃金交叉', deadX:'MA1由上往下破MA2＝死亡交叉',
+  xUp4:'收盤向上穿越MA60＝突破60均', xDn4:'收盤向下跌破MA60＝跌破60均',
+  ma3Up:'MA20斜率上揚＝中期表態向上', ma3Dn:'MA20斜率下彎＝中期表態向下',
+  ma4TurnUp:'MA60剛翻揚＝主趨勢轉強', ma4TurnDn:'MA60剛下彎＝主趨勢轉弱',
+  ma1TurnUp:'MA5剛拐頭向上＝短線轉強早訊', ma1TurnDn:'MA5剛拐頭向下＝短線轉弱早訊',
+  red:'收盤>開盤的紅K', green:'收盤<開盤的黑K',
+  strRed:'實體≥60%大陽線＝強攻', strGreen:'實體≥60%大陰線＝強殺',
+  longLow:'下影線長＝下方有買盤接', longUp:'上影線長＝上方有賣壓',
+  red2:'連2根紅K＝多方延續', green2:'連2根黑K＝殺盤延續',
+  red3:'連3根紅K＝追多動能', green3:'連3根黑K＝殺盤動能',
+  volUp:'量≥20根均量1.5倍＝放量', volSpike:'量≥20根均量2.5倍＝爆量',
+  bbUpBk:'收盤突破布林上軌＝順勢強攻', bbDnBk:'收盤跌破布林下軌＝順勢殺跌',
+  bbLowT:'觸下軌收回＝超跌反彈買訊', bbUpT:'觸上軌壓回＝超漲拉回空訊',
+  bbMidUp:'收盤站上中軌(20MA)＝偏多', bbMidDn:'收盤跌破中軌＝轉弱',
+  nightA:'夜收上半+開高：破夜低僅~10%＝強多', nightD:'夜收下半+開低：破夜低~80%＝順勢空',
+  nightLoT:'盤中踩夜低守住收回＝反彈買', nightHiT:'盤中觸夜高被壓回＝反彈賣',
+  nightB:'夜收上半+開低：夜低支撐轉弱(~43%)', nightC:'夜收下半+開高：中性偏空(~30%)'};
 function condSel(kind){ return [...document.querySelectorAll('.'+KCLS[kind]+':checked')].map(e=>e.value); }
 function setCond(kind,code,state){ const b=document.querySelector('.'+KCLS[kind]+'[value="'+code+'"]'); if(b) b.checked=state; }
 function renderChipConds(){
@@ -2069,7 +2128,7 @@ function openCondPicker(kind){ bpkKindS=kind; bpkQuery=''; bpkCat=null; bpkDir='
   document.querySelectorAll('#bpkDirTabs button').forEach(b=>b.classList.toggle('on',b.dataset.dirf==='all'));
   renderCondPicker(); $('bpkOverlay').classList.add('show'); $('bpkSearch').focus(); }
 function closeCondPicker(){ $('bpkOverlay').classList.remove('show'); bpkKindS=null; }
-function condPickHit(code,q){ return (!q||(CODEL[code]||'').toLowerCase().includes(q)||code.toLowerCase().includes(q))
+function condPickHit(code,q){ return (!q||(CODEL[code]||'').toLowerCase().includes(q)||code.toLowerCase().includes(q)||(SHORTDEF[code]||'').toLowerCase().includes(q))
   && (bpkDir==='all' || condPolarity(code)==='neutral' || condPolarity(code)===bpkDir); }
 function renderCondPicker(){
   if(!bpkKindS) return;
@@ -2082,10 +2141,10 @@ function renderCondPicker(){
     .join('');
   $('bpkCats').innerHTML=catsHtml;
   const groups = bpkCat===null ? CGROUPS : [CGROUPS[bpkCat]];
-  const html=groups.map(([title,keys])=>{ const ks=keys.filter(hit); matches+=ks.length; if(!ks.length) return '';
-    return `<div class="pk-grp"><h5>${title}</h5>`+
-      ks.map(code=>`<label class="cond-item"><input type="checkbox" ${sel.includes(code)?'checked':''} data-cpick="${code}"> ${CODEL[code]||code}</label>`).join('')+`</div>`;}).join('');
-  $('bpkCnt').textContent=q?`已選 ${sel.length}　·　符合 ${matches} 條`:`已選 ${sel.length} / 56 條`;
+  const html=groups.map(([title,keys,gdesc])=>{ const ks=keys.filter(hit); matches+=ks.length; if(!ks.length) return '';
+    return `<div class="pk-grp"><h5>${title}${gdesc?`<span class="grp-d">${gdesc}</span>`:''}</h5>`+
+      ks.map(code=>`<label class="cond-item" title="${(CONDDEF[code]||'').replace(/"/g,'&quot;')}"><input type="checkbox" ${sel.includes(code)?'checked':''} data-cpick="${code}"> <span class="ci-n">${CODEL[code]||code}</span><span class="ci-d">${SHORTDEF[code]||''}</span></label>`).join('')+`</div>`;}).join('');
+  $('bpkCnt').textContent=q?`已選 ${sel.length}　·　符合 ${matches} 條`:`已選 ${sel.length} / ${COND_TOTAL} 條`;
   $('bpkBody').innerHTML=html||`<div class="pk-none">找不到${bpkQuery?`「${bpkQuery}」相關`:''}條件，換個關鍵字或分類（例：MA、量、影、K）</div>`;
   renderPkFootChips();
 }
@@ -3297,7 +3356,7 @@ const STRAT_LIB=[
 ];
 function renderStratLib(){
   const el=$('stratTbl'); if(!el) return;
-  let h=`<tr><th class="l">策略</th><th class="l">邏輯</th><th title="重要度">星等</th><th class="l">備註</th><th>套用</th></tr>`;
+  let h=`<tr><th class="l">策略</th><th class="l">邏輯</th><th title="重要度">星等</th><th class="l">適用情境</th><th>套用</th></tr>`;
   STRAT_LIB.forEach((s,idx)=>{
     h+=`<tr><td class="l"><b>${s.name}</b></td><td class="l">${s.logic}</td>`
       +`<td style="color:#ffcf5a;letter-spacing:1px">${'★'.repeat(s.stars)}${'☆'.repeat(5-s.stars)}</td>`
