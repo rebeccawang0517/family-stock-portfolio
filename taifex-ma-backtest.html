@@ -541,6 +541,7 @@
   <fieldset id="resultBox" style="margin-top:14px">
     <legend>📊 回測結果</legend>
     <div class="kpis" id="kpiBoard"></div>
+    <div id="splitCheck" class="summary" style="display:none;margin:8px 0 4px"></div>
     <details style="margin:10px 0 4px"><summary class="hint" style="cursor:pointer;font-weight:600">▸ 其他指標（總損益／獲利因子／平均獲利虧損／單筆最大逆行…）</summary>
       <div class="cards" id="statCards" style="margin-top:8px"></div></details>
     <div id="marginHint" class="msg" style="background:#20293a;color:#b8cde8"></div>
@@ -1958,6 +1959,7 @@ function renderAnalogSR(){
 }
 
 //========================= 結果呈現 =========================
+let btSplit=null;   // ②穩定度檢查：runBT 算好的 前70%/後30% 拆分統計（{sIn,sOut}）
 function renderResult(){
   const n=trades.length;
   const wins=trades.filter(t=>t.pts>0), losses=trades.filter(t=>t.pts<=0);
@@ -1999,6 +2001,15 @@ function renderResult(){
       <div class="vv ${x.vc}">${x.v}<span class="uu">${x.u}</span></div>
       <div class="ss">${x.s}</div></div>`).join('');
   }
+  // 穩定度檢查列：前70%/後30% 各自的勝率與點數（btSplit 由 runBT 計算；套用舊紀錄等沒算時就隱藏）
+  const sc=$('splitCheck');
+  if(sc){ if(btSplit&&(btSplit.sIn||btSplit.sOut)){ const f=st=>st?`勝率 ${fmt(st.winRate,1)}%（${st.n}筆、${st.total>0?'+':''}${fmt0(st.total)}點）`:'無交易';
+      const o=btSplit.sOut; let verdict;
+      if(!o||o.n<5) verdict='<span style="color:var(--sub)">後30%交易太少，僅供參考</span>';
+      else if(o.total>0) verdict='<span style="color:var(--dn)">✓ 後段樣本仍賺，穩定度OK</span>';
+      else verdict='<span style="color:var(--up)">⚠ 後30%轉虧——可能只是前段行情的產物，小心過度擬合</span>';
+      sc.style.display=''; sc.innerHTML=`⏱ 穩定度檢查（同③最佳化的樣本內/外概念）：<b>前70%</b> ${f(btSplit.sIn)}　·　<b>後30%</b> ${f(o)}　${verdict}`;
+    } else sc.style.display='none'; }
   renderStratBar&&renderStratBar(); renderChipConds&&renderChipConds();
   const marginHint=$('marginHint'); if(marginHint) marginHint.innerHTML = n?
     `💡 <b>保證金參考</b>：這段回測中，單筆部位盤中最深逆行（帳面浮虧）達 <b style="color:var(--up)">${fmt0(maxMAE)} 點 ≈ ${fmt0(maxMAE*ptVal)} 元/口</b>。要撐過這種逆行不被斷頭，除了交易所原始保證金，最好再多準備這個緩衝（實際請以券商公告的原始/維持保證金為準）。`:'';
@@ -3246,6 +3257,11 @@ function runBT(){
   if(cfg.srFilter && !ctx.srFilter) msg($('runMsg'),'（提示：未匯入60分/日線，壓力支撐過濾未生效）',false);
   if(cfg.srExit && !ctx.srFilter) msg($('runMsg'),'（提示：未匯入60分/日線，遇壓撐出場未生效）',false);
   const tr=mtfTrades(ctx,cfg);
+  // 穩定度檢查：同組條件按時間切「前70%／後30%」各跑一次（跟③最佳化的樣本內/外同概念），驗證不是只有前段行情在撐
+  btSplit=null;
+  try{ const nAll=ctx.enB.length, tEnd=Math.floor(nAll*0.7);
+    btSplit={ sIn:tradeStats(mtfTrades(ctx,cfg,0,tEnd)), sOut:tradeStats(mtfTrades(ctx,cfg,tEnd,nAll)) };
+  }catch(e){ btSplit=null; }
   const markB = tr.markBars || ctx.enB;          // 進粗出細時交易索引在出場(細)週期；否則仍是進場週期
   const markTF = tr.markTF || enTF;
   const lab=i=>{ const b=markB[i]; return b?((b.date||'#'+i)+(b.time?' '+b.time:'')):('#'+i); };
