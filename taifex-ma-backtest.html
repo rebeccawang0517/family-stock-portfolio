@@ -884,6 +884,7 @@
       <tr><td class="l"><b>走勢向上 ↑ / 向下 ↓</b></td><td class="l"><b>最近 N 根收盤的線性回歸斜率</b>（N＝「走勢判斷回看」）：斜率 &gt; 走勢門檻＝向上、&lt; −門檻＝向下。門檻＝每根平均要漲/跌超過幾點才算，0＝只要斜率不為0（盤整易翻可調大）</td><td class="l">順勢過濾</td></tr>
       <tr><td class="l"><b>放量</b></td><td class="l">這根成交量 ≥ <b>前20根均量的 1.5 倍</b></td><td class="l">配紅K/多排＝有量的攻擊</td></tr>
       <tr><td class="l"><b>爆量</b></td><td class="l">這根成交量 ≥ <b>前20根均量的 2.5 倍</b>（量能大增）</td><td class="l">配紅K偏續攻、配黑K偏轉弱</td></tr>
+      <tr><td class="l"><b>溫和放量（1.2倍）</b></td><td class="l">這根成交量 ≥ <b>前20根均量的 1.2 倍</b>＝量稍增就算有人跟（比放量1.5寬鬆）。量能倍數想測 1.0~1.5 區間就用 1.2／1.5 兩檔互換比較</td><td class="l">60K斜率策略的量能確認（MA20斜率＋溫和放量）</td></tr>
       <tr><td class="l"><b>連續2/3紅K・連續2/3黑K</b></td><td class="l">這根與前 1（或前 2）根都同方向收紅／收黑（動能延續）</td><td class="l">追多／追空</td></tr>
       <tr><td class="l"><b>貼近期高（突破）</b></td><td class="l">收盤落在「近20根最高價（<b>含這根</b>）」的 <b>0.5% 內</b>＝收在近期高檔。<b>含這根是刻意設計</b>：這根創新高且收高檔＝<b>突破確認</b>、沒創新高＝逼近前高。★用的是<b>已收完K棒</b>的高點（收盤時就已知），<b>不是未來函數</b>——跟紅K/強紅K/長上影同一個因果標準（都用當根已收完的OHLC），成交也在收盤或次根開盤之後，不會偷看未來</td><td class="l">做多進場（突破追價）</td></tr>
       <tr><td class="l"><b>貼近期低（破底）</b></td><td class="l">收盤落在「近20根最低價（含這根）」的 0.5% 內＝收在近期低檔＝破底或逼近前低。同樣用已收完K棒的低點，因果安全</td><td class="l">做空進場（破底追空）</td></tr>
@@ -2143,7 +2144,7 @@ const CGROUPS=[
   ['③ 關鍵價位',['sup','res','supL','resL','nearHigh','nearLow'],'支撐買、壓力空——贏在進場位置'],
   ['④ 進場觸發',['goldX','deadX','xUp4','xDn4','ma3Up','ma3Dn','ma4TurnUp','ma4TurnDn','ma1TurnUp','ma1TurnDn'],'交叉／穿越／拐點＝扣板機的時機'],
   ['⑤ K棒確認',['red','green','strRed','strGreen','longLow','longUp','red2','green2','red3','green3'],'進場那根K的長相——多一層保險'],
-  ['⑥ 量能確認',['volUp','volSpike'],'放量＝有人跟，訊號更可信'],
+  ['⑥ 量能確認',['volMild','volUp','volSpike'],'放量＝有人跟，訊號更可信（1.2/1.5/2.5 三檔）'],
   ['⑦ 布林通道',['bbUpBk','bbDnBk','bbLowT','bbUpT','bbMidUp','bbMidDn'],'波動軌道：突破軌道順勢、觸軌收回反轉'],
   ['⑧ 夜盤情境',['nightA','nightD','nightLoT','nightHiT','nightB','nightC'],'夜盤高低點＝日盤天然支撐壓力（日內限定）']
 ];
@@ -2172,7 +2173,7 @@ const SHORTDEF={
   longLow:'下影線長＝下方有買盤接', longUp:'上影線長＝上方有賣壓',
   red2:'連2根紅K＝多方延續', green2:'連2根黑K＝殺盤延續',
   red3:'連3根紅K＝追多動能', green3:'連3根黑K＝殺盤動能',
-  volUp:'量≥20根均量1.5倍＝放量', volSpike:'量≥20根均量2.5倍＝爆量',
+  volUp:'量≥20根均量1.5倍＝放量', volSpike:'量≥20根均量2.5倍＝爆量', volMild:'量≥20根均量1.2倍＝量稍增即確認',
   bbUpBk:'收盤突破布林上軌＝順勢強攻', bbDnBk:'收盤跌破布林下軌＝順勢殺跌',
   bbLowT:'觸下軌收回＝超跌反彈買訊', bbUpT:'觸上軌壓回＝超漲拉回空訊',
   bbMidUp:'收盤站上中軌(20MA)＝偏多', bbMidDn:'收盤跌破中軌＝轉弱',
@@ -2743,7 +2744,7 @@ function refreshAll(){
 const CODEL={bull:'多排',bear:'空排',red:'紅K',green:'黑K',overMA1:'站上MA5',overMA2:'站上MA10',overMA3:'站上MA20',overMA4:'站上MA60',
   underMA1:'破MA5',underMA2:'破MA10',underMA3:'破MA20',underMA4:'破MA60',overMA5:'站上MA240',underMA5:'破MA240',sup:'MA支撐',res:'MA壓力',trendUp:'走勢↑',trendDn:'走勢↓',
   loseBull:'多排消失',loseBear:'空排消失',deadX:'MA1↓MA2',goldX:'MA1↑MA2',
-  strRed:'強紅K',strGreen:'強黑K',longLow:'長下影',longUp:'長上影',volUp:'放量',volSpike:'爆量',
+  strRed:'強紅K',strGreen:'強黑K',longLow:'長下影',longUp:'長上影',volUp:'放量',volSpike:'爆量',volMild:'放量1.2',
   red2:'連2紅K',red3:'連3紅K',green2:'連2黑K',green3:'連3黑K',nearHigh:'貼近期高',nearLow:'貼近期低',
   ma3Up:'MA20↑',ma3Dn:'MA20↓',xUp4:'穿MA60↑',xDn4:'穿MA60↓',bullK3:'三線多',bearK3:'三線空',supL:'左支撐',resL:'左壓力',
   ma1TurnUp:'MA5上彎',ma1TurnDn:'MA5下彎',ma4TurnUp:'MA60上彎',ma4TurnDn:'MA60下彎',
@@ -2761,7 +2762,7 @@ const L_ENTRY=[['bull'],['bull','red'],['bull','red','overMA3'],['bull','overMA3
   ['bull','red3'],['red3','overMA3'],['bull','overMA2'],['bull','overMA1','overMA2'],
   ['bull','red2','volUp'],['bull','nearLow'],['bull','nearHigh','red'],
   ['bullK3'],['bullK3','red'],['bullK3','overMA3'],['bullK3','ma3Up'],
-  ['ma3Up','overMA3'],['ma3Up','overMA3','red'],['xUp4'],['xUp4','bull'],
+  ['ma3Up','overMA3'],['ma3Up','overMA3','red'],['ma3Up','volMild'],['xUp4'],['xUp4','bull'],
   ['supL'],['supL','ma3Up'],['supL','bull'],['sup','ma3Up'],
   ['ma4TurnUp'],['ma4TurnUp','bull'],['ma1TurnUp','overMA3'],['bullK3','ma1TurnUp'],
   ['bbLowT'],['bbLowT','longLow'],['bbLowT','bull'],['bull','bbUpBk'],['bbUpBk','volUp'],['bull','bbMidUp'],
@@ -2828,6 +2829,7 @@ function simulate(cfg,i0,i1){
       if(c==='longLow'&&!(x.range>0&&x.loSh/x.range>=0.5))return false;  // 長下影(引線佔比≥35%)
       if(c==='longUp'&&!(x.range>0&&x.upSh/x.range>=0.5))return false;   // 長上影
       if(c==='volUp'&&!(x.volR>=1.5))return false;   if(c==='volSpike'&&!(x.volR>=2.5))return false;  // 放量/爆量
+      if(c==='volMild'&&!(x.volR>=1.2))return false;                                                  // 溫和放量(1.2倍)
       if(c==='overMA1'&&!(b.c>x.ma1))return false; if(c==='underMA1'&&!(b.c<x.ma1))return false;      // 站上/破 MA5
       if(c==='overMA2'&&!(b.c>x.ma2))return false; if(c==='underMA2'&&!(b.c<x.ma2))return false;      // 站上/破 MA10
       if(c==='red2'&&!(x.red&&i>=1&&ind[i-1].red))return false;                                       // 連2紅K
@@ -3091,6 +3093,7 @@ function condTrue(B,I,i,code,tol,align){
     case 'strRed':return x.red&&x.bodyRatio>=0.6; case 'strGreen':return x.green&&x.bodyRatio>=0.6;
     case 'longLow':return x.range>0&&x.loSh/x.range>=0.5; case 'longUp':return x.range>0&&x.upSh/x.range>=0.5;
     case 'volUp':return x.volR>=1.5; case 'volSpike':return x.volR>=2.5;   // 放量/爆量（對前20根均量）
+    case 'volMild':return x.volR>=1.2;   // 溫和放量（≥1.2倍前20均量，60K斜率策略用：量稍增即確認、比放量1.5鬆）
     case 'red2':return x.red && i>=1 && I[i-1].red;                        // 連續2根紅K
     case 'red3':return x.red && i>=2 && I[i-1].red && I[i-2].red;          // 連續3根紅K
     case 'green2':return x.green && i>=1 && I[i-1].green;                  // 連續2根黑K
@@ -3129,7 +3132,7 @@ const MTF_CONDS=[['bull','多排'],['bear','空排'],['red','紅K'],['green','�
   ['strRed','強紅K'],['strGreen','強黑K'],['longLow','長下影'],['longUp','長上影'],
   ['red2','連續2紅K'],['red3','連續3紅K'],['green2','連續2黑K'],['green3','連續3黑K'],
   ['nearHigh','貼近期高(突破)'],['nearLow','貼近期低(破底)'],
-  ['volUp','放量'],['volSpike','爆量'],
+  ['volUp','放量'],['volSpike','爆量'],['volMild','溫和放量(1.2倍)'],
   ['ma3Up','MA20上揚'],['ma3Dn','MA20下彎'],['xUp4','價穿MA60↑'],['xDn4','價穿MA60↓'],
   ['bullK3','60K三線多排'],['bearK3','60K三線空排'],['supL','左側支撐(收腳)'],['resL','左側壓力(壓回)'],
   ['ma1TurnUp','MA5剛上彎'],['ma1TurnDn','MA5剛下彎'],['ma4TurnUp','MA60剛上彎'],['ma4TurnDn','MA60剛下彎'],
@@ -3159,6 +3162,7 @@ const CONDDEF={
   longUp:'長上影：上影線 ≥ 整根K棒高低幅的 50%（上方被壓回，賣壓訊號）',
   volUp:'放量：這根成交量 ≥ 前20根均量的 1.5 倍',
   volSpike:'爆量：這根成交量 ≥ 前20根均量的 2.5 倍（配紅K偏續攻、配黑K偏轉弱）',
+  volMild:'溫和放量：這根成交量 ≥ 前20根均量的 1.2 倍。比「放量(1.5)」寬鬆＝量稍增就算有人跟，60K斜率策略的量能確認用；量能倍數想測 1.0~1.5 區間就用 1.2/1.5 兩檔互換比較',
   red2:'連續2根紅K（這根與前一根都收紅，動能延續）', red3:'連續3根紅K（連三紅，追多動能）',
   green2:'連續2根黑K（這根與前一根都收黑，殺盤延續）', green3:'連續3根黑K（連三黑，殺盤動能）',
   nearHigh:'貼近期高：收盤落在「近20根最高價(含這根)」的 0.5% 內＝收在近期高檔。含這根是刻意的——這根創新高且收高檔＝突破確認、沒創新高＝逼近前高。用已收完K棒的高點(收盤時已知)，非未來函數，跟紅K/強紅K同一個因果標準',
@@ -3476,6 +3480,9 @@ const STRAT_LIB=[
   {name:'夜低反彈買/夜高反彈賣', stars:4, note:'碰夜低守住才買、碰夜高壓回才賣',
    logic:'盤中回測夜低但收盤守住→反彈買，夜低當防守停損｜盤中觸夜高被壓回→反彈賣，夜高當防守停損',
    long:['nightLoT'], short:['nightHiT'], lx:['underMA3'], sx:['overMA3'], nightStop:true, def:{sl:60,trail:0}},
+  {name:'60K 斜率量能', stars:4, note:'MA20斜率(N=3)表態＋量增1.2倍確認',
+   logic:'MA20 近3根斜率上揚＋溫和放量 → 多｜斜率下彎＋溫和放量 → 空（套用會把「走勢判斷回看」設3；MA週期用MA3欄位改15~30、量能可換放量1.5/爆量2.5比較）',
+   long:['ma3Up','volMild'], short:['ma3Dn','volMild'], lx:['underMA3'], sx:['overMA3'], lb:3, def:{sl:80,trail:60}},
 ];
 function renderStratLib(){
   const el=$('stratTbl'); if(!el) return;
@@ -3516,6 +3523,7 @@ function applyStrat(idx,dir){
     if($('mtfUseSL')){ $('mtfUseSL').checked=s.def.sl>0; if(s.def.sl>0)$('mtfSL').value=s.def.sl; }
     if($('mtfTrail')){ $('mtfTrail').checked=s.def.trail>0; if(s.def.trail>0)$('mtfTrailPts').value=s.def.trail; }
   }
+  if(s.lb&&$('trendLB')) $('trendLB').value=s.lb;   // 60K斜率策略：斜率根數(走勢判斷回看)帶預設(如3)
   if($('mtfUseReentry')) $('mtfUseReentry').checked=false;
   syncBTMode();
   if($('btNote')) $('btNote').value=`${s.name}（${dir==='long'?'多':'空'}）`;
