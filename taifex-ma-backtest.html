@@ -2114,6 +2114,7 @@ function renderStratBar(){
     rs.textContent=`目前啟用：${[...rk,...extra].join(' · ')||'無'}`; }
   const dh=$('defHint'); if(dh){ const enCodes=[...document.querySelectorAll('.mtfEc:checked')].map(e=>e.value);
     const txt=defenseHintText(enCodes); dh.innerHTML=txt; dh.style.display=txt?'':'none'; }
+  if(typeof updateStratBadges==='function') updateStratBadges();   // 策略表「✓已包含」標示同步
   const s2=$('wzSum2'); if(s2) s2.textContent=`本金 ${(+($('posCapital')?$('posCapital').value:0)||0).toLocaleString('en-US')} · 單筆風險 ${$('posRisk')?$('posRisk').value:'-'}%`;
   document.querySelectorAll('#dirSeg button,[data-dirseg] button').forEach(b=>b.classList.toggle('on',b.dataset.dir===dir));
 }
@@ -3488,7 +3489,7 @@ function renderStratLib(){
   const el=$('stratTbl'); if(!el) return;
   let h=`<tr><th class="l">策略</th><th class="l">邏輯</th><th title="重要度">星等</th><th class="l">適用情境</th><th>套用</th></tr>`;
   STRAT_LIB.forEach((s,idx)=>{
-    h+=`<tr><td class="l"><b>${s.name}</b></td><td class="l">${s.logic}</td>`
+    h+=`<tr><td class="l"><b>${s.name}</b><span data-sin="${idx}" style="color:var(--dn);font-size:11px;font-weight:700"></span></td><td class="l">${s.logic}</td>`
       +`<td style="color:#ffcf5a;letter-spacing:1px">${'★'.repeat(s.stars)}${'☆'.repeat(5-s.stars)}</td>`
       +`<td class="l sub">${s.note}</td>`
       +`<td style="white-space:nowrap"><button class="btn ghost" data-strat="${idx}" data-dir="long" style="padding:2px 8px">套用多</button> `
@@ -3496,6 +3497,15 @@ function renderStratLib(){
   });
   el.innerHTML=h;
   el.querySelectorAll('button[data-strat]').forEach(b=>b.onclick=()=>applyStrat(+b.dataset.strat,b.dataset.dir));
+  updateStratBadges();
+}
+// 策略表「✓已包含」標示：該組的多方(或空方)條件已全部在目前勾選中 → 一眼看出疊加了哪幾組（依實際checkbox狀態即時判斷，×掉條件標示會消失）
+function updateStratBadges(){
+  if(typeof STRAT_LIB==='undefined') return;
+  const enSet=new Set([...document.querySelectorAll('.mtfEc:checked')].map(e=>e.value));
+  document.querySelectorAll('[data-sin]').forEach(sp=>{ const s=STRAT_LIB[+sp.dataset.sin]; if(!s) return;
+    const inL=enSet.size&&s.long.every(c=>enSet.has(c)), inS=enSet.size&&s.short.every(c=>enSet.has(c));
+    sp.textContent=inL?' ✓多已包含':(inS?' ✓空已包含':''); });
 }
 function applyStrat(idx,dir){
   const s=STRAT_LIB[idx]; if(!s) return;
