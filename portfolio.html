@@ -1144,12 +1144,12 @@
         if (!area) return; // 直接開 portfolio.html 時顯示全部分頁（相容模式）
         var groups = {
             assets: { tabs: ['tabDashboard', 'tabCashflow'], first: 'dashboard', title: '家族總資產管理' },
-            invest: { tabs: ['tabOverview', 'tabDetail', 'tabTransactions'], first: 'overview', title: '家族投資管理' }
+            invest: { tabs: ['tabOverview', 'tabDetail', 'tabTransactions', 'tabSharpe'], first: 'overview', title: '家族投資管理' }
         };
         var g = groups[area];
         document.title = g.title;
         window.addEventListener('load', function () {
-            ['tabDashboard', 'tabOverview', 'tabDetail', 'tabTransactions', 'tabCashflow']
+            ['tabDashboard', 'tabOverview', 'tabDetail', 'tabTransactions', 'tabCashflow', 'tabSharpe']
                 .forEach(function (id) {
                     var el = document.getElementById(id);
                     if (el && g.tabs.indexOf(id) === -1) el.style.display = 'none';
