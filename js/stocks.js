@@ -360,6 +360,11 @@
                 document.getElementById('tabDashboard').classList.add('active');
                 document.getElementById('tabDashboard').classList.remove('text-slate-400');
                 dbRender();
+            } else if (tabName === 'sharpe') {
+                document.getElementById('sharpeTab').classList.add('active');
+                document.getElementById('tabSharpe').classList.add('active');
+                document.getElementById('tabSharpe').classList.remove('text-slate-400');
+                if (typeof window.sharpeRender === 'function') window.sharpeRender();
             }
         };
 
