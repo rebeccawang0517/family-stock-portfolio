@@ -2755,7 +2755,26 @@ function validateData(){
   let html='', problems=0, checked=0;
   TFS.forEach(tf=>{
     const exp=TFM[tf], files=loadFiles(tf); if(!files.length) return;
-    if(tf==='D'){ html+=`<div style="margin:6px 0 2px"><b>${tfName(tf)}</b>：日線不檢查間隔（共 ${files.length} 檔）</div>`; return; }
+    if(tf==='D'){   // 日線改判「全時段 vs 日盤版」：開盤貼昨收=全時段(夜盤開接軌)、開盤跳很大=日盤版(隔著整夜)
+      checked+=files.length;
+      const B=loadTF('D'); html+=`<div style="margin:8px 0 2px"><b>${tfName(tf)}</b>（共 ${files.length} 檔、${B.length} 根；判別全時段/日盤版）</div>`;
+      if(B.length<15){ html+=`<div style="padding:3px 0 3px 12px;color:var(--sub);font-size:12.5px">　資料太少無法判別</div>`; return; }
+      const med=a=>{ const s=[...a].sort((x,y)=>x-y); return s.length?s[Math.floor(s.length/2)]:0; };
+      const TH=35, W=15;                                   // 落差門檻(點)、滾動視窗(根)
+      const gap=[]; for(let i=1;i<B.length;i++) gap.push(Math.abs(B[i].o-B[i-1].c));
+      const labelAt=i=>{ const s=Math.max(0,i-W+1); return med(gap.slice(s,i+1))<TH?'full':'day'; };  // 該根往前W根的中位落差
+      const segs=[]; let cur=null;
+      for(let i=0;i<gap.length;i++){ const lb=labelAt(i); const date=B[i+1].date;
+        if(!cur||cur.lb!==lb){ if(cur)segs.push(cur); cur={lb,from:date,to:date,gaps:[gap[i]]}; } else { cur.to=date; cur.gaps.push(gap[i]); } }
+      if(cur)segs.push(cur);
+      segs.forEach(s=>{ const full=s.lb==='full'; const c=full?'#4aad6e':'#e0a14a';
+        html+=`<div style="padding:3px 0 3px 12px;font-size:12.5px"><b style="color:${c}">${full?'✅ 全時段(含夜盤)':'⚠️ 日盤版(缺夜盤)'}</b>　${s.from} ~ ${s.to}　<span class="sub">（${s.gaps.length}根，開盤-昨收中位落差 ${med(s.gaps)} 點）</span></div>`; });
+      const firstDay=segs.find(s=>s.lb==='day');
+      if(firstDay && segs.some(s=>s.lb==='full')) html+=`<div style="padding:2px 0 2px 12px;color:#e0a14a;font-size:12.5px">→ <b>約從 ${firstDay.from} 起轉為日盤版</b>（滾動判別，實際切換日可能再早幾天；這天前後的日K缺夜盤，需用全日資料重匯或雲端重建）</div>`;
+      else if(!segs.some(s=>s.lb==='full')) html+=`<div style="padding:2px 0 2px 12px;color:#e0a14a;font-size:12.5px">→ 整段看起來都是<b>日盤版</b>（雲端自動抓的日K一律是日盤，需改用全時段）</div>`;
+      else html+=`<div style="padding:2px 0 2px 12px;color:#4aad6e;font-size:12.5px">→ 整段都是<b>全時段</b>，沒問題</div>`;
+      return;
+    }
     html+=`<div style="margin:8px 0 2px"><b>${tfName(tf)}</b>（應為 ${exp} 分間隔，共 ${files.length} 檔）</div>`;
     files.forEach((f,idx)=>{ checked++; ensureMeta(f);
       const bs=fileBars(f), T=parseTimeArr(bs); const gaps={}; let intra=0;

@@ -48,12 +48,12 @@ export async function fetchTaifexRange(start, end) {
   return parseTaifexCsv(text);
 }
 
-// 期交所 CSV：每日每合約有「一般」(日盤) 與「盤後」(夜盤) 兩列。
-// 固定取「一般」時段中成交量最大的合約當主力日K（時段混用會產生假跳動，如 2025/04/08 股災日）；
-// 若整天沒有可辨識的「一般」列（編碼異常），才退回全列取量最大。
+// 期交所 CSV：每日每合約有「一般」(日盤 08:45-13:45) 與「盤後」(夜盤，前一日15:00→當日05:00，交易日掛在次一營業日) 兩列。
+// 全時段日K：同一交易日「盤後(夜盤)＋一般(日盤)」合併＝開盤用夜盤開、收盤用日盤收、高低取兩盤極值、量相加。
+// 主力合約以「日盤成交量最大」認定，夜盤用同一個合約的盤後列（避免跨合約假跳動，如 2025/04/08 股災日）。
 export function parseTaifexCsv(text) {
   const lines = text.split(/\r?\n/);
-  const byDate = {};
+  const byDate = {};   // date -> { day:{contract->row}, night:{contract->row} }
   for (let i = 1; i < lines.length; i++) {
     const cols = (lines[i] || '').split(',').map(c => c.trim().replace(/^"|"$/g, ''));
     if (cols.length < 10) continue;
@@ -64,22 +64,28 @@ export function parseTaifexCsv(text) {
     const v = parseInt(cols[9]) || 0;
     if (![o, h, l, c].every(x => Number.isFinite(x) && x > 0)) continue;
     const session = cols[17] || '';                            // 交易時段：一般 / 盤後
-    const isDay = session.includes('一般');
-    const cand = { isDay, o, h, l, c, v, dateStr: cols[0] };
-    const curBest = byDate[cols[0]];
-    // 優先序：一般 > 盤後；同時段比成交量
-    if (!curBest || (cand.isDay && !curBest.isDay) || (cand.isDay === curBest.isDay && v > curBest.v)) {
-      byDate[cols[0]] = cand;
-    }
+    const isDay = session.includes('一般'), isNight = session.includes('盤後');
+    if (!isDay && !isNight) continue;                          // 無法辨識時段的列略過
+    const rec = byDate[cols[0]] || (byDate[cols[0]] = { day: {}, night: {} });
+    (isDay ? rec.day : rec.night)[cols[2]] = { contract: cols[2], o, h, l, c, v };
   }
-  return Object.values(byDate).map(x => {
-    const [y, m, d] = x.dateStr.split('/').map(Number);
+  const pickMain = obj => { let best = null; for (const k in obj) if (!best || obj[k].v > best.v) best = obj[k]; return best; };
+  return Object.entries(byDate).map(([dateStr, rec]) => {
+    const day = pickMain(rec.day);
+    // 夜盤優先用「日盤主力合約」的盤後列；日盤缺漏才退回夜盤自己的量最大合約
+    let night = day && rec.night[day.contract] ? rec.night[day.contract] : pickMain(rec.night);
+    let open, high, low, close, vol, sess;
+    if (day && night) { open = night.o; close = day.c; high = Math.max(day.h, night.h); low = Math.min(day.l, night.l); vol = day.v + night.v; sess = 'full'; }
+    else if (day) { open = day.o; high = day.h; low = day.l; close = day.c; vol = day.v; sess = 'day'; }
+    else if (night) { open = night.o; high = night.h; low = night.l; close = night.c; vol = night.v; sess = 'night'; }
+    else return null;
+    const [y, m, d] = dateStr.split('/').map(Number);
     return {
       dateKey: `${y}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}`,
       date: `${y}/${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}`,
       time: Math.floor(Date.UTC(y, m - 1, d, 0, 45) / 1000),
-      open: x.o, high: x.h, low: x.l, close: x.c, volume: x.v,
-      session: x.isDay ? 'day' : 'unknown'
+      open, high, low, close, volume: vol,
+      session: sess
     };
-  }).sort((a, b) => a.time - b.time);
+  }).filter(Boolean).sort((a, b) => a.time - b.time);
 }
