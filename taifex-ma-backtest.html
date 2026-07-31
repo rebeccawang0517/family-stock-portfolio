@@ -477,6 +477,7 @@
           <label><input type="checkbox" id="mtfUseSL" checked> 停損 <input type="number" id="mtfSL" value="80"> 點</label>
           <label><input type="checkbox" id="mtfUseTP"> 停利 <input type="number" id="mtfTP" value="150"> 點</label>
           <label><input type="checkbox" id="mtfTrail"> 移動停損 回吐 <input type="number" id="mtfTrailPts" value="60"> 點</label>
+          <label class="hint" title="持倉滿 N 根K棒就強制平倉(時間出場)：進場後N根內沒能續漲/續跌就先走，避免卡在不動的部位。跨週期以出場(細)週期的根數計"><input type="checkbox" id="mtfMaxBars"> 時間出場 持倉滿 <input type="number" id="mtfMaxBarsN" value="4"> 根平倉</label>
         </div>
         <div class="summary" id="riskSummary">目前啟用：—</div>
         <div id="defHint" class="hint" style="margin-top:6px;display:none;line-height:1.6"></div>
@@ -726,6 +727,7 @@
       <label class="hint" title="只在台指日盤08:45-13:45才進場(含首次與再次進場)；夜盤(15:00-05:00)K棒一律不開新倉。已持有的倉位不受影響(要不留倉過夜請另外勾「當日平倉」)。日線/週線一律視為日盤，不受影響"><input type="checkbox" id="optDayOnly"> 只做日盤（夜盤不進場）<span class="sub">— 夜盤K棒不開新倉</span></label>
       <label class="hint" title="持倉到當天日盤最後一根K(13:45收盤前)就強制平倉，不留倉過夜；比停損/停利/移動停損/出場訊號都晚檢查，但一定會出。日線/週線沒有日盤概念，此設定不影響。"><input type="checkbox" id="optEODClose"> 當日平倉（不留倉過夜）<span class="sub">— 日盤最後一根強制出</span></label>
       <label class="hint" title="夜盤跨過午夜(00:00)前最後一根K就強制平倉，適合只想抱倉到半夜、不留倉到凌晨05:00收盤的用法；跟「當日平倉」互相獨立，兩個都勾則不管日盤夜盤都不留倉。日線/週線沒有時間欄位，此設定不影響。"><input type="checkbox" id="optMidnightClose"> 半夜12點後不留倉<span class="sub">— 跨午夜前強制出</span></label>
+      <label class="hint" title="持倉滿 N 根K棒就強制平倉(時間出場)：進場後N根內沒能續漲/續跌就先走。兩邊(單/跨週期)都套用這個根數"><input type="checkbox" id="optMaxBars"> 時間出場 持倉滿 <input type="number" id="optMaxBarsN" value="4" style="width:56px"> 根<span class="sub">— 到期強制平倉</span></label>
     </div>
 
     <div class="subhd" style="margin-top:14px">🚫 特殊日過濾<span class="sub">（哪些天不做）</span></div>
@@ -885,6 +887,9 @@
       <tr><td class="l"><b>放量</b></td><td class="l">這根成交量 ≥ <b>前20根均量的 1.5 倍</b></td><td class="l">配紅K/多排＝有量的攻擊</td></tr>
       <tr><td class="l"><b>爆量</b></td><td class="l">這根成交量 ≥ <b>前20根均量的 2.5 倍</b>（量能大增）</td><td class="l">配紅K偏續攻、配黑K偏轉弱</td></tr>
       <tr><td class="l"><b>溫和放量（1.2倍）</b></td><td class="l">這根成交量 ≥ <b>前20根均量的 1.2 倍</b>＝量稍增就算有人跟（比放量1.5寬鬆）。量能倍數想測 1.0~1.5 區間就用 1.2／1.5 兩檔互換比較</td><td class="l">60K斜率策略的量能確認（MA20斜率＋溫和放量）</td></tr>
+      <tr><td class="l"><b>量能不縮</b></td><td class="l">這根成交量 ≥ <b>前一根的 80%</b>＝第二根量能沒有明顯萎縮（對前一根、非前20均量）</td><td class="l">跳空延續策略的量能過濾</td></tr>
+      <tr><td class="l"><b>跳空雙紅延續</b></td><td class="l">前一根K「開盤 &gt; 再前一根最高價」（跳空開高）且收紅＝第一根紅K，<b>這根也收紅且收盤 ≥ 第一根實體中點</b>（=（第一根開+收）/2）＝跳空後不回補、第二根續強，<b>在第二根進場</b>。跳空過大(80~100點以上)易回補、勝率降，配「量能不縮」或均線斜率過濾較穩</td><td class="l">做多進場（強勢延續，多頭趨勢佳）</td></tr>
+      <tr><td class="l"><b>跳空雙黑延續</b></td><td class="l">前一根「開盤 &lt; 再前一根最低價」（跳空開低）且收黑，這根也收黑且收盤 ≤ 第一根實體中點＝空方強勢延續（跳空雙紅的鏡射）</td><td class="l">做空進場</td></tr>
       <tr><td class="l"><b>連續2/3紅K・連續2/3黑K</b></td><td class="l">這根與前 1（或前 2）根都同方向收紅／收黑（動能延續）</td><td class="l">追多／追空</td></tr>
       <tr><td class="l"><b>貼近期高（突破）</b></td><td class="l">收盤落在「近20根最高價（<b>含這根</b>）」的 <b>0.5% 內</b>＝收在近期高檔。<b>含這根是刻意設計</b>：這根創新高且收高檔＝<b>突破確認</b>、沒創新高＝逼近前高。★用的是<b>已收完K棒</b>的高點（收盤時就已知），<b>不是未來函數</b>——跟紅K/強紅K/長上影同一個因果標準（都用當根已收完的OHLC），成交也在收盤或次根開盤之後，不會偷看未來</td><td class="l">做多進場（突破追價）</td></tr>
       <tr><td class="l"><b>貼近期低（破底）</b></td><td class="l">收盤落在「近20根最低價（含這根）」的 0.5% 內＝收在近期低檔＝破底或逼近前低。同樣用已收完K棒的低點，因果安全</td><td class="l">做空進場（破底追空）</td></tr>
@@ -913,6 +918,7 @@
       <tr><td class="l">訊號判斷</td><td class="l">條件何時算成立</td><td class="l">用<b>收盤</b>數據判斷（如收盤跌破MA20、MA1下穿MA2）</td><td class="l">收盤價回測，較保守、貼近看收盤下單</td></tr>
       <tr><td class="l">停利 / 停損</td><td class="l">賺/賠到設定點數就出</td><td class="l">用<b>收盤價</b>−進場價的點數差判斷</td><td class="l">不是用盤中最高/最低點，是收盤價</td></tr>
       <tr><td class="l">夜盤防守停損</td><td class="l">用夜盤高低點當防守線</td><td class="l">多單<b>收盤跌破當天夜盤最低點</b>就出場；空單<b>收盤突破夜盤最高點</b>就出場</td><td class="l">依統計 A組破夜低僅約10%＝多單最強防守；D組約80%＝空單順勢。只在日盤K棒檢查，設定在②「3 進階與倉位→🛡️停損防守」／③共用選項</td></tr>
+      <tr><td class="l">時間出場（N根平倉）</td><td class="l">持倉滿 N 根就強制平倉</td><td class="l">進場後每根K計數，持倉滿 <b>N 根</b>（在②「風控」設）就在那根收盤平倉，不管賺賠</td><td class="l">「進場後幾根沒續漲就先走」的時間停損；跨週期以出場(細)週期根數計。設定在②風控／③共用選項，最佳化也可掃</td></tr>
       <tr><td class="l">每點價值</td><td class="l">1點=多少錢</td><td class="l">大台預設 200 元/點（可改）</td><td class="l">總損益(元)=總點數×它</td></tr>
       <tr><td class="l">來回成本</td><td class="l">每筆交易的成本</td><td class="l">每筆交易扣掉的點數（手續費+滑價估）</td><td class="l">預設2點，已從每筆點數扣掉</td></tr>
       <tr><td class="l">觸及容差</td><td class="l">判定「觸及均線」的誤差</td><td class="l">支撐/壓力條件允許的%誤差</td><td class="l">預設0.3%</td></tr>
@@ -2111,6 +2117,7 @@ function renderStratBar(){
     if($('mtfEODClose')&&$('mtfEODClose').checked) extra.push('當日平倉');
     if($('mtfMidnightClose')&&$('mtfMidnightClose').checked) extra.push('半夜不留倉');
     if($('mtfNightStop')&&$('mtfNightStop').checked) extra.push('夜盤防守停損');
+    if($('mtfMaxBars')&&$('mtfMaxBars').checked) extra.push('時間出場'+($('mtfMaxBarsN')?$('mtfMaxBarsN').value:'')+'根');
     rs.textContent=`目前啟用：${[...rk,...extra].join(' · ')||'無'}`; }
   const dh=$('defHint'); if(dh){ const enCodes=[...document.querySelectorAll('.mtfEc:checked')].map(e=>e.value);
     const txt=defenseHintText(enCodes); dh.innerHTML=txt; dh.style.display=txt?'':'none'; }
@@ -2121,7 +2128,7 @@ function renderStratBar(){
 // 進場條件→建議防守配對（依交易邏輯：進場理由是什麼，防守就守什麼）
 const DEF_NIGHT=['nightA','nightB','nightC','nightD','nightLoT','nightHiT'];
 const DEF_REBOUND=['sup','supL','bbLowT','longLow','res','resL','bbUpT','longUp'];
-const DEF_BREAK=['xUp4','xDn4','bbUpBk','bbDnBk','nearHigh','nearLow','goldX','deadX','ma1TurnUp','ma1TurnDn','ma4TurnUp','ma4TurnDn'];
+const DEF_BREAK=['xUp4','xDn4','bbUpBk','bbDnBk','nearHigh','nearLow','goldX','deadX','ma1TurnUp','ma1TurnDn','ma4TurnUp','ma4TurnDn','gap2R','gap2G'];
 const DEF_TREND=['bull','bear','bullK3','bearK3','trendUp','trendDn','overMA1','overMA2','overMA3','overMA4','overMA5','underMA1','underMA2','underMA3','underMA4','underMA5','bbMidUp','bbMidDn','ma3Up','ma3Dn'];
 function defenseHintText(codes){
   if(!codes.length) return '';
@@ -2143,9 +2150,9 @@ const CGROUPS=[
   ['① 趨勢方向',['bull','bear','bullK3','bearK3','trendUp','trendDn','loseBull','loseBear'],'先確認大方向，順勢交易勝率高'],
   ['② 均線多空',['overMA3','underMA3','overMA4','underMA4','overMA1','underMA1','overMA2','underMA2','overMA5','underMA5'],'價格站上/跌破均線＝多空分界（20/60 最核心）'],
   ['③ 關鍵價位',['sup','res','supL','resL','nearHigh','nearLow'],'支撐買、壓力空——贏在進場位置'],
-  ['④ 進場觸發',['goldX','deadX','xUp4','xDn4','ma3Up','ma3Dn','ma4TurnUp','ma4TurnDn','ma1TurnUp','ma1TurnDn'],'交叉／穿越／拐點＝扣板機的時機'],
+  ['④ 進場觸發',['goldX','deadX','xUp4','xDn4','gap2R','gap2G','ma3Up','ma3Dn','ma4TurnUp','ma4TurnDn','ma1TurnUp','ma1TurnDn'],'交叉／穿越／跳空／拐點＝扣板機的時機'],
   ['⑤ K棒確認',['red','green','strRed','strGreen','longLow','longUp','red2','green2','red3','green3'],'進場那根K的長相——多一層保險'],
-  ['⑥ 量能確認',['volMild','volUp','volSpike'],'放量＝有人跟，訊號更可信（1.2/1.5/2.5 三檔）'],
+  ['⑥ 量能確認',['volMild','volUp','volSpike','volKeep'],'放量＝有人跟，訊號更可信（1.2/1.5/2.5 三檔＋量不縮）'],
   ['⑦ 布林通道',['bbUpBk','bbDnBk','bbLowT','bbUpT','bbMidUp','bbMidDn'],'波動軌道：突破軌道順勢、觸軌收回反轉'],
   ['⑧ 夜盤情境',['nightA','nightD','nightLoT','nightHiT','nightB','nightC'],'夜盤高低點＝日盤天然支撐壓力（日內限定）']
 ];
@@ -2175,6 +2182,7 @@ const SHORTDEF={
   red2:'連2根紅K＝多方延續', green2:'連2根黑K＝殺盤延續',
   red3:'連3根紅K＝追多動能', green3:'連3根黑K＝殺盤動能',
   volUp:'量≥20根均量1.5倍＝放量', volSpike:'量≥20根均量2.5倍＝爆量', volMild:'量≥20根均量1.2倍＝量稍增即確認',
+  gap2R:'跳空開高+雙紅K收在實體中點上＝強勢延續(第2根進)', gap2G:'跳空開低+雙黑K延續(空)', volKeep:'量≥前一根8成＝量能沒縮',
   bbUpBk:'收盤突破布林上軌＝順勢強攻', bbDnBk:'收盤跌破布林下軌＝順勢殺跌',
   bbLowT:'觸下軌收回＝超跌反彈買訊', bbUpT:'觸上軌壓回＝超漲拉回空訊',
   bbMidUp:'收盤站上中軌(20MA)＝偏多', bbMidDn:'收盤跌破中軌＝轉弱',
@@ -2242,7 +2250,7 @@ function renderCondPicker(){
   renderPkFootChips();
 }
 // 建構器可選的「觸發型」條件（事件只在發生當根成立的那批）
-const W_TRIGGERS=['goldX','deadX','xUp4','xDn4','ma1TurnUp','ma1TurnDn','ma4TurnUp','ma4TurnDn','bbUpBk','bbDnBk','bbLowT','bbUpT','nightLoT','nightHiT','supL','resL','longLow','longUp','strRed','strGreen'];
+const W_TRIGGERS=['goldX','deadX','xUp4','xDn4','ma1TurnUp','ma1TurnDn','ma4TurnUp','ma4TurnDn','bbUpBk','bbDnBk','bbLowT','bbUpT','nightLoT','nightHiT','supL','resL','longLow','longUp','strRed','strGreen','gap2R','gap2G'];
 function renderPkFootChips(){
   if(!bpkKindS) return; const box=$('bpkFootChips'); if(!box) return;
   const sel=condSel(bpkKindS);
@@ -2751,7 +2759,8 @@ const CODEL={bull:'多排',bear:'空排',red:'紅K',green:'黑K',overMA1:'站上
   ma1TurnUp:'MA5上彎',ma1TurnDn:'MA5下彎',ma4TurnUp:'MA60上彎',ma4TurnDn:'MA60下彎',
   bbUpBk:'突破布林上軌',bbDnBk:'跌破布林下軌',bbLowT:'觸布林下軌',bbUpT:'觸布林上軌',bbMidUp:'站上布林中軌',bbMidDn:'破布林中軌',
   nightA:'A組(夜收上半+開高)',nightB:'B組(夜收上半+開低)',nightC:'C組(夜收下半+開高)',nightD:'D組(夜收下半+開低)',
-  nightLoT:'夜低撐住(反彈買)',nightHiT:'夜高壓回(反彈賣)'};
+  nightLoT:'夜低撐住(反彈買)',nightHiT:'夜高壓回(反彈賣)',
+  gap2R:'跳空雙紅延續',gap2G:'跳空雙黑延續',volKeep:'量能不縮'};
 // 做多候選（條件碼）；做空用鏡射自動產生
 const L_ENTRY=[['bull'],['bull','red'],['bull','red','overMA3'],['bull','overMA3'],['bull','sup'],
   ['bull','sup','red'],['bull','trendUp'],['bull','red','trendUp'],['red','overMA3'],
@@ -2768,7 +2777,8 @@ const L_ENTRY=[['bull'],['bull','red'],['bull','red','overMA3'],['bull','overMA3
   ['ma4TurnUp'],['ma4TurnUp','bull'],['ma1TurnUp','overMA3'],['bullK3','ma1TurnUp'],
   ['bbLowT'],['bbLowT','longLow'],['bbLowT','bull'],['bull','bbUpBk'],['bbUpBk','volUp'],['bull','bbMidUp'],
   ['nightA'],['nightA','red'],['nightA','sup'],
-  ['nightLoT'],['nightLoT','nightA'],['nightLoT','red']];   // 60K策略＋拐點＋布林＋夜盤A組(防守多)＋夜低撐住反彈買（做空自動鏡射，nightA→nightD、nightLoT→nightHiT）
+  ['nightLoT'],['nightLoT','nightA'],['nightLoT','red'],
+  ['gap2R'],['gap2R','volKeep'],['gap2R','ma3Up']];   // 60K策略＋拐點＋布林＋夜盤A組(防守多)＋夜低撐住反彈買＋跳空雙紅延續（做空自動鏡射：nightA→nightD、nightLoT→nightHiT、gap2R→gap2G）
 const L_EXIT=[['underMA3'],['loseBull'],['bear'],['deadX'],['underMA5'],['underMA3','deadX'],['underMA3','loseBull'],['ma3Dn'],['bearK3'],['bbMidDn'],['bbUpT'],[]];   // 破MA5/MA10留在SIG_EXIT(便宜路徑)搜，不進SLS×TPS昂貴路徑；新增MA20下彎/三線轉空/布林中軌·上軌出場
 // 純訊號出場（不設點數停損停利）用的出場組合，每組至少要有一個訊號
 const SIG_EXIT=[['underMA3'],['underMA4'],['deadX'],['loseBull'],['bear'],['underMA5'],
@@ -2779,7 +2789,7 @@ const SIG_EXIT=[['underMA3'],['underMA4'],['deadX'],['loseBull'],['bear'],['unde
   ['bbMidDn'],['bbUpT'],['bbMidDn','underMA1']];   // 新增：MA20下彎/三線轉空/價跌破MA60/MA5·MA60剛下彎/布林中軌·上軌（60K策略＋拐點＋布林出場）
 // 「掃所有週期配對」用的精簡候選（老條件精選＋60K/拐點新條件混合，讓全配對也採樣得到新策略；數量維持10進/6出→速度差不多）
 const MTF_ALL_ENTRY=[['bull'],['bull','red','overMA3'],['bull','trendUp'],['bull','sup'],['bull','red'],
-  ['bullK3'],['bullK3','overMA3'],['ma3Up','overMA3'],['ma4TurnUp','bull'],['supL','bull'],['bbLowT'],['nightA'],['nightLoT']];   // 後8組＝60K三線/三線+站上MA20/60/20表態/MA60剛上彎+多排/左側支撐+多排/觸布林下軌/夜盤A組(防守多)/夜低撐住反彈買
+  ['bullK3'],['bullK3','overMA3'],['ma3Up','overMA3'],['ma4TurnUp','bull'],['supL','bull'],['bbLowT'],['nightA'],['nightLoT'],['gap2R']];   // 後9組＝60K三線/三線+站上MA20/60/20表態/MA60剛上彎+多排/左側支撐+多排/觸布林下軌/夜盤A組(防守多)/夜低撐住反彈買/跳空雙紅延續
 const MTF_ALL_EXIT=[['underMA3'],['deadX'],['bear'],['ma3Dn'],['bearK3'],['ma1TurnDn'],['bbMidDn']];      // 後4組＝MA20下彎/三線轉空/MA5剛下彎/破布林中軌
 const SLS=[50,80,120,200], TPS=[0,120,200,300];
 const MIR={bull:'bear',bear:'bull',red:'green',green:'red',overMA3:'underMA3',underMA3:'overMA3',
@@ -2791,12 +2801,13 @@ const MIR={bull:'bear',bear:'bull',red:'green',green:'red',overMA3:'underMA3',un
   ma3Up:'ma3Dn',ma3Dn:'ma3Up',xUp4:'xDn4',xDn4:'xUp4',bullK3:'bearK3',bearK3:'bullK3',supL:'resL',resL:'supL',
   ma1TurnUp:'ma1TurnDn',ma1TurnDn:'ma1TurnUp',ma4TurnUp:'ma4TurnDn',ma4TurnDn:'ma4TurnUp',
   bbUpBk:'bbDnBk',bbDnBk:'bbUpBk',bbLowT:'bbUpT',bbUpT:'bbLowT',bbMidUp:'bbMidDn',bbMidDn:'bbMidUp',
-  nightA:'nightD',nightD:'nightA',nightB:'nightC',nightC:'nightB',nightLoT:'nightHiT',nightHiT:'nightLoT'};
+  nightA:'nightD',nightD:'nightA',nightB:'nightC',nightC:'nightB',nightLoT:'nightHiT',nightHiT:'nightLoT',
+  gap2R:'gap2G',gap2G:'gap2R'};   // volKeep 中性(多空皆可)不進鏡射
 const mir=arr=>arr.map(c=>MIR[c]||c);
 // 條件選擇器「只看多方/只看空方」篩選用：偏多方的代表代碼（另一半用 MIR 自動找出對應空方代碼）；沒列出的(如放量/爆量)＝中性，兩邊都顯示
 const LONG_SET=new Set(['bull','red','overMA1','overMA2','overMA3','overMA4','overMA5','sup','trendUp','loseBear',
   'goldX','strRed','longLow','red2','red3','nearHigh','ma3Up','xUp4','bullK3','supL',
-  'ma1TurnUp','ma4TurnUp','bbUpBk','bbLowT','bbMidUp','nightA','nightB','nightLoT']);
+  'ma1TurnUp','ma4TurnUp','bbUpBk','bbLowT','bbMidUp','nightA','nightB','nightLoT','gap2R']);
 function condPolarity(code){ if(LONG_SET.has(code)) return 'long'; if(MIR[code]&&LONG_SET.has(MIR[code])) return 'short'; return 'neutral'; }
 // ⑦再次進場搜尋候選（空陣列=沿用首次進場；其餘為較嚴格組合）；做空自動鏡射
 const REENTRY=[[], ['bull','red'], ['bull','red','volUp'], ['bull','strRed']];
@@ -2852,8 +2863,8 @@ function simulate(cfg,i0,i1){
       if(c==='bbUpT'&&!(!isNaN(x.bbU)&&b.h>=x.bbU&&b.c<x.bbU))return false;    // 觸上軌壓回
       if(c==='bbMidUp'&&!(!isNaN(x.bbM)&&b.c>x.bbM))return false;              // 站上中軌
       if(c==='bbMidDn'&&!(!isNaN(x.bbM)&&b.c<x.bbM))return false;              // 跌破中軌
-      // 夜盤分組(A/B/C/D)＋夜低撐住/夜高壓回＋wN_曾成立碼：委派中央 condTrue 判斷(單一真相，避免這份內嵌清單漏掉)
-      if((c==='nightA'||c==='nightB'||c==='nightC'||c==='nightD'||c==='nightLoT'||c==='nightHiT'||/^w\d+_/.test(c))&&!condTrue(bars,ind,i,c,tol,alignN))return false;
+      // 夜盤分組(A/B/C/D)＋夜低撐住/夜高壓回＋跳空延續/量能不縮＋wN_曾成立碼：委派中央 condTrue 判斷(單一真相，避免這份內嵌清單漏掉)
+      if((c==='nightA'||c==='nightB'||c==='nightC'||c==='nightD'||c==='nightLoT'||c==='nightHiT'||c==='gap2R'||c==='gap2G'||c==='volKeep'||/^w\d+_/.test(c))&&!condTrue(bars,ind,i,c,tol,alignN))return false;
     }
     if(cfg.srFilter && _srFilterFn && !_srFilterFn(i,b.c,cfg.dir)) return false;   // 碰到60分/日線壓撐不進(因果)
     return true; };
@@ -2891,7 +2902,7 @@ function simulate(cfg,i0,i1){
       if(/^w\d+_/.test(c)&&condTrue(bars,ind,i,c,tol,alignN))return 'sig'; }                                          // wN_曾成立碼(委派中央判斷)
     if(cfg.srExit && _srFilterFn && !_srFilterFn(i,b.c,cfg.dir)) return 'sig';               // 遇大週期壓撐出場(多碰壓力/空碰支撐)
     return null; };
-  let pos=null, peak=0; const pl=[]; const trail=cfg.trail||0;
+  let pos=null, peak=0, posI=0; const pl=[]; const trail=cfg.trail||0; const maxBars=cfg.maxBars||0;
   for(let i=i0;i<i1;i++){ if(isNaN(ind[i][warmKey]))continue;
     if(pos!==null){
       peak = side==='L'?Math.max(peak,bars[i].c):Math.min(peak,bars[i].c);
@@ -2902,9 +2913,10 @@ function simulate(cfg,i0,i1){
       if(!out && exType==='sig') out = !passEntry(i);   // 防churn：訊號出場但同向還會再進→留倉不動
       if(!out && cfg.eodClose && isEODBar(bars,i)) out=true;   // 當沖：日盤最後一根強制平倉，不留倉過夜(蓋過留倉防churn)
       if(!out && cfg.midnightClose && isMidnightBar(bars,i)) out=true;   // 半夜12點後不留倉：跨午夜前最後一根強制平倉
+      if(!out && maxBars>0 && (i-posI)>=maxBars) out=true;   // 時間出場：持倉滿 N 根強制平倉
       if(out){ pl.push((side==='L'?bars[i].c-pos:pos-bars[i].c)-cost); pos=null; }
     }
-    if(pos===null && passEntry(i)){ const ep=getEntry(i); if(ep!=null){pos=ep; peak=ep;} } }
+    if(pos===null && passEntry(i)){ const ep=getEntry(i); if(ep!=null){pos=ep; peak=ep; posI=i;} } }
   if(pos!==null){ const px=bars[i1-1].c; pl.push((side==='L'?px-pos:pos-px)-cost); }   // 期末未平倉→平在最後一根收盤，與 mtfTrades 的期末平倉一致(否則⑥最佳化與套用後成績會差一筆)
   const n=pl.length; if(!n)return null;
   const wins=pl.filter(p=>p>0).length, total=pl.reduce((a,b)=>a+b,0);
@@ -2958,6 +2970,7 @@ async function optimize(){
   const midc=$('optMidnightClose')&&$('optMidnightClose').checked; if(midc) combos.forEach(c=>c.midnightClose=true);   // 半夜12點後不留倉
   const nst=$('optNightStop')&&$('optNightStop').checked;   // 夜盤防守停損：勾了就「有/無」兩種一起測(多一種出場模式讓數據自己比)
   if(nst){ const ext=combos.map(c=>({...c,nightStop:true})); combos=combos.concat(ext); }
+  const mxb=($('optMaxBars')&&$('optMaxBars').checked)?(+$('optMaxBarsN').value||0):0; if(mxb>0) combos.forEach(c=>c.maxBars=mxb);   // 時間出場(持倉滿N根)
   optBusy=true;
   const res=[]; let t0=performance.now();
   for(let ci=0;ci<combos.length;ci++){
@@ -2988,7 +3001,8 @@ function cfgText(c){
   const eo=c.eodClose?` <span class="sub" style="color:#b8cde8">[當日平倉]</span>`:'';
   const mc=c.midnightClose?` <span class="sub" style="color:#b8cde8">[半夜不留倉]</span>`:'';
   const ns=c.nightStop?` <span class="sub" style="color:#e3b341">[夜盤防守停損]</span>`:'';
-  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds}${gb}${gd}${dO}${eo}${mc}${ns} 進:${e} ／ 出:${(x.join('+'))||'—'}`;
+  const mb=c.maxBars>0?` <span class="sub" style="color:#b8cde8">[時間出場${c.maxBars}根]</span>`:'';
+  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds}${gb}${gd}${dO}${eo}${mc}${ns}${mb} 進:${e} ／ 出:${(x.join('+'))||'—'}`;
 }
 // 報酬/回撤比（總點數÷最大回檔，越大＝越「又賺又穩」）；無回撤且賺錢→∞
 function marVal(st){ if(!st||!st.n) return null; if(st.mdd<=0) return st.total>0?Infinity:0; return st.total/st.mdd; }
@@ -3056,6 +3070,7 @@ function applyCfg(cfg){   // A單週期最佳化「套用」→填回②統一�
   if($('mtfEODClose'))$('mtfEODClose').checked=!!cfg.eodClose;
   if($('mtfMidnightClose'))$('mtfMidnightClose').checked=!!cfg.midnightClose;
   if($('mtfNightStop'))$('mtfNightStop').checked=!!cfg.nightStop;
+  if($('mtfMaxBars')){ $('mtfMaxBars').checked=cfg.maxBars>0; if(cfg.maxBars>0)$('mtfMaxBarsN').value=cfg.maxBars; }
   document.querySelector('#tabs button[data-v="backtest"]').click();   // 切②(會initMTF→syncBTMode鎖週期)
   runBT();
   msg($('runMsg'),`✔ 已套用最佳組合並跑完整結果（單週期 ${tfName($('btMode').value)}）`,true);
@@ -3095,6 +3110,10 @@ function condTrue(B,I,i,code,tol,align){
     case 'longLow':return x.range>0&&x.loSh/x.range>=0.5; case 'longUp':return x.range>0&&x.upSh/x.range>=0.5;
     case 'volUp':return x.volR>=1.5; case 'volSpike':return x.volR>=2.5;   // 放量/爆量（對前20根均量）
     case 'volMild':return x.volR>=1.2;   // 溫和放量（≥1.2倍前20均量，60K斜率策略用：量稍增即確認、比放量1.5鬆）
+    // ── 跳空延續（在「第二根」成立＝進場那根）──
+    case 'gap2R':return i>=2&&B[i-1].o>B[i-2].h&&I[i-1].red&&x.red&&b.c>=(B[i-1].o+B[i-1].c)/2;   // 跳空開高(前根開盤>再前根最高)+前根紅K+這根也紅K且收在前根實體中點之上＝強勢延續
+    case 'gap2G':return i>=2&&B[i-1].o<B[i-2].l&&I[i-1].green&&x.green&&b.c<=(B[i-1].o+B[i-1].c)/2; // 跳空開低+雙黑K延續(空方鏡射)
+    case 'volKeep':return i>=1&&B[i-1].v>0&&b.v>=B[i-1].v*0.8;   // 量能不縮：這根量≥前一根的80%（跳空延續的量能過濾）
     case 'red2':return x.red && i>=1 && I[i-1].red;                        // 連續2根紅K
     case 'red3':return x.red && i>=2 && I[i-1].red && I[i-2].red;          // 連續3根紅K
     case 'green2':return x.green && i>=1 && I[i-1].green;                  // 連續2根黑K
@@ -3139,7 +3158,8 @@ const MTF_CONDS=[['bull','多排'],['bear','空排'],['red','紅K'],['green','�
   ['ma1TurnUp','MA5剛上彎'],['ma1TurnDn','MA5剛下彎'],['ma4TurnUp','MA60剛上彎'],['ma4TurnDn','MA60剛下彎'],
   ['bbUpBk','突破布林上軌'],['bbDnBk','跌破布林下軌'],['bbLowT','觸布林下軌(收回)'],['bbUpT','觸布林上軌(壓回)'],['bbMidUp','站上布林中軌'],['bbMidDn','跌破布林中軌'],
   ['nightA','A組(夜收上半+開高)'],['nightB','B組(夜收上半+開低)'],['nightC','C組(夜收下半+開高)'],['nightD','D組(夜收下半+開低)'],
-  ['nightLoT','夜低撐住(反彈買)'],['nightHiT','夜高壓回(反彈賣)']];
+  ['nightLoT','夜低撐住(反彈買)'],['nightHiT','夜高壓回(反彈賣)'],
+  ['gap2R','跳空雙紅延續'],['gap2G','跳空雙黑延續'],['volKeep','量能不縮(≥前根8成)']];
 // 每個條件的定義（滑鼠移上去顯示；MA1~5=你在均線參數設的值，預設5/10/20/60/240）
 const CONDDEF={
   bull:'均線多頭排列：MA1>MA2>MA3>MA4（在「多空排用幾條」設3條時只看 MA1>MA2>MA3）',
@@ -3191,7 +3211,10 @@ const CONDDEF={
   nightC:'C組（夜收下半+開高）：夜盤收盤相對位置≤0.5，但今天日盤開盤價>夜盤收盤價＝夜盤收在下半，日盤卻開高。屬中性偏空、容易回測（參考值約30%破底機率），不建議追多',
   nightD:'D組（夜收下半+開低）：夜盤收盤相對位置≤0.5，且今天日盤開盤價≤夜盤收盤價＝夜盤收在區間下半、日盤又開低/開平。歷史統計上這組破夜盤低點的機率最高（參考值約82%），夜盤低點很容易被打穿，可作為順勢空單的參考防守/移動出場價',
   nightLoT:'夜低撐住(反彈買)：日盤這根K盤中最低回測到「當天夜盤最低點」附近(容差內)，但收盤仍守在夜低之上＝夜低支撐撐住、反彈進多單。是「碰夜低守住才買」的進場觸發（跟A/B/C/D分組獨立，可單用或搭A組）。只在日盤K棒且有前一夜盤資料時成立',
-  nightHiT:'夜高壓回(反彈賣)：日盤這根K盤中最高觸及「當天夜盤最高點」附近(容差內)，但收盤被壓回夜高之下＝夜高壓力壓回、反彈進空單（夜低撐住的鏡射空方版）。只在日盤K棒且有前一夜盤資料時成立'};
+  nightHiT:'夜高壓回(反彈賣)：日盤這根K盤中最高觸及「當天夜盤最高點」附近(容差內)，但收盤被壓回夜高之下＝夜高壓力壓回、反彈進空單（夜低撐住的鏡射空方版）。只在日盤K棒且有前一夜盤資料時成立',
+  gap2R:'跳空雙紅延續：前一根K「開盤價>再前一根最高價」(跳空開高)且收紅(第一根紅K)，這根也收紅且「收盤≥第一根紅K實體中點」(=(前根開+前根收)/2)＝跳空後不回補、第二根持續強勢，在第二根紅K進場。強勢延續型態，多頭趨勢中表現較佳；跳空過大(80~100點以上)易回補缺口勝率降，建議搭配量能不縮或均線斜率過濾',
+  gap2G:'跳空雙黑延續：前一根「開盤價<再前一根最低價」(跳空開低)且收黑，這根也收黑且收盤≤第一根黑K實體中點＝空方強勢延續（跳空雙紅的鏡射）',
+  volKeep:'量能不縮：這根成交量 ≥ 前一根的80%＝第二根量能沒有明顯萎縮（跳空延續策略的量能過濾：續攻要有人跟，量縮的延續容易是假的）'};
 let mtfBuilt=false;
 function buildMTFConds(){
   const mk=(cls,def)=>MTF_CONDS.map(([v,l])=>`<label title="${CONDDEF[v]||l}"><input type="checkbox" class="${cls}" value="${v}" ${def.includes(v)?'checked':''}> ${l}</label>`).join('');
@@ -3284,6 +3307,7 @@ function mtfTrades(ctx, cfg, i0, i1){
         if(!r && cfg.srExit && srFilter && j>=0 && !srFilter(j,b.c,cfg.dir)) r='遇壓撐';                    // 多碰壓力/空碰支撐→出場(壓撐對齊粗週期index j)
         if(!r && cfg.eodClose && isEODBar(exB,d)) r='當日平倉';                                              // 當沖：日盤最後一根強制平倉，不留倉過夜
         if(!r && cfg.midnightClose && isMidnightBar(exB,d)) r='半夜平倉';                                    // 半夜12點後不留倉：跨午夜前最後一根強制平倉
+        if(!r && cfg.maxBars>0 && (d-pos.i)>=cfg.maxBars) r='時間平倉';                                       // 時間出場：持倉滿 N 根(出場細週期)強制平倉
         if(r){ trB.push({side,ei:pos.i,xi:d,ep:pos.e,xp:b.c,rsn:r,pts:(side==='L'?b.c-pos.e:pos.e-b.c)-cost,mae:maeOf(pos)});
           pos=null; everExited=true; lastEnBar=j; continue; }                       // 出場當根不再進，等下一根粗K
       }
@@ -3312,6 +3336,7 @@ function mtfTrades(ctx, cfg, i0, i1){
       if(!r && cfg.srExit && srFilter && !srFilter(i,b.c,cfg.dir)) r='遇壓撐';                // 4) 多單漲到碰大週期壓力/空單跌到碰支撐→出場
       if(!r && cfg.eodClose && isEODBar(enB,i)) r='當日平倉';                                 // 5) 當沖：日盤最後一根強制平倉，不留倉過夜(蓋過留倉防churn)
       if(!r && cfg.midnightClose && isMidnightBar(enB,i)) r='半夜平倉';                       // 6) 半夜12點後不留倉：跨午夜前最後一根強制平倉
+      if(!r && cfg.maxBars>0 && (i-pos.i)>=cfg.maxBars) r='時間平倉';                          // 7) 時間出場：持倉滿 N 根強制平倉
       if(r){ const px=b.c;
         tr.push({side,ei:pos.i,xi:i,ep:pos.e,xp:px,rsn:r,pts:(side==='L'?px-pos.e:pos.e-px)-cost,mae:maeOf(pos)}); pos=null; everExited=true; } }
     if(!pos && hi[i]>=(same?0:1) && (everExited?reOK(i):enOK(i))){ const ep=getEntry(i); if(ep!=null) pos={i,e:ep,peak:ep,maeLow:ep,maeHigh:ep}; }
@@ -3352,7 +3377,8 @@ function runBT(){
   const useEODClose=$('mtfEODClose')&&$('mtfEODClose').checked;
   const useMidnightClose=$('mtfMidnightClose')&&$('mtfMidnightClose').checked;
   const useNightStop=$('mtfNightStop')&&$('mtfNightStop').checked;
-  if(!exConds.length && !useSL && !useTP && !useTrail && !useSRExit && !useEODClose && !useMidnightClose && !useNightStop){ msg($('runMsg'),'請至少勾一個出場條件，或加停損/停利/移動停損/遇壓撐出場/當日平倉/半夜不留倉/夜盤防守停損',false); return; }
+  const useMaxBars=$('mtfMaxBars')&&$('mtfMaxBars').checked;
+  if(!exConds.length && !useSL && !useTP && !useTrail && !useSRExit && !useEODClose && !useMidnightClose && !useNightStop && !useMaxBars){ msg($('runMsg'),'請至少勾一個出場條件，或加停損/停利/移動停損/遇壓撐出場/當日平倉/半夜不留倉/夜盤防守停損/時間出場',false); return; }
   const cfg={ dir:$('mtfDir').value, entry:enConds, exit:exConds, reentry:reConds,
     sl:useSL?+$('mtfSL').value:0, tp:useTP?+$('mtfTP').value:0, trail:useTrail?+$('mtfTrailPts').value:0,
     srFilter:$('mtfSR').checked?'ref':null, srExit:useSRExit?'ref':null, alignN:+$('alignN').value===3?3:4,
@@ -3362,7 +3388,8 @@ function runBT(){
     dayOnly:$('mtfDayOnly')&&$('mtfDayOnly').checked,
     eodClose:useEODClose,
     midnightClose:useMidnightClose,
-    nightStop:$('mtfNightStop')&&$('mtfNightStop').checked };
+    nightStop:$('mtfNightStop')&&$('mtfNightStop').checked,
+    maxBars:($('mtfMaxBars')&&$('mtfMaxBars').checked)?(+$('mtfMaxBarsN').value||0):0 };
   if(cfg.srFilter && !ctx.srFilter) msg($('runMsg'),'（提示：未匯入60分/日線，壓力支撐過濾未生效）',false);
   if(cfg.srExit && !ctx.srFilter) msg($('runMsg'),'（提示：未匯入60分/日線，遇壓撐出場未生效）',false);
   const tr=mtfTrades(ctx,cfg);
@@ -3380,7 +3407,7 @@ function runBT(){
   const nm=cfg.dir==='long'?'多':'空';
   const enTxt=enConds.map(c=>CODEL[c]||c).join('、'), exTxt=exConds.map(c=>CODEL[c]||c).join('、');
   const reTxt=reConds.length?reConds.map(c=>CODEL[c]||c).join('、'):'';
-  const extra=[]; if(cfg.tp)extra.push('停利'+cfg.tp); if(cfg.sl)extra.push('停損'+cfg.sl); if(cfg.trail)extra.push('移動停損'+cfg.trail); if(cfg.srExit)extra.push('遇壓撐出場'); if(cfg.srFilter)extra.push('避大週期壓撐'); if(cfg.eodClose)extra.push('當日平倉'); if(cfg.midnightClose)extra.push('半夜不留倉'); if(cfg.nightStop)extra.push('夜盤防守停損');
+  const extra=[]; if(cfg.tp)extra.push('停利'+cfg.tp); if(cfg.sl)extra.push('停損'+cfg.sl); if(cfg.trail)extra.push('移動停損'+cfg.trail); if(cfg.srExit)extra.push('遇壓撐出場'); if(cfg.srFilter)extra.push('避大週期壓撐'); if(cfg.eodClose)extra.push('當日平倉'); if(cfg.midnightClose)extra.push('半夜不留倉'); if(cfg.nightStop)extra.push('夜盤防守停損'); if(cfg.maxBars)extra.push('時間出場'+cfg.maxBars+'根');
   const wk = enTF===exTF ? tfName(enTF) : `進${tfName(enTF)}→出${tfName(exTF)}`;
   lastStrategyText = `[${cfg.alignN}條排] ${nm}〔進：${enTxt}${reTxt?`｜再進：${reTxt}`:''}｜出：${[exTxt,...extra].filter(Boolean).join('、')||'—'}〕（${wk}）`;
   chartMarks = { tf:markTF, list:trades.map(t=>({entryIdx:t.entryIdx,exitIdx:t.exitIdx,side:t.side})), strategy:lastStrategyText };
@@ -3388,7 +3415,7 @@ function runBT(){
   const nT=trades.length, wins=trades.filter(t=>t.pts>0).length, total=trades.reduce((s,t)=>s+t.pts,0);
   let eq=0,pk=0,mdd=0; trades.forEach(t=>{eq+=t.pts;pk=Math.max(pk,eq);mdd=Math.max(mdd,pk-eq);});
   const maxMAE=trades.reduce((m,t)=>Math.max(m,t.mae||0),0);
-  lastRun={ cfg:{ dir:cfg.dir, entry:enConds, exit:exConds, reentry:reConds, sl:cfg.sl, tp:cfg.tp, trail:cfg.trail, srFilter:cfg.srFilter, srExit:cfg.srExit, alignN:cfg.alignN, dayStopOnly:cfg.dayStopOnly, skipGapBull:cfg.skipGapBull, skipGapDay:cfg.skipGapDay, dayOnly:cfg.dayOnly, eodClose:cfg.eodClose, midnightClose:cfg.midnightClose, nightStop:cfg.nightStop, enTF, exTF },
+  lastRun={ cfg:{ dir:cfg.dir, entry:enConds, exit:exConds, reentry:reConds, sl:cfg.sl, tp:cfg.tp, trail:cfg.trail, srFilter:cfg.srFilter, srExit:cfg.srExit, alignN:cfg.alignN, dayStopOnly:cfg.dayStopOnly, skipGapBull:cfg.skipGapBull, skipGapDay:cfg.skipGapDay, dayOnly:cfg.dayOnly, eodClose:cfg.eodClose, midnightClose:cfg.midnightClose, nightStop:cfg.nightStop, maxBars:cfg.maxBars, enTF, exTF },
     stat:{ n:nT, winRate:nT?wins/nT*100:0, total, mdd, exp:nT?total/nT:0, maxMAE } };
   msg($('runMsg'),`✔ 完成，共 ${trades.length} 筆交易（${wk}）`,true);
   const rb=$('resultBox'); if(rb) rb.scrollIntoView({behavior:'smooth',block:'start'});
@@ -3453,6 +3480,7 @@ function applyBTRecord(id){
   if($('mtfEODClose'))$('mtfEODClose').checked=!!c.eodClose;
   if($('mtfMidnightClose'))$('mtfMidnightClose').checked=!!c.midnightClose;
   if($('mtfNightStop'))$('mtfNightStop').checked=!!c.nightStop;
+  if($('mtfMaxBars')){ $('mtfMaxBars').checked=c.maxBars>0; if(c.maxBars>0)$('mtfMaxBarsN').value=c.maxBars; }
   syncBTMode(); runBT();
   msg($('recMsg'),'✔ 已還原此紀錄的設定並重跑',true);
 }
@@ -3484,6 +3512,9 @@ const STRAT_LIB=[
   {name:'60K 斜率量能', stars:4, note:'MA20斜率(N=3)表態＋量增1.2倍確認',
    logic:'MA20 近3根斜率上揚＋溫和放量 → 多｜斜率下彎＋溫和放量 → 空（套用會把「走勢判斷回看」設3；MA週期用MA3欄位改15~30、量能可換放量1.5/爆量2.5比較）',
    long:['ma3Up','volMild'], short:['ma3Dn','volMild'], lx:['underMA3'], sx:['overMA3'], lb:3, def:{sl:80,trail:60}},
+  {name:'跳空雙紅延續', stars:4, note:'跳空開高+雙紅K收在實體中點上(第2根進)',
+   logic:'跳空開高、第一根紅K、第二根也紅K且收在第一根實體中點之上 → 多；跳空開低雙黑鏡射 → 空。強勢延續型態，配量能不縮過濾。建議停損20~30/停利120/獲利80後移動停損',
+   long:['gap2R','volKeep'], short:['gap2G','volKeep'], lx:['underMA1'], sx:['overMA1'], def:{sl:30,tp:120,trail:80,maxBars:5}},
 ];
 function renderStratLib(){
   const el=$('stratTbl'); if(!el) return;
@@ -3529,9 +3560,11 @@ function applyStrat(idx,dir){
   document.querySelectorAll('.mtfEc').forEach(e=>e.checked=en.includes(e.value));
   document.querySelectorAll('.mtfXc').forEach(e=>e.checked=ex.includes(e.value));
   if($('mtfNightStop')) $('mtfNightStop').checked=!!s.nightStop;   // 取代模式：夜盤防守停損跟著策略設定(A/D組開、其餘關)
-  if(s.def){   // 取代模式：帶入這組進場邏輯「天生對應」的防守（趨勢/突破=停損+移動停損；反彈=緊停損；夜盤=夜盤防守+保底停損）
+  if(s.def){   // 取代模式：帶入這組進場邏輯「天生對應」的防守（趨勢/突破=停損+移動停損；反彈=緊停損；夜盤=夜盤防守+保底停損；跳空延續=緊停損+停利+移動停損）
     if($('mtfUseSL')){ $('mtfUseSL').checked=s.def.sl>0; if(s.def.sl>0)$('mtfSL').value=s.def.sl; }
     if($('mtfTrail')){ $('mtfTrail').checked=s.def.trail>0; if(s.def.trail>0)$('mtfTrailPts').value=s.def.trail; }
+    if($('mtfUseTP')){ $('mtfUseTP').checked=s.def.tp>0; if(s.def.tp>0)$('mtfTP').value=s.def.tp; }
+    if($('mtfMaxBars')){ $('mtfMaxBars').checked=s.def.maxBars>0; if(s.def.maxBars>0)$('mtfMaxBarsN').value=s.def.maxBars; }
   }
   if(s.lb&&$('trendLB')) $('trendLB').value=s.lb;   // 60K斜率策略：斜率根數(走勢判斷回看)帶預設(如3)
   if($('mtfUseReentry')) $('mtfUseReentry').checked=false;
@@ -3573,6 +3606,7 @@ async function runMTFOpt(){
   const midcMtf = $('optMidnightClose') && $('optMidnightClose').checked;   // 半夜12點後不留倉(與A共用同一個勾選框)
   const nstMtf = $('optNightStop') && $('optNightStop').checked;   // 夜盤防守停損(與A共用)：有/無兩種一起測
   const nsList = nstMtf ? [false,true] : [false];
+  const mxbMtf = ($('optMaxBars') && $('optMaxBars').checked) ? (+$('optMaxBarsN').value||0) : 0;   // 時間出場(與A共用)
   // 要測的週期配對
   let pairs=[];
   if(allPairs){
@@ -3590,7 +3624,7 @@ async function runMTFOpt(){
     const ctx=getCtx(en,ex); if(ctx.err||ctx.enB.length<200) continue; okPairs++;
     const trainEnd=Math.floor(ctx.enB.length*split);
     for(const al of alignList)for(const e1 of ents)for(const x1 of exs)for(const re of reList)for(const sl of sls)for(const trail of trails)for(const sr of srList)for(const nsF of nsList){ testedCombos++;
-      const cfg={dir,entry:e1,exit:x1,reentry:re,sl,trail,alignN:al,srFilter:sr,dayStopOnly:dsoMtf,skipGapBull:sgbMtf,skipGapDay:sgdMtf,dayOnly:donlyMtf,eodClose:eodMtf,midnightClose:midcMtf,nightStop:nsF};
+      const cfg={dir,entry:e1,exit:x1,reentry:re,sl,trail,alignN:al,srFilter:sr,dayStopOnly:dsoMtf,skipGapBull:sgbMtf,skipGapDay:sgdMtf,dayOnly:donlyMtf,eodClose:eodMtf,midnightClose:midcMtf,nightStop:nsF,maxBars:mxbMtf};
       const st=tradeStats(mtfTrades(ctx,cfg,0,trainEnd));
       if(st && st.n>=minN) res.push({enTF:en,exTF:ex,cfg,tr:st});
       if(performance.now()-t0>80){ msg($('mtfOptMsg'),`搜尋中… 配對 ${pIdx+1}/${pi}（已測 ${testedCombos} 種、符合 ${res.length} 組）`,true); await new Promise(r=>setTimeout(r)); t0=performance.now(); }
@@ -3622,7 +3656,8 @@ function mtfCfgText(c){
   const eo=c.eodClose?` <span class="sub" style="color:#b8cde8">[當日平倉]</span>`:'';
   const mc=c.midnightClose?` <span class="sub" style="color:#b8cde8">[半夜不留倉]</span>`:'';
   const ns=c.nightStop?` <span class="sub" style="color:#e3b341">[夜盤防守停損]</span>`:'';
-  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds}${gb}${gd}${dO}${eo}${mc}${ns} 進:${e}${re?` <span class="sub" style="color:var(--acc)">(再進:${re})</span>`:''} ／ 出:${x.join('+')||'—'}`;
+  const mb=c.maxBars>0?` <span class="sub" style="color:#b8cde8">[時間出場${c.maxBars}根]</span>`:'';
+  return `<b>${c.dir==='long'?'多':'空'}</b>${al}${sr}${ds}${gb}${gd}${dO}${eo}${mc}${ns}${mb} 進:${e}${re?` <span class="sub" style="color:var(--acc)">(再進:${re})</span>`:''} ／ 出:${x.join('+')||'—'}`;
 }
 function renderMTFOpt(){
   const showPair=mtfOptAllPairs;
@@ -3664,6 +3699,7 @@ function applyMTFResult(r){   // B跨週期最佳化「套用」→填回②統�
   if($('mtfEODClose'))$('mtfEODClose').checked=!!cfg.eodClose;
   if($('mtfMidnightClose'))$('mtfMidnightClose').checked=!!cfg.midnightClose;
   if($('mtfNightStop'))$('mtfNightStop').checked=!!cfg.nightStop;
+  if($('mtfMaxBars')){ $('mtfMaxBars').checked=cfg.maxBars>0; if(cfg.maxBars>0)$('mtfMaxBarsN').value=cfg.maxBars; }
   if(cfg.alignN) $('alignN').value=cfg.alignN;
   document.querySelector('#tabs button[data-v="backtest"]').click();   // 切②(initMTF→syncBTMode解鎖週期)
   if($('mtfUseReentry')) $('mtfUseReentry').dispatchEvent(new Event('change'));   // 同步再進場框灰階
@@ -3956,6 +3992,7 @@ function hofApply(idx){
   if($('mtfEODClose'))$('mtfEODClose').checked=!!c.eodClose;
   if($('mtfMidnightClose'))$('mtfMidnightClose').checked=!!c.midnightClose;
   if($('mtfNightStop'))$('mtfNightStop').checked=!!c.nightStop;
+  if($('mtfMaxBars')){ $('mtfMaxBars').checked=c.maxBars>0; if(c.maxBars>0)$('mtfMaxBarsN').value=c.maxBars; }
   syncBTMode(); runBT();
   msg($('runMsg'),'✅ 已套用名人堂組合並回測（用目前全部資料驗證它是否仍有效）',true);
 }
