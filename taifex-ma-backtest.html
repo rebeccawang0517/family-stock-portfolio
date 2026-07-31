@@ -2758,6 +2758,11 @@ function validateData(){
     if(tf==='D'){   // 日線改判「全時段 vs 日盤版」：開盤貼昨收=全時段(夜盤開接軌)、開盤跳很大=日盤版(隔著整夜)
       checked+=files.length;
       const B=loadTF('D'); html+=`<div style="margin:8px 0 2px"><b>${tfName(tf)}</b>（共 ${files.length} 檔、${B.length} 根；判別全時段/日盤版）</div>`;
+      // 先逐檔檢查「有沒有日期」——無日期的檔(date=#編號)是匯入時日期欄沒對到，要重匯
+      files.forEach((f,idx)=>{ ensureMeta(f); const bs=fileBars(f);
+        const badN=bs.filter(b=>String(b.date||'').startsWith('#')).length;
+        if(badN>0){ problems++; html+=`<div style="padding:3px 0 3px 12px;color:#e8675a;font-size:12.5px">　❌ #${idx+1} ${f.name}：<b>${badN}/${bs.length} 根沒有日期</b>（匯入時「日期」欄沒對到，變成 #編號）→ 請刪掉這個檔、重新匯入並在「欄位對應」把日期欄選到正確欄位</div>`; }
+      });
       if(B.length<15){ html+=`<div style="padding:3px 0 3px 12px;color:var(--sub);font-size:12.5px">　資料太少無法判別</div>`; return; }
       const med=a=>{ const s=[...a].sort((x,y)=>x-y); return s.length?s[Math.floor(s.length/2)]:0; };
       const TH=35, W=15;                                   // 落差門檻(點)、滾動視窗(根)
