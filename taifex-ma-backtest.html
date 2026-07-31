@@ -361,6 +361,8 @@
   <fieldset>
     <legend>各週期資料 · 匯入目標（全部集中在這頁管理）</legend>
     <table id="storeTbl"></table>
+    <div class="row" style="margin-top:10px"><button class="btn" id="btnValidate" style="padding:5px 14px">🔍 驗證資料（檢查每個檔的K棒間隔是否符合週期）</button></div>
+    <div id="validateOut" style="margin-top:8px"></div>
   </fieldset>
   <div id="parseMsg"></div>
   <div id="mapArea" style="display:none">
@@ -2746,6 +2748,38 @@ function renderFileList(tf){
   el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
+// 驗證每個來源檔的K棒時間間隔是否符合它所在的週期（抓「60分檔混進5分K」這類錯誤）
+function validateData(){
+  const out=$('validateOut'); if(!out) return;
+  const KNOWN=[5,15,30,60], TFM={D:1440,M60:60,M30:30,M15:15,M5:5};
+  let html='', problems=0, checked=0;
+  TFS.forEach(tf=>{
+    const exp=TFM[tf], files=loadFiles(tf); if(!files.length) return;
+    if(tf==='D'){ html+=`<div style="margin:6px 0 2px"><b>${tfName(tf)}</b>：日線不檢查間隔（共 ${files.length} 檔）</div>`; return; }
+    html+=`<div style="margin:8px 0 2px"><b>${tfName(tf)}</b>（應為 ${exp} 分間隔，共 ${files.length} 檔）</div>`;
+    files.forEach((f,idx)=>{ checked++; ensureMeta(f);
+      const bs=fileBars(f), T=parseTimeArr(bs); const gaps={}; let intra=0;
+      for(let i=1;i<bs.length;i++){ if(bs[i].time&&bs[i-1].time&&bs[i].date===bs[i-1].date){
+        const dm=Math.round((T[i]-T[i-1])/60000); if(dm>0&&dm<=240){ gaps[dm]=(gaps[dm]||0)+1; intra++; } } }
+      const sorted=Object.entries(gaps).map(([g,c])=>[+g,c]).sort((a,b)=>b[1]-a[1]);
+      const dom=sorted.length?sorted[0][0]:null;
+      const expCnt=gaps[exp]||0;
+      const foreign=sorted.filter(([g,c])=>KNOWN.includes(g)&&g!==exp&&c/Math.max(1,intra)>=0.1);   // 出現≥10%的其他「已知週期」間隔＝混入
+      let stat,color;
+      if(intra<3){ stat='ℹ️ 資料太少無法判斷'; color='#9aa1ab'; }
+      else if(expCnt===0 && KNOWN.includes(dom)){ stat=`❌ 整個檔疑似是 ${dom} 分資料（放錯週期）`; color='#e8675a'; problems++; }
+      else if(foreign.length){ stat=`⚠️ 混入其他週期：${foreign.map(([g,c])=>g+'分×'+c+'段').join('、')}（本檔應為 ${exp} 分）`; color='#e0a14a'; problems++; }
+      else stat='✅ 正常';
+      const dist=sorted.slice(0,4).map(([g,c])=>g+'分:'+c).join('、');
+      html+=`<div style="padding:3px 0 3px 12px;color:${color==='#e8675a'||color==='#e0a14a'?color:'var(--sub)'};font-size:12.5px">`
+        +`　#${idx+1} ${f.name}：<b style="color:${color}">${stat}</b>　<span class="sub">主間隔 ${dom!=null?dom+'分':'—'}／分布 ${dist||'—'}／${f.from}~${f.to}</span></div>`;
+    });
+  });
+  if(!checked) html='<div class="msg">目前沒有任何已匯入的檔案可檢查。</div>';
+  else html=`<div class="msg" style="background:${problems?'rgba(244,81,95,.09)':'rgba(47,191,113,.08)'};border:1px solid ${problems?'rgba(244,81,95,.3)':'rgba(47,191,113,.3)'}">`
+    +`${problems?`<b class="dn">⚠ 發現 ${problems} 個有問題的檔案</b>——請到對應週期的「來源檔明細」把該檔刪除、用正確資料重匯。`:'<b class="up">✅ 所有檔案的K棒間隔都符合各自週期，沒有發現混入問題。</b>'}</div>`+html;
+  out.innerHTML=html;
+}
 //========================= 更新 UI =========================
 function refreshAll(){
   viewStart=null;   // 資料變動 → 圖表重新貼齊最新
@@ -3748,6 +3782,7 @@ $('btnParse').onclick=parsePaste;
 $('btnOptimize').onclick=optimize;
 $('btnMTFOpt').onclick=runMTFOpt;
 $('btnScan').onclick=scanBar;
+if($('btnValidate')) $('btnValidate').onclick=validateData;
 $('btnScanClear').onclick=()=>{ scanCombo.clear(); document.querySelectorAll('#v-scan .scmb').forEach(cb=>cb.checked=false); renderScanCombo(); msg($('scanMsg'),'已清除勾選',true); };
 $('btnScanApply').onclick=applyScanCombo;
 $('btnAnalog').onclick=runAnalog;
