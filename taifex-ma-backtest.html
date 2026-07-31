@@ -1232,6 +1232,21 @@ function parsePaste(){
   msg($('parseMsg'),`偵測到 ${rows.length} 列、最多 ${nc} 欄。請確認下方欄位對應。`,true);
 }
 
+// 某欄是不是「整數欄」(台指OHLC與成交量都是整數；SMA/MA均線多為小數)——用來跳過夾在中間的均線指標欄
+function isIntCol(rows, ci){ let n=0, intN=0;
+  for(const r of rows){ if(ci>=r.length)continue; const v=r[ci]; if(v==null||v===''||!isNum(v))continue; n++; if(Number.isInteger(num(v))) intN++; }
+  return n>0 && intN/n>0.8; }
+// 不靠標題、純用內容對應欄位：日期/時間看格式，開高低收取「整數價格欄」前4個，成交量取其後下一個整數欄(自動跳過SMA小數欄)
+function contentMap(rows, nc){
+  const m={}, role=[]; for(let c=0;c<nc;c++) role.push(guessRole(rows,c));
+  for(let c=0;c<nc;c++){ if(role[c]==='date'&&m.date==null)m.date=c; else if(role[c]==='time'&&m.time==null&&c!==m.date)m.time=c; }
+  const nums=[]; for(let c=0;c<nc;c++) if(role[c]==='num') nums.push(c);
+  const after=nums.filter(c=>m.date==null||c>m.date); const seq=after.length>=4?after:nums;
+  const ints=seq.filter(c=>isIntCol(rows,c));
+  const pick=ints.length>=4?ints:seq;                 // 有≥4整數欄→用整數欄(跳過SMA小數)；否則(如小數報價)退回全部數字欄依序
+  if(pick.length>=4){ m.o=pick[0]; m.h=pick[1]; m.l=pick[2]; m.c=pick[3]; if(pick.length>=5) m.v=pick[4]; }
+  return m;
+}
 function guessRole(rows, ci){
   let dt=0, tm=0, n=0, tot=0;
   for(const r of rows){ if(ci>=r.length)continue; tot++; const v=r[ci];
@@ -1256,18 +1271,8 @@ function mapByHeader(header, nc){
 }
 function buildMap(rows, nc, header){
   // 先用表頭關鍵字對應（正確抓成交量、跳過SMA/MA）；認不出再退回「數字欄依序 O H L C V」
-  const hm=mapByHeader(header, nc); let assign;
-  if(hm){ assign=Array.from({length:nc},()=>'skip'); for(const k in hm) assign[hm[k]]=k; }
-  else {
-    const roles=[]; for(let c=0;c<nc;c++) roles.push(guessRole(rows,c));
-    const numOrder=['o','h','l','c','v']; let ni=0; assign=[];
-    for(let c=0;c<nc;c++){
-      if(roles[c]==='date') assign.push('date');
-      else if(roles[c]==='time') assign.push('time');
-      else if(roles[c]==='num'){ assign.push(numOrder[ni]||'skip'); ni++; }
-      else assign.push('skip');
-    }
-  }
+  const hm=mapByHeader(header, nc) || contentMap(rows, nc);   // 表頭清楚用關鍵字，否則用內容判斷(跳過SMA、抓日期成交量)
+  const assign=Array.from({length:nc},()=>'skip'); if(hm) for(const k in hm) if(hm[k]!=null) assign[hm[k]]=k;
   const opts=[['skip','—忽略—'],['date','日期'],['time','時間'],['o','開'],['h','高'],['l','低'],['c','收'],['v','量']];
   $('mapControls').innerHTML = Array.from({length:nc},(_,c)=>
     `<label>第${c+1}欄 <select data-col="${c}">${opts.map(o=>`<option value="${o[0]}" ${assign[c]===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></label>`
@@ -2674,15 +2679,8 @@ function clearTF(tf){
 // 自動辨識欄位（日期/時間/開高低收量），有沒有時間欄都能對
 function autoMapRows(rows, header){
   const nc=Math.max(...rows.map(r=>r.length));
-  const hm=mapByHeader(header, nc); if(hm) return hm;   // 優先用表頭關鍵字（正確抓成交量、跳過SMA/MA）
-  const roles=[]; for(let c=0;c<nc;c++) roles.push(guessRole(rows,c));
-  const numOrder=['o','h','l','c','v']; let ni=0; const m={};
-  for(let c=0;c<nc;c++){
-    if(roles[c]==='date'&&m.date==null) m.date=c;
-    else if(roles[c]==='time'&&m.time==null) m.time=c;
-    else if(roles[c]==='num'){ if(ni<5)m[numOrder[ni]]=c; ni++; }
-  }
-  return m;
+  const hm=mapByHeader(header, nc); if(hm) return hm;   // 表頭清楚(中/英)→用關鍵字；表頭亂碼/缺→用內容判斷(跳過SMA、正確抓日期與成交量)
+  return contentMap(rows, nc);
 }
 function importCSV(file){
   const rd=new FileReader();
