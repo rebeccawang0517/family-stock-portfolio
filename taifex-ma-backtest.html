@@ -2795,7 +2795,12 @@ function validateData(){
     }
     html+=`<div style="margin:8px 0 2px"><b>${tfName(tf)}</b>（應為 ${exp} 分間隔，共 ${files.length} 檔）</div>`;
     files.forEach((f,idx)=>{ checked++; ensureMeta(f);
-      const bs=fileBars(f), T=parseTimeArr(bs); const gaps={}; let intra=0;
+      const bs=fileBars(f), T=parseTimeArr(bs);
+      const badN=bs.filter(b=>String(b.date||'').startsWith('#')).length;   // 無日期(匯入時日期欄沒對到)
+      if(badN>0){ problems++; html+=`<div style="padding:3px 0 3px 12px;color:#e8675a;font-size:12.5px">　❌ #${idx+1} ${f.name}：<b>${badN}/${bs.length} 根沒有日期</b>（匯入時日期欄沒對到，變成 #編號）→ 請刪掉重匯（新版會自動用內容抓日期欄）</div>`; return; }
+      const noTimeN=bs.filter(b=>!b.time).length;   // intraday 缺時間→間隔算不出
+      if(noTimeN>bs.length*0.5){ problems++; html+=`<div style="padding:3px 0 3px 12px;color:#e8675a;font-size:12.5px">　❌ #${idx+1} ${f.name}：<b>${noTimeN}/${bs.length} 根沒有時間欄</b>（${exp}分K需要時間欄才能判斷）→ 請確認匯的是含時間的分K檔並重匯</div>`; return; }
+      const gaps={}; let intra=0;
       for(let i=1;i<bs.length;i++){ if(bs[i].time&&bs[i-1].time&&bs[i].date===bs[i-1].date){
         const dm=Math.round((T[i]-T[i-1])/60000); if(dm>0&&dm<=240){ gaps[dm]=(gaps[dm]||0)+1; intra++; } } }
       const sorted=Object.entries(gaps).map(([g,c])=>[+g,c]).sort((a,b)=>b[1]-a[1]);
