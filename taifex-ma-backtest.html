@@ -1247,6 +1247,21 @@ function contentMap(rows, nc){
   if(pick.length>=4){ m.o=pick[0]; m.h=pick[1]; m.l=pick[2]; m.c=pick[3]; if(pick.length>=5) m.v=pick[4]; }
   return m;
 }
+// 用「內容」修正日期/時間對應：標題可能騙人(如把日期欄叫「時間」)，一律以欄位實際值為準
+function fixDateTimeMap(m, rows){
+  const nc=Math.max(...rows.map(r=>r.length));
+  const frac=(c,fn)=>{ let n=0,k=0; for(const r of rows){ if(c>=r.length)continue; const v=r[c]; if(v==null||v==='')continue; n++; if(fn(v))k++; } return n?k/n:0; };
+  const looksDate=c=>frac(c,isDate)>0.6, looksTime=c=>frac(c,isTime)>0.6;
+  if(m.date!=null && !looksDate(m.date)){                       // date欄其實不是日期
+    if(m.time!=null && looksDate(m.time)){ m.date=m.time; delete m.time; } else delete m.date; }
+  if(m.date==null){                                             // 沒抓到date：time欄若是日期就轉正，否則掃其他欄找日期欄
+    if(m.time!=null && looksDate(m.time)){ m.date=m.time; delete m.time; }
+    else { const used=new Set(Object.values(m)); for(let c=0;c<nc;c++){ if(!used.has(c)&&looksDate(c)){ m.date=c; break; } } }
+  }
+  if(m.time!=null && m.time===m.date) delete m.time;            // 同一欄不能又日期又時間
+  if(m.time!=null && looksDate(m.time) && !looksTime(m.time)) delete m.time;   // time欄其實是日期→移除誤標
+  return m;
+}
 function guessRole(rows, ci){
   let dt=0, tm=0, n=0, tot=0;
   for(const r of rows){ if(ci>=r.length)continue; tot++; const v=r[ci];
@@ -1271,7 +1286,7 @@ function mapByHeader(header, nc){
 }
 function buildMap(rows, nc, header){
   // 先用表頭關鍵字對應（正確抓成交量、跳過SMA/MA）；認不出再退回「數字欄依序 O H L C V」
-  const hm=mapByHeader(header, nc) || contentMap(rows, nc);   // 表頭清楚用關鍵字，否則用內容判斷(跳過SMA、抓日期成交量)
+  const hm=fixDateTimeMap(mapByHeader(header, nc) || contentMap(rows, nc), rows);   // 表頭清楚用關鍵字，否則用內容判斷；再用內容修正日期/時間
   const assign=Array.from({length:nc},()=>'skip'); if(hm) for(const k in hm) if(hm[k]!=null) assign[hm[k]]=k;
   const opts=[['skip','—忽略—'],['date','日期'],['time','時間'],['o','開'],['h','高'],['l','低'],['c','收'],['v','量']];
   $('mapControls').innerHTML = Array.from({length:nc},(_,c)=>
@@ -2679,8 +2694,8 @@ function clearTF(tf){
 // 自動辨識欄位（日期/時間/開高低收量），有沒有時間欄都能對
 function autoMapRows(rows, header){
   const nc=Math.max(...rows.map(r=>r.length));
-  const hm=mapByHeader(header, nc); if(hm) return hm;   // 表頭清楚(中/英)→用關鍵字；表頭亂碼/缺→用內容判斷(跳過SMA、正確抓日期與成交量)
-  return contentMap(rows, nc);
+  const m=mapByHeader(header, nc) || contentMap(rows, nc);   // 表頭清楚(中/英)→用關鍵字；表頭亂碼/缺→用內容判斷(跳過SMA、正確抓日期與成交量)
+  return fixDateTimeMap(m, rows);                            // 再用內容修正日期/時間(標題可能把日期欄寫成「時間」)
 }
 function importCSV(file){
   const rd=new FileReader();
