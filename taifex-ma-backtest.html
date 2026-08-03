@@ -334,7 +334,8 @@
   <button data-v="bars">⑤ K棒明細</button>
   <button data-v="scan">⑥ 現況判讀</button>
   <button data-v="analog">⑦ 相似軌跡</button>
-  <button data-v="glossary">⑧ 名詞說明</button>
+  <button data-v="review">⑧ 交易檢討</button>
+  <button data-v="glossary">⑨ 名詞說明</button>
 </div>
 </div>
 <main>
@@ -840,6 +841,16 @@
   </p>
 </section>
 
+<!-- ========== 交易檢討（嵌入 taifex-trade-review.html，同網域共用 IndexedDB/K棒）========== -->
+<section class="view" id="v-review">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:2px 0 10px">
+    <span style="font-weight:700">📓 交易紀錄事後檢討</span>
+    <span class="sub" style="font-size:12.5px">上傳過去交易 → 判斷錯誤（尚未表態／逆均線交叉／撞大週期壓力…）→ 依現行策略建議（不看未來）。與本頁共用同一份 K 棒。</span>
+    <a href="./taifex-trade-review.html" target="_blank" rel="noopener" class="btn ghost" style="margin-left:auto;padding:6px 12px;font-size:12.5px;text-decoration:none">↗ 開新分頁</a>
+  </div>
+  <iframe id="reviewFrame" title="交易紀錄事後檢討" style="width:100%;height:calc(100vh - 200px);min-height:640px;border:1px solid var(--line);border-radius:var(--radius);background:#131417"></iframe>
+</section>
+
 <!-- ========== 名詞說明 ========== -->
 <section class="view" id="v-glossary">
   <details id="flowGuide" open>
@@ -1117,6 +1128,7 @@ document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
   if(b.dataset.v==='auto'){ initMTF(); syncTFPickers(); }
   if(b.dataset.v==='scan'){ syncTFPickers(); if(bars.length) scanBar(); }
   if(b.dataset.v==='analog'){ syncTFPickers(); renderAnalogSR(); }
+  if(b.dataset.v==='review'){ const f=$('reviewFrame'); if(f && !f.src) f.src='./taifex-trade-review.html'; }   // ⑧交易檢討：首次點擊才載入iframe
 });
 // 各頁的「週期」下拉：切換目前操作的週期
 function setActiveTF(tf){ if(!TFS.includes(tf))return; TF=tf; load(); refreshAll(); }
