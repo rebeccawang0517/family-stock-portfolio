@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>台指期 · 交易紀錄分析（策略＋多週期）</title>
+<style>
+  :root{--bg:#131417;--panel:#1a1b1f;--panel2:#232428;--panel3:#282a30;--line:#2e3036;--line2:#3a3f48;
+        --txt:#e9ebee;--sub:#9aa1ab;--sub2:#6e7684;--acc:#4f8fe0;--acc2:#8fbcf0;
+        --up:#e8675a;--dn:#3faf78;--warn:#e0a94f;--bad:#e8675a;--good:#3faf78;
+        --gold-soft:rgba(79,143,224,.14);--gold-line:rgba(79,143,224,.44);
+        --radius:16px;--radius-s:10px;--sh:0 2px 10px rgba(0,0,0,.3)}
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:-apple-system,"Segoe UI","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+       color:var(--txt);background:radial-gradient(1200px 600px at 80% -10%,#182030 0%,var(--bg) 55%) fixed,var(--bg);
+       font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  header{padding:12px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+         position:sticky;top:0;z-index:20;background:rgba(19,20,23,.86);backdrop-filter:blur(10px)}
+  header h1{font-size:16px;margin:0;font-weight:800;letter-spacing:.3px}
+  header .tag{font-size:11.5px;color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
+  header a.back{margin-left:auto;color:var(--acc2);text-decoration:none;font-size:13px;font-weight:600}
+  header a.back:hover{text-decoration:underline}
+  main{max-width:1240px;margin:0 auto;padding:20px 18px 80px}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--sh);margin:0 0 20px;overflow:hidden}
+  .step>h2{margin:0;font-size:15px;padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+           background:linear-gradient(180deg,#1d1e23,#1a1b1f)}
+  .step>h2 .n{width:26px;height:26px;flex:0 0 26px;border-radius:8px;display:grid;place-items:center;font-size:14px;font-weight:800;
+              background:var(--gold-soft);color:var(--acc2);border:1px solid var(--gold-line)}
+  .step>h2 small{font-weight:500;color:var(--sub);font-size:12px}
+  .body{padding:16px 18px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+  .col{flex:1 1 320px;min-width:280px}
+  label.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--sub);font-weight:600}
+  textarea,input[type=text],input[type=number],select,input[type=file]{
+    background:#17181c;color:var(--txt);border:1px solid var(--line);border-radius:var(--radius-s);
+    padding:8px 10px;font-size:13.5px;font-family:inherit;width:100%}
+  textarea{height:150px;resize:vertical;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold-line);box-shadow:0 0 0 3px var(--gold-soft)}
+  .btn{background:var(--acc);color:#fff;border:none;border-radius:var(--radius-s);padding:9px 16px;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:var(--sh)}
+  .btn:hover{filter:brightness(1.08)}
+  .btn.ghost{background:var(--panel2);color:var(--txt);border:1px solid var(--line);box-shadow:none}
+  .btn.sm{padding:6px 11px;font-size:12.5px}
+  .tf-seg{display:inline-flex;gap:3px;background:#17181c;border:1px solid var(--line);border-radius:9px;padding:3px}
+  .tf-seg button{background:none;border:none;color:var(--sub);padding:6px 13px;border-radius:6px;cursor:pointer;font-size:12.5px;font-weight:700}
+  .tf-seg button.on{background:var(--acc);color:#fff}
+  .hint{color:var(--sub);font-size:12px;line-height:1.7}
+  .hint code{background:#17181c;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--acc2);font-size:11.5px}
+  .muted-note{font-size:11.5px;color:var(--sub2);margin-top:6px}
+  .hide{display:none!important}
+  .msg{border-radius:var(--radius-s);padding:9px 12px;font-size:12.5px;margin:10px 0}
+  .msg.ok{background:rgba(63,175,120,.12);border:1px solid rgba(63,175,120,.4);color:#9fe0bd}
+  .msg.err{background:rgba(232,103,90,.12);border:1px solid rgba(232,103,90,.4);color:#f0a89f}
+  .msg.warn{background:rgba(224,169,79,.12);border:1px solid rgba(224,169,79,.4);color:#e8c98a}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  .scroll{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius-s)}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:right;white-space:nowrap}
+  th{position:sticky;top:0;background:var(--panel2);z-index:1;font-weight:700;color:var(--sub)}
+  td.l,th.l{text-align:left}
+  tr:hover td{background:rgba(79,143,224,.05)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:4px 0 16px}
+  .card{background:linear-gradient(180deg,#1b1c20,#1a1b1f);border:1px solid var(--line);border-radius:var(--radius-s);padding:12px 14px}
+  .card .k{color:var(--sub);font-size:11.5px;font-weight:600}
+  .card .v{font-size:22px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+  .card .s{font-size:11px;color:var(--sub2);margin-top:2px}
+  .up{color:var(--up)}.dn{color:var(--dn)}.sub{color:var(--sub)}.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+  .chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin:1px 2px;white-space:nowrap}
+  .chip.err{background:rgba(232,103,90,.16);color:#f0a89f;border:1px solid rgba(232,103,90,.4)}
+  .chip.beh{background:rgba(224,169,79,.16);color:#e8c98a;border:1px solid rgba(224,169,79,.4)}
+  .chip.ok{background:rgba(63,175,120,.16);color:#9fe0bd;border:1px solid rgba(63,175,120,.4)}
+  .chip.pos{background:rgba(232,103,90,.16);color:#f0a89f;border:1px solid rgba(232,103,90,.4)}
+  .chip.neg{background:rgba(63,175,120,.16);color:#9fe0bd;border:1px solid rgba(63,175,120,.4)}
+  .chip.mut{background:var(--panel3);color:var(--sub);border:1px solid var(--line)}
+  .chip.acc{background:var(--gold-soft);color:var(--acc2);border:1px solid var(--gold-line)}
+  .errbox{border:1px solid var(--line);border-radius:var(--radius-s);padding:12px 14px;margin:10px 0;background:var(--panel)}
+  .errbox h4{margin:0 0 4px;font-size:13.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .errbox .def{color:var(--sub);font-size:12px;margin:2px 0 8px}
+  .errbox .fix{background:#17181c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:12.5px;margin-top:8px}
+  .errbox .fix b{color:var(--acc2)}
+  .metrics{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;margin-top:8px;color:var(--sub)}
+  .metrics b{font-variant-numeric:tabular-nums}
+  .copybar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+  .copybox{flex:1 1 320px;background:#17181c;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:12.5px;
+           font-family:ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+  .divider{height:1px;background:var(--line);margin:14px 0}
+  .flex-end{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+  .bias-strongLong{color:#ff8b7e}.bias-long{color:#f0a89f}.bias-neutral{color:var(--warn)}.bias-short{color:#9fe0bd}.bias-strongShort{color:#5fe0a5}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--gold-line);
+         color:var(--txt);padding:9px 16px;border-radius:999px;font-size:13px;box-shadow:var(--sh);opacity:0;transition:.25s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>📓 台指期 · 交易紀錄分析</h1>
+  <span class="tag">上傳交易 → 判斷錯誤 → 依現行策略建議（不看未來）</span>
+  <a class="back" href="./taifex-ma-backtest.html">← 回 K棒均線回測</a>
+</header>
+
+<main>
+  <!-- ═══ 步驟 1：上傳 ═══ -->
+  <section class="step">
+    <h2><span class="n">1</span> 上傳過去交易紀錄 <small>貼上表格或匯入 CSV，自動對應到已匯入的 K 棒（進場週期＋高週期）</small></h2>
+    <div class="body">
+      <div class="row">
+        <div class="col">
+          <label class="fld">貼上交易表格（從 Excel/券商複製，含表頭最佳）
+            <textarea id="pasteBox" placeholder="時間            方向  進場價  出場價  口數  出場時間           備註
+2026/07/01 10:30  多    23150   23260   1     2026/07/01 12:00  順勢
+2026/07/02 09:05  空    23400   23470   2     2026/07/02 10:15  尾盤追空
+…（欄位順序不拘，下一步可手動對應）"></textarea>
+          </label>
+          <div class="flex-end" style="margin-top:8px">
+            <button class="btn" id="btnParse">解析貼上內容</button>
+            <label class="btn ghost sm" style="width:auto;cursor:pointer">📁 匯入 CSV
+              <input type="file" id="fileCsv" accept=".csv,.txt" class="hide"></label>
+            <button class="btn ghost sm" id="btnDemo">載入示範資料</button>
+          </div>
+        </div>
+        <div class="col" style="flex:1 1 360px">
+          <div class="row">
+            <label class="fld" style="flex:1 1 170px">進場（分析）週期
+              <div class="tf-seg" id="tfSeg" style="margin-top:2px">
+                <button data-tf="M5">5分</button>
+                <button data-tf="M15" class="on">15分</button>
+                <button data-tf="M30">30分</button>
+                <button data-tf="M60">60分</button>
+                <button data-tf="D">日線</button>
+              </div>
+            </label>
+            <label class="fld" style="flex:1 1 110px">每點價值(元)
+              <input type="number" id="ptVal" value="200" step="10" title="大台=200、小台=50"></label>
+            <label class="fld" style="flex:1 1 110px">來回成本(點)
+              <input type="number" id="feePt" value="0" step="1"></label>
+          </div>
+          <div class="row" style="margin-top:2px">
+            <label class="fld" style="flex:1 1 80px">MA1<input type="number" id="ma1" value="5"></label>
+            <label class="fld" style="flex:1 1 80px">MA2<input type="number" id="ma2" value="10"></label>
+            <label class="fld" style="flex:1 1 80px">MA3<input type="number" id="ma3" value="20"></label>
+            <label class="fld" style="flex:1 1 80px">MA4<input type="number" id="ma4" value="60"></label>
+            <label class="fld" style="flex:1 1 80px">MA5<input type="number" id="ma5" value="240"></label>
+          </div>
+          <div class="row" style="margin-top:2px">
+            <label class="fld" style="flex:1 1 90px">斜率回看N<input type="number" id="lb" value="5"></label>
+            <label class="fld" style="flex:1 1 90px">容差%<input type="number" id="tol" value="0.3" step="0.1"></label>
+            <label class="fld" style="flex:1 1 90px">交叉回看N<input type="number" id="xN" value="5" title="近N根內出現金/死叉即算逆交叉"></label>
+            <label class="fld" style="flex:1 1 110px">合理停損(點)<input type="number" id="stopPt" value="40" step="5"></label>
+            <label class="fld" style="flex:1 1 110px">過短持倉(根)<input type="number" id="earlyBar" value="2"></label>
+          </div>
+          <div id="dataStatus" class="muted-note"></div>
+        </div>
+      </div>
+      <div id="mapArea" class="hide">
+        <div class="divider"></div>
+        <div class="hint" style="margin-bottom:8px">確認欄位對應（已自動猜測，可手動調整）：</div>
+        <div class="row" id="mapRow"></div>
+        <div class="scroll" style="margin-top:10px;max-height:230px"><table id="mapPreview"></table></div>
+        <div class="flex-end" style="margin-top:10px">
+          <button class="btn" id="btnAnalyze">✅ 確認並分析</button>
+          <span id="mapMsg" class="hint"></span>
+        </div>
+      </div>
+      <div id="parseMsg"></div>
+    </div>
+  </section>
+
+  <!-- ═══ 步驟 2：判斷錯誤 ═══ -->
+  <section class="step hide" id="sec2">
+    <h2><span class="n">2</span> 判斷錯誤 <small>每筆只用「進場當下已收完的K棒＋高週期(60分/日線)」判斷，不看未來</small></h2>
+    <div class="body">
+      <div class="cards" id="statCards"></div>
+      <div id="errSummary"></div>
+      <div class="divider"></div>
+      <div class="hint" style="margin-bottom:8px"><span class="chip err">紅＝訊號型錯誤</span> 進場當下可判斷；<span class="chip beh">黃＝行為型</span> 用這筆自己的結果檢討</div>
+      <div class="scroll"><table id="tradeTbl"></table></div>
+    </div>
+  </section>
+
+  <!-- ═══ 步驟 3：依策略建議 ═══ -->
+  <section class="step hide" id="sec3">
+    <h2><span class="n">3</span> 依現行策略提出建議 <small>每種錯誤 → 進場當下就能執行的過濾（對應主頁策略庫條件名稱）</small></h2>
+    <div class="body">
+      <div class="cards" id="fixCards"></div>
+      <div id="fixList"></div>
+      <div class="divider"></div>
+      <h3 style="margin:6px 0;font-size:14px">📋 建議條件組合（可複製回主回測頁勾選）</h3>
+      <div id="comboBox"></div>
+    </div>
+  </section>
+
+  <p class="hint" style="margin-top:22px">
+    資料來源：本頁讀你在 <a class="back" href="./taifex-ma-backtest.html">K棒均線回測</a> 匯入的 K 棒（IndexedDB <code>taiindex_db</code>／localStorage <code>taiindex_files_*</code>）。
+    高週期以「進場當下最後已收完」的 60 分（次要：日線）判斷。指標與策略名稱皆與主頁一致。
+  </p>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   台指期交易紀錄分析（策略＋多週期視角）
+   1 上傳 → 2 判斷錯誤 → 3 依現行策略建議。全部不看未來：只用進場當下
+   已收完的 K 棒與高週期(60分/日線)最後已收完 K 棒。
+   指標(calcInd)、條件(condTrue)、策略庫名稱皆與 taifex-ma-backtest.html 一致。
+   ══════════════════════════════════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+const TFS=['D','M60','M30','M15','M5'];
+const TF_MIN={D:1440,M60:60,M30:30,M15:15,M5:5};
+const TF_NAME={D:'日線',M60:'60分',M30:'30分',M15:'15分',M5:'5分'};
+let CURTF='M15', ALLBARS={}, IND_CACHE={}, TS_CACHE={}, PENDING=null, TRADES=[];
+const HTF=tf=>tf==='D'?'D':(tf==='M60'?'D':'M60');   // 高週期：進場<60分→60分；進場60分→日線
+
+/* ── 讀 K 棒 ── */
+const IDB_NAME='taiindex_db', IDB_STORE='tf';
+const strToBars=s=>!s?[]:s.split('\n').map(l=>{const a=l.split(',');return{date:a[0],time:a[1],o:+a[2],h:+a[3],l:+a[4],c:+a[5],v:(a[6]===''||a[6]==null)?null:+a[6]};});
+const fileBars=f=>f.bars?f.bars:strToBars(f.d);
+function idbGetAll(){return new Promise(res=>{if(!self.indexedDB){res([]);return;}
+  const r=indexedDB.open(IDB_NAME,1);
+  r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE,{keyPath:'tf'});};
+  r.onsuccess=e=>{const db=e.target.result;try{const st=db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE);
+    const g=st.getAll();g.onsuccess=()=>res(g.result||[]);g.onerror=()=>res([]);}catch(err){res([]);}};
+  r.onerror=()=>res([]);});}
+function barMs(b){const d=(b.date||'').replace(/-/g,'/');const t=(b.time||'00:00').trim();
+  const m=d.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);if(!m)return NaN;
+  const tm=t.match(/(\d{1,2}):(\d{2})/);return Date.UTC(+m[1],+m[2]-1,+m[3],tm?+tm[1]:0,tm?+tm[2]:0);}
+function dedupeSort(arr){const map=new Map();for(const b of arr)map.set((b.date||'')+'|'+(b.time||''),b);
+  return[...map.values()].map(b=>[barMs(b),b]).filter(p=>!isNaN(p[0])).sort((a,b)=>a[0]-b[0]).map(p=>p[1]);}
+async function loadAllBars(){
+  const recs=await idbGetAll();const byTf={};recs.forEach(r=>{if(r&&r.tf)byTf[r.tf]=r.files||[];});
+  for(const tf of TFS){let files=byTf[tf];
+    if(!files||!files.length){try{files=JSON.parse(localStorage.getItem('taiindex_files_'+tf)||'[]');}catch(e){files=[];}}
+    if(!files||!files.length){let lg=[];try{lg=JSON.parse(localStorage.getItem('taiindex_bt_'+tf)||'[]');}catch(e){}
+      if(Array.isArray(lg)&&lg.length)files=[{name:'既有',bars:lg}];}
+    ALLBARS[tf]=(files&&files.length)?dedupeSort(files.flatMap(fileBars)):[];}
+  IND_CACHE={};TS_CACHE={};
+}
+function tsArr(tf){if(TS_CACHE[tf])return TS_CACHE[tf];const a=ALLBARS[tf].map(barMs);TS_CACHE[tf]=a;return a;}
+
+/* ── 指標（移植主頁 calcInd）── */
+function sma(a,i,n){if(i<n-1)return NaN;let s=0;for(let k=i-n+1;k<=i;k++)s+=a[k];return s/n;}
+function linSlope(a,i,n){if(n<2||i<n-1)return NaN;let sx=0,sy=0,sxy=0,sxx=0,c=0;
+  for(let k=0;k<n;k++){const y=a[i-n+1+k];if(isNaN(y))return NaN;sx+=k;sy+=y;sxy+=k*y;sxx+=k*k;c++;}
+  const d=c*sxx-sx*sx;if(!d)return NaN;return(c*sxy-sx*sy)/d;}
+function isDayBar(b){const m=String((b&&b.time)||'').match(/^(\d{1,2}):(\d{2})/);if(!m)return true;
+  const mins=(+m[1])*60+(+m[2]);return mins>=525&&mins<=825;}
+function getP(){return{ma1:+$('ma1').value,ma2:+$('ma2').value,ma3:+$('ma3').value,ma4:+$('ma4').value,ma5:+$('ma5').value,
+  lb:Math.max(2,+$('lb').value||5),tol:(+$('tol').value||0.3)/100};}
+function calcInd(B,P){
+  const c=B.map(b=>b.c),vArr=B.map(b=>(b.v>0?b.v:NaN));
+  const VN=20,HN=20,trN=P.lb,SLB=P.lb,TOLp=P.tol;
+  const ma1A=[],ma3A=[],ma4A=[];
+  for(let i=0;i<B.length;i++){ma1A[i]=sma(c,i,P.ma1);ma3A[i]=sma(c,i,P.ma3);ma4A[i]=sma(c,i,P.ma4);}
+  const PK=3,PIVLB=60;const pivHi=Array(B.length).fill(false),pivLo=Array(B.length).fill(false);
+  for(let j=PK;j<B.length-PK;j++){let hi=true,lo=true;
+    for(let k=1;k<=PK;k++){if(!(B[j].h>B[j-k].h&&B[j].h>B[j+k].h))hi=false;if(!(B[j].l<B[j-k].l&&B[j].l<B[j+k].l))lo=false;}
+    pivHi[j]=hi;pivLo[j]=lo;}
+  const dateNightStat={};{let lo=Infinity,hi=-Infinity,close=NaN,haveNight=false;
+    for(let i=0;i<B.length;i++){const bb=B[i];if(!bb.time)continue;
+      if(isDayBar(bb)){const dt=bb.date||'';if(haveNight&&!dateNightStat[dt])dateNightStat[dt]={lo,hi,close,open:bb.o};
+        if(haveNight){lo=Infinity;hi=-Infinity;close=NaN;haveNight=false;}}
+      else{lo=Math.min(lo,bb.l);hi=Math.max(hi,bb.h);close=bb.c;haveNight=true;}}}
+  const BBN=20,BBK=2;const bbMA=Array(B.length).fill(NaN),bbSD=Array(B.length).fill(NaN);
+  {let s=0,s2=0;for(let i=0;i<B.length;i++){s+=c[i];s2+=c[i]*c[i];
+    if(i>=BBN){s-=c[i-BBN];s2-=c[i-BBN]*c[i-BBN];}
+    if(i>=BBN-1){const m=s/BBN,v=Math.max(0,s2/BBN-m*m);bbMA[i]=m;bbSD[i]=Math.sqrt(v);}}}
+  return B.map((b,i)=>{
+    const ma1=sma(c,i,P.ma1),ma2=sma(c,i,P.ma2),ma3=sma(c,i,P.ma3),ma4=sma(c,i,P.ma4),ma5=sma(c,i,P.ma5);
+    const range=b.h-b.l,body=b.c-b.o,upSh=b.h-Math.max(b.o,b.c),loSh=Math.min(b.o,b.c)-b.l;
+    const bull3=ma1>ma2&&ma2>ma3,bull4=bull3&&ma3>ma4,bear3=ma3>ma2&&ma2>ma1,bear4=bear3&&ma4>ma3;
+    const trSlope=linSlope(c,i,trN),trUp=!isNaN(trSlope)&&trSlope>0,trDn=!isNaN(trSlope)&&trSlope<0;
+    let volR=NaN;if(i>=VN&&vArr[i]>0){let s=0,cnt=0;for(let k=i-VN;k<i;k++){if(!isNaN(vArr[k])){s+=vArr[k];cnt++;}}
+      if(cnt>=15&&s>0)volR=vArr[i]/(s/cnt);}
+    let hh=NaN,ll=NaN;if(i>=HN-1){hh=-Infinity;ll=Infinity;for(let k=i-HN+1;k<=i;k++){if(B[k].h>hh)hh=B[k].h;if(B[k].l<ll)ll=B[k].l;}}
+    const ma3sl=linSlope(ma3A,i,SLB);
+    const ma3Up=!isNaN(ma3sl)&&ma3sl>0,ma3Dn=!isNaN(ma3sl)&&ma3sl<0;
+    const xUp4=i>0&&!isNaN(ma4A[i])&&!isNaN(ma4A[i-1])&&c[i-1]<=ma4A[i-1]&&c[i]>ma4A[i];
+    const xDn4=i>0&&!isNaN(ma4A[i])&&!isNaN(ma4A[i-1])&&c[i-1]>=ma4A[i-1]&&c[i]<ma4A[i];
+    const bullK3=!isNaN(ma1)&&!isNaN(ma4)&&ma1>ma3&&ma3>ma4,bearK3=!isNaN(ma1)&&!isNaN(ma4)&&ma1<ma3&&ma3<ma4;
+    const m1a=ma1A[i],m1b=ma1A[i-1],m1c=ma1A[i-2];
+    const ma1TurnUp=i>=2&&!isNaN(m1a)&&!isNaN(m1c)&&(m1b-m1c)<=0&&(m1a-m1b)>0;
+    const ma1TurnDn=i>=2&&!isNaN(m1a)&&!isNaN(m1c)&&(m1b-m1c)>=0&&(m1a-m1b)<0;
+    let supL=false,resL=false;
+    for(let j=i-5;j>=Math.max(0,i-PIVLB)&&!supL;j--){if(pivLo[j]&&j+PK<=i){const lv=B[j].l;
+      if(b.l<=lv*(1+TOLp)&&b.l>=lv*(1-TOLp*3)&&b.c>lv&&range>0&&loSh>=range*0.25)supL=true;}}
+    for(let j=i-5;j>=Math.max(0,i-PIVLB)&&!resL;j--){if(pivHi[j]&&j+PK<=i){const lv=B[j].h;
+      if(b.h>=lv*(1-TOLp)&&b.h<=lv*(1+TOLp*3)&&b.c<lv&&range>0&&upSh>=range*0.25)resL=true;}}
+    const ns=isDayBar(b)?dateNightStat[b.date||'']:null;
+    const nightLo=ns?ns.lo:NaN,nightHi=ns?ns.hi:NaN,nightClose=ns?ns.close:NaN,dayOpenPx=ns?ns.open:NaN;
+    const nightRelPos=(ns&&nightHi>nightLo)?(nightClose-nightLo)/(nightHi-nightLo):NaN;
+    return{ma1,ma2,ma3,ma4,ma5,bull:bull4,bear:bear4,bull3,bull4,bear3,bear4,range,body,
+      red:b.c>b.o,green:b.c<b.o,bodyRatio:range>0?Math.abs(body)/range:0,upSh,loSh,
+      trUp,trDn,volR,hh,ll,ma3Up,ma3Dn,xUp4,xDn4,bullK3,bearK3,supL,resL,ma1TurnUp,ma1TurnDn,
+      bbU:bbMA[i]+BBK*bbSD[i],bbM:bbMA[i],bbL:bbMA[i]-BBK*bbSD[i],
+      nightLo,nightHi,nightClose,dayOpenPx,nightRelPos};
+  });
+}
+function indArr(tf){if(IND_CACHE[tf])return IND_CACHE[tf];IND_CACHE[tf]=calcInd(ALLBARS[tf],getP());return IND_CACHE[tf];}
+
+/* ── 條件（移植主頁 condTrue）── */
+function crossUpArr(I,k){if(k<1)return false;const a=I[k-1],b=I[k];if([a.ma1,a.ma2,b.ma1,b.ma2].some(v=>isNaN(v)))return false;return a.ma1<=a.ma2&&b.ma1>b.ma2;}
+function crossDownArr(I,k){if(k<1)return false;const a=I[k-1],b=I[k];if([a.ma1,a.ma2,b.ma1,b.ma2].some(v=>isNaN(v)))return false;return a.ma1>=a.ma2&&b.ma1<b.ma2;}
+function condTrue(B,I,i,code,tol){
+  const b=B[i],x=I[i];
+  switch(code){
+    case'bull':return x.bull;case'bear':return x.bear;case'red':return x.red;case'green':return x.green;
+    case'overMA1':return b.c>x.ma1;case'underMA1':return b.c<x.ma1;case'overMA2':return b.c>x.ma2;case'underMA2':return b.c<x.ma2;
+    case'overMA3':return b.c>x.ma3;case'underMA3':return b.c<x.ma3;case'overMA4':return b.c>x.ma4;case'underMA4':return b.c<x.ma4;
+    case'overMA5':return b.c>x.ma5;case'underMA5':return b.c<x.ma5;
+    case'sup':{const t3=x.ma3*(1+tol),t4=x.ma4*(1+tol);return(b.l<=t3&&b.c>x.ma3)||(b.l<=t4&&b.c>x.ma4);}
+    case'res':{const t3=x.ma3*(1-tol),t4=x.ma4*(1-tol);return(b.h>=t3&&b.c<x.ma3)||(b.h>=t4&&b.c<x.ma4);}
+    case'trendUp':return x.trUp;case'trendDn':return x.trDn;case'loseBull':return!x.bull;case'loseBear':return!x.bear;
+    case'goldX':return crossUpArr(I,i);case'deadX':return crossDownArr(I,i);
+    case'strRed':return x.red&&x.bodyRatio>=0.6;case'strGreen':return x.green&&x.bodyRatio>=0.6;
+    case'longLow':return x.range>0&&x.loSh/x.range>=0.5;case'longUp':return x.range>0&&x.upSh/x.range>=0.5;
+    case'volUp':return x.volR>=1.5;case'volSpike':return x.volR>=2.5;case'volMild':return x.volR>=1.2;
+    case'gap2R':return i>=2&&B[i-1].o>B[i-2].h&&I[i-1].red&&x.red&&b.c>=(B[i-1].o+B[i-1].c)/2;
+    case'gap2G':return i>=2&&B[i-1].o<B[i-2].l&&I[i-1].green&&x.green&&b.c<=(B[i-1].o+B[i-1].c)/2;
+    case'volKeep':return i>=1&&B[i-1].v>0&&b.v>=B[i-1].v*0.8;
+    case'red2':return x.red&&i>=1&&I[i-1].red;case'red3':return x.red&&i>=2&&I[i-1].red&&I[i-2].red;
+    case'green2':return x.green&&i>=1&&I[i-1].green;case'green3':return x.green&&i>=2&&I[i-1].green&&I[i-2].green;
+    case'nearHigh':return!isNaN(x.hh)&&x.hh>0&&(x.hh-b.c)/x.hh<=0.005;
+    case'nearLow':return!isNaN(x.ll)&&x.ll>0&&(b.c-x.ll)/x.ll<=0.005;
+    case'ma3Up':return!!x.ma3Up;case'ma3Dn':return!!x.ma3Dn;case'xUp4':return!!x.xUp4;case'xDn4':return!!x.xDn4;
+    case'bullK3':return!!x.bullK3;case'bearK3':return!!x.bearK3;case'supL':return!!x.supL;case'resL':return!!x.resL;
+    case'ma1TurnUp':return!!x.ma1TurnUp;case'ma1TurnDn':return!!x.ma1TurnDn;
+    case'nightA':return!isNaN(x.nightRelPos)&&x.nightRelPos>0.5&&x.dayOpenPx>x.nightClose;
+    case'nightD':return!isNaN(x.nightRelPos)&&x.nightRelPos<=0.5&&x.dayOpenPx<=x.nightClose;
+    case'nightLoT':return!isNaN(x.nightLo)&&b.l<=x.nightLo*(1+tol)&&b.c>x.nightLo;
+    case'nightHiT':return!isNaN(x.nightHi)&&b.h>=x.nightHi*(1-tol)&&b.c<x.nightHi;
+  }return false;
+}
+function recentTrue(B,I,fromIdx,N,code,tol){for(let k=fromIdx;k>=Math.max(0,fromIdx-N+1);k--)if(condTrue(B,I,k,code,tol))return fromIdx-k;return null;}
+function signalIdx(tf,ms){const ts=tsArr(tf),iv=TF_MIN[tf]*60000;let idx=-1;for(let i=0;i<ts.length;i++){if(ts[i]+iv<=ms)idx=i;else break;}return idx;}
+function containIdx(tf,ms){const ts=tsArr(tf);let idx=-1;for(let i=0;i<ts.length;i++){if(ts[i]<=ms)idx=i;else break;}return idx;}
+
+/* ── 高週期環境評分（因果安全）→ bias ── */
+function scoreEnv(tf,idx){
+  const B=ALLBARS[tf],I=indArr(tf),tol=getP().tol,N=Math.max(1,+$('xN').value||5);
+  const b=B[idx],x=I[idx];let L=0,H=0;
+  const overMA5=!isNaN(x.ma5)&&b.c>x.ma5,underMA5=!isNaN(x.ma5)&&b.c<x.ma5;
+  if(x.bull)L+=2;if(x.bear)H+=2;if(x.bullK3)L+=2;if(x.bearK3)H+=2;
+  if(x.ma3Up)L+=1;if(x.ma3Dn)H+=1;if(b.c>x.ma3)L+=1;if(b.c<x.ma3)H+=1;
+  if(b.c>x.ma4)L+=1;if(b.c<x.ma4)H+=1;if(overMA5)L+=2;if(underMA5)H+=2;
+  if(recentTrue(B,I,idx,N,'goldX',tol)!=null)L+=1;if(recentTrue(B,I,idx,N,'deadX',tol)!=null)H+=1;
+  if(recentTrue(B,I,idx,N,'xUp4',tol)!=null)L+=1;if(recentTrue(B,I,idx,N,'xDn4',tol)!=null)H+=1;
+  const score=L-H,flat=!x.bull&&!x.bear&&!x.ma3Up&&!x.ma3Dn;
+  let bias;if(flat&&Math.abs(score)<=2)bias='neutral';else if(score>=5)bias='strongLong';else if(score>=2)bias='long';
+  else if(score<=-5)bias='strongShort';else if(score<=-2)bias='short';else bias='neutral';
+  return{bias,score,b,x};
+}
+const BIAS_LABEL={strongLong:'強多頭',long:'偏多',neutral:'中性/震盪',short:'偏空',strongShort:'強空頭'};
+
+/* ── 錯誤定義（訊號型 sig／行為型 beh），用你的策略庫語言 ── */
+const ERRDEF={
+  E1:{name:'逆勢進場',type:'sig',def:'做多時收盤<MA20或MA20下彎（做空相反）＝逆著中期方向。'},
+  E9:{name:'尚未表態就進場',type:'sig',def:'做多但均線「尚未多排、也非60K三線多排」（做空但尚未空排）＝方向還沒站出來就搶進。'},
+  E10:{name:'逆均線交叉(MA1穿MA2)',type:'sig',def:'做多但近N根剛出現死亡交叉（MA1下穿MA2），做空但剛出現黃金交叉＝逆著快慢線交叉方向。'},
+  E11:{name:'撞大週期壓力/支撐',type:'sig',def:'做多但高週期(60分)靠近壓力（左邊高點resL／近期高／MA240在上方形成壓力），做空但撞到支撐。含「60分K 240均壓力」。'},
+  E7:{name:'逆大週期環境',type:'sig',def:'進場方向與高週期(60分)整體偏向相反（偏空環境做多／偏多環境做空）。'},
+  E2:{name:'假突破',type:'sig',def:'突破近20根高/低點當根卻收長影線（被打回）。因果版只看進場那根影線與位置。'},
+  E3:{name:'無量追價',type:'sig',def:'進場當根量<前20根均量80%＝沒量硬追。'},
+  E6:{name:'時段錯誤',type:'sig',def:'進場落在開盤前30分(08:45–09:15)、尾盤30分(13:15–13:45)或夜盤開盤30分(15:00–15:30)。'},
+  E4:{name:'過早出場',type:'beh',def:'獲利單持倉根數≤設定值＝賺一點就跑。'},
+  E5:{name:'讓虧損擴大',type:'beh',def:'虧損單虧超過合理停損1.5倍或持倉≥12根＝該停沒停。'},
+  E8:{name:'連虧後加碼/情緒',type:'beh',def:'前兩筆都虧之後又進場（常放大口數）＝報復性交易。'}
+};
+/* 錯誤 → 進場當下可執行的過濾（filter＝可模擬；rule＝紀律）。條件皆為主頁策略庫名稱 */
+const FIXDEF={
+  E1:{kind:'filter',long:['站上MA20','MA20上揚'],short:['跌破MA20','MA20下彎'],
+      pass:t=>t.dir>0?(t.bar.c>t.ind.ma3&&t.ind.ma3Up):(t.bar.c<t.ind.ma3&&t.ind.ma3Dn)},
+  E9:{kind:'filter',long:['多排 或 60K三線多排'],short:['空排 或 60K三線空排'],
+      pass:t=>t.dir>0?(t.ind.bull||t.ind.bullK3):(t.ind.bear||t.ind.bearK3)},
+  E10:{kind:'filter',long:['近N根為黃金交叉且無死叉'],short:['近N根為死亡交叉且無金叉'],
+      pass:t=> t.dir>0 ? (t.goldAgo!=null && t.deadAgo==null) : (t.deadAgo!=null && t.goldAgo==null)},
+  E11:{kind:'filter',needHi:true,long:['60分站上MA240 + 遠離壓力(非左壓/近高)'],short:['60分跌破MA240 + 遠離支撐'],
+      pass:t=> t.hind ? (t.dir>0 ? (t.hbar.c>t.hind.ma5 && !t.hResNear) : (t.hbar.c<t.hind.ma5 && !t.hSupNear)) : false},
+  E7:{kind:'filter',needHi:true,long:['大週期(60分)同向偏多'],short:['大週期(60分)同向偏空'],
+      pass:t=> t.hEnv ? (t.dir>0 ? (t.hEnv.bias==='long'||t.hEnv.bias==='strongLong') : (t.hEnv.bias==='short'||t.hEnv.bias==='strongShort')) : false},
+  E2:{kind:'filter',long:['強紅K'],short:['強黑K'],
+      pass:t=>t.dir>0?(t.ind.red&&t.ind.bodyRatio>=0.6):(t.ind.green&&t.ind.bodyRatio>=0.6)},
+  E3:{kind:'filter',long:['溫和放量(≥1.2倍)'],short:['溫和放量(≥1.2倍)'],
+      pass:t=>!isNaN(t.ind.volR)&&t.ind.volR>=1.2},
+  E6:{kind:'filter',long:['避開高風險時段'],short:['避開高風險時段'],
+      pass:t=>!(t.hasTime&&t.entryMin!=null&&((t.entryMin>=525&&t.entryMin<555)||(t.entryMin>=795&&t.entryMin<=825)||(t.entryMin>=900&&t.entryMin<930)))},
+  E4:{kind:'rule',text:'讓獲利奔跑：固定小停利改成移動停利，或「收盤跌破MA20(多)/站上MA20(空)才出場」，讓趨勢單走完。'},
+  E5:{kind:'rule',text:'嚴設停損：每筆固定停損（見下方試算），觸價立即出，絕不凹單。'},
+  E8:{kind:'rule',text:'連敗熔斷：連續2筆虧損後暫停當日或減半口數，避免報復性放大。'}
+};
+const SIG_ORDER=['E1','E9','E10','E11','E7','E2','E3','E6'];
+const BEH_ORDER=['E4','E5','E8'];
+
+/* ── 解析上傳 ── */
+const isNumTok=v=>v!=null&&v!==''&&!isNaN(String(v).replace(/,/g,''));
+const numTok=v=>{const s=String(v==null?'':v).replace(/,/g,'').replace(/[^\d.\-]/g,'');return s===''?NaN:parseFloat(s);};
+function splitLine(l){return l.includes('\t')?l.split('\t'):(l.includes(',')?l.split(','):l.trim().split(/\s+/));}
+function parseRows(raw){const lines=raw.replace(/\r/g,'').split('\n').map(l=>l.trim()).filter(l=>l);
+  return lines.length?lines.map(l=>splitLine(l).map(x=>x.trim())):null;}
+const FIELDS=[['time','進場時間','必填'],['dir','方向(多/空)','必填'],['inPx','進場價','必填'],
+  ['outPx','出場價','必填'],['lots','口數',''],['outT','出場時間','選填'],['note','備註','選填']];
+const KW={time:['進場時間','時間','日期','date','time','成交時間','開倉'],dir:['方向','買賣','多空','side','dir','long/short'],
+  inPx:['進場','買進','成交價','entry','開倉','進價','價格'],outPx:['出場','平倉','賣出','exit','出價'],
+  lots:['口數','數量','口','qty','lots','張'],outT:['出場時間','平倉時間','exit time'],note:['備註','註記','note','memo']};
+function guessMap(header){const m={},used=new Set();
+  if(header){const hl=header.map(h=>String(h).toLowerCase());
+    for(const[f]of FIELDS)for(const kw of KW[f]){const idx=hl.findIndex((h,i)=>!used.has(i)&&h.includes(kw.toLowerCase()));if(idx>=0){m[f]=idx;used.add(idx);break;}}}
+  return m;}
+const looksHeader=r=>r&&r.filter(isNumTok).length<r.length/2;
+function autoMap(all){
+  const header=looksHeader(all[0])?all[0]:null;const rows=header?all.slice(1):all;
+  const nc=Math.max(...rows.map(r=>r.length));let map=guessMap(header);
+  const dt=[],dr=[],nm=[];
+  for(let c=0;c<nc;c++){let a=0,b=0,n=0,t=0;
+    for(const r of rows){const v=(r[c]||'').trim();if(!v)continue;t++;
+      if(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}|\d{1,2}:\d{2}/.test(v))a++;
+      if(/多|空|買|賣|long|short|buy|sell/i.test(v))b++;if(isNumTok(v))n++;}
+    dt[c]=t&&a/t>0.6;dr[c]=t&&b/t>0.6;nm[c]=t&&n/t>0.8;}
+  if(map.time==null){const c=dt.findIndex(Boolean);if(c>=0)map.time=c;}
+  if(map.dir==null){const c=dr.findIndex(Boolean);if(c>=0)map.dir=c;}
+  const used=new Set(Object.values(map));const free=[];for(let c=0;c<nc;c++)if(nm[c]&&!used.has(c)&&!dt[c])free.push(c);
+  ['inPx','outPx','lots'].forEach(f=>{if(map[f]==null&&free.length)map[f]=free.shift();});
+  return{header,rows,nc,map};
+}
+function renderMap(){
+  const{nc,map}=PENDING;
+  const opts=i=>['<option value="-1">—未使用—</option>'].concat(Array.from({length:nc},(_,c)=>`<option value="${c}" ${map[i]===c?'selected':''}>第 ${c+1} 欄${PENDING.header?'（'+(PENDING.header[c]||'')+'）':''}</option>`)).join('');
+  $('mapRow').innerHTML=FIELDS.map(([f,lab,req])=>`<label class="fld" style="flex:1 1 150px">${lab}${req?` <span class="${req==='必填'?'bad':'sub'}">${req}</span>`:''}<select data-mf="${f}">${opts(f)}</select></label>`).join('');
+  $('mapRow').querySelectorAll('select').forEach(s=>s.onchange=()=>{PENDING.map[s.dataset.mf]=+s.value;renderMapPreview();});
+  renderMapPreview();$('mapArea').classList.remove('hide');
+}
+function renderMapPreview(){
+  const{rows,map}=PENDING;const show=rows.slice(0,25),cols=FIELDS.map(f=>f[0]);
+  let html='<tr>'+FIELDS.map(f=>`<th class="l">${f[1]}</th>`).join('')+'</tr>';
+  show.forEach(r=>{html+='<tr>'+cols.map(k=>{const ci=map[k];const v=(ci!=null&&ci>=0&&ci<r.length)?r[ci]:'';return`<td class="l">${v||'<span class=sub>—</span>'}</td>`;}).join('')+'</tr>';});
+  if(rows.length>25)html+=`<tr><td colspan="${cols.length}" class="l sub">…前25列預覽，共 ${rows.length} 筆</td></tr>`;
+  $('mapPreview').innerHTML=html;
+}
+function parseDir(v){v=String(v||'').toLowerCase();if(/多|買|long|buy/.test(v)||v==='1'||v==='+1')return 1;if(/空|賣|short|sell/.test(v)||v==='-1')return -1;return 0;}
+function parseDT(v){v=String(v||'').trim().replace(/-/g,'/');if(!v)return{ms:NaN,hasTime:false};
+  const md=v.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/),mt=v.match(/(\d{1,2}):(\d{2})/);if(!md)return{ms:NaN,hasTime:false};
+  const hh=mt?+mt[1]:0,mm=mt?+mt[2]:0;return{ms:Date.UTC(+md[1],+md[2]-1,+md[3],hh,mm),hasTime:!!mt,min:hh*60+mm};}
+
+/* ── 建交易 + 判斷錯誤 ── */
+function buildTrades(){
+  const{rows,map}=PENDING;const ptVal=+$('ptVal').value||200,feePt=+$('feePt').value||0;
+  const tf=CURTF,htf=HTF(tf),B=ALLBARS[tf],I=indArr(tf),tol=getP().tol,xN=Math.max(1,+$('xN').value||5);
+  const trades=[];
+  rows.forEach(r=>{
+    const get=f=>{const ci=map[f];return(ci!=null&&ci>=0&&ci<r.length)?r[ci]:'';};
+    const inPx=numTok(get('inPx')),outPx=numTok(get('outPx')),dir=parseDir(get('dir'));
+    if(isNaN(inPx)||isNaN(outPx)||!dir)return;
+    const lots=Math.max(1,numTok(get('lots'))||1),et=parseDT(get('time')),ot=parseDT(get('outT'));
+    const pts=(outPx-inPx)*dir,pnl=(pts-feePt)*ptVal*lots;
+    const t={i:trades.length,entryMs:et.ms,entryMin:et.min,hasTime:et.hasTime,dir,inPx,outPx,lots,note:get('note'),
+      outMs:ot.ms,pts,pnl,win:pnl>0,tf,htf};
+    t.sidx=isNaN(et.ms)?-1:signalIdx(tf,et.ms);t.cidx=isNaN(et.ms)?-1:containIdx(tf,et.ms);
+    t.matched=t.sidx>=0;if(t.matched){t.bar=B[t.sidx];t.ind=I[t.sidx];
+      t.goldAgo=recentTrue(B,I,t.sidx,xN,'goldX',tol);t.deadAgo=recentTrue(B,I,t.sidx,xN,'deadX',tol);}
+    t.holdBars=(t.cidx>=0&&!isNaN(ot.ms))?Math.max(0,containIdx(tf,ot.ms)-t.cidx):null;
+    // 高週期(60分/日線)
+    if(!isNaN(et.ms)){const hi=signalIdx(htf,et.ms);
+      if(hi>=0){const HB=ALLBARS[htf],HI=indArr(htf);t.hbar=HB[hi];t.hind=HI[hi];
+        t.hResNear=condTrue(HB,HI,hi,'resL',tol)||condTrue(HB,HI,hi,'res',tol)||condTrue(HB,HI,hi,'nearHigh',tol);
+        t.hSupNear=condTrue(HB,HI,hi,'supL',tol)||condTrue(HB,HI,hi,'sup',tol)||condTrue(HB,HI,hi,'nearLow',tol);
+        t.hMA240Res=!isNaN(t.hind.ma5)&&t.hbar.c<t.hind.ma5&&(t.hind.ma5-t.hbar.c)/t.hbar.c<=0.015;   // 240均在上方且靠近＝壓力
+        t.hMA240Sup=!isNaN(t.hind.ma5)&&t.hbar.c>t.hind.ma5&&(t.hbar.c-t.hind.ma5)/t.hbar.c<=0.015;
+        t.hEnv=scoreEnv(htf,hi);}}
+    trades.push(t);
+  });
+  // 判斷
+  trades.forEach((t,k)=>{
+    t.errs=[];t.behs=[];const long=t.dir>0;
+    if(t.matched){const b=t.bar,x=t.ind;
+      if(long?(b.c<x.ma3||x.ma3Dn):(b.c>x.ma3||x.ma3Up))t.errs.push('E1');
+      if(long?(!x.bull&&!x.bullK3):(!x.bear&&!x.bearK3))t.errs.push('E9');
+      if(long?(t.deadAgo!=null):(t.goldAgo!=null))t.errs.push('E10');
+      if(long?(!isNaN(x.hh)&&(x.hh-b.c)/x.hh<=0.005&&x.range>0&&x.upSh/x.range>=0.5)
+             :(!isNaN(x.ll)&&(b.c-x.ll)/x.ll<=0.005&&x.range>0&&x.loSh/x.range>=0.5))t.errs.push('E2');
+      if(!isNaN(x.volR)&&x.volR<0.8)t.errs.push('E3');
+    }
+    if(t.hind){const supp=long?(t.hResNear||t.hMA240Res):(t.hSupNear||t.hMA240Sup);if(supp)t.errs.push('E11');
+      if(t.hEnv){if(long?(t.hEnv.bias==='short'||t.hEnv.bias==='strongShort'):(t.hEnv.bias==='long'||t.hEnv.bias==='strongLong'))t.errs.push('E7');}}
+    if(t.hasTime&&t.entryMin!=null){const m=t.entryMin;if((m>=525&&m<555)||(m>=795&&m<=825)||(m>=900&&m<930))t.errs.push('E6');}
+    const earlyBar=+$('earlyBar').value||2,stopPt=+$('stopPt').value||40;
+    if(t.win&&t.holdBars!=null&&t.holdBars<=earlyBar)t.behs.push('E4');
+    if(!t.win&&(t.pts<-stopPt*1.5||(t.holdBars!=null&&t.holdBars>=12)))t.behs.push('E5');
+    if(k>=2&&!trades[k-1].win&&!trades[k-2].win){t.behs.push('E8');t.e8big=t.lots>trades[k-1].lots;}
+  });
+  return{trades};
+}
+
+/* ── 過濾模擬 ── */
+function applicable(t,id){const F=FIXDEF[id];if(F.kind!=='filter')return false;
+  if(F.needHi)return!!t.hind;if(id==='E6')return t.hasTime;if(id==='E10')return t.matched&&(t.goldAgo!=null||t.deadAgo!=null||true);return t.matched;}
+function simFilter(id){const F=FIXDEF[id];let avoidN=0,avoid$=0,killN=0,kill$=0,appl=0;
+  TRADES.forEach(t=>{if(!applicable(t,id))return;appl++;if(!F.pass(t)){if(t.win){killN++;kill$+=t.pnl;}else{avoidN++;avoid$+=-t.pnl;}}});
+  return{avoidN,avoid$,killN,kill$,appl,net:avoid$-kill$};}
+function simCombined(ids){let keptN=0,keptWin=0,keptPnl=0,rmN=0,rmLoss$=0,rmWin$=0,base=0;
+  TRADES.forEach(t=>{if(!t.matched)return;base++;let keep=true;
+    for(const id of ids){if(!applicable(t,id))continue;if(!FIXDEF[id].pass(t)){keep=false;break;}}
+    if(keep){keptN++;if(t.win)keptWin++;keptPnl+=t.pnl;}else{rmN++;if(t.win)rmWin$+=t.pnl;else rmLoss$+=-t.pnl;}});
+  return{base,keptN,keptWin,keptPnl,rmN,rmLoss$,rmWin$,keptWR:keptN?keptWin/keptN*100:0};}
+function simStop(){const stopPt=+$('stopPt').value||40,ptVal=+$('ptVal').value||200;let n=0,save$=0;
+  TRADES.forEach(t=>{if(t.win)return;if(t.pts<-stopPt){n++;save$+=(-t.pts-stopPt)*ptVal*t.lots;}});return{n,save$,stopPt};}
+
+/* ── 渲染 ── */
+const money=n=>(n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('en-US');
+const cls=n=>n>0?'good':(n<0?'bad':'sub');
+function render(){
+  const built=buildTrades();TRADES=built.trades;
+  if(!TRADES.length){msg($('parseMsg'),'沒有可解析的交易（請確認 方向/進場價/出場價 欄位）',false);return;}
+  renderStats();renderErrSummary();renderTradeTbl();renderFixCards();renderFixList();renderCombo();
+  $('sec2').classList.remove('hide');$('sec3').classList.remove('hide');
+  if($('sec2').scrollIntoView)$('sec2').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function renderStats(){
+  const n=TRADES.length,wins=TRADES.filter(t=>t.win).length,totalPnl=TRADES.reduce((s,t)=>s+t.pnl,0);
+  const errT=TRADES.filter(t=>t.errs.length),errLoss=TRADES.filter(t=>!t.win&&t.errs.length).reduce((s,t)=>s+(-t.pnl),0);
+  const matched=TRADES.filter(t=>t.matched).length;
+  // 順/逆大週期勝率
+  let al=0,alW=0,ag=0,agW=0;TRADES.forEach(t=>{if(!t.hEnv)return;const long=t.dir>0;
+    const sup=long?(t.hEnv.bias==='long'||t.hEnv.bias==='strongLong'):(t.hEnv.bias==='short'||t.hEnv.bias==='strongShort');
+    const against=long?(t.hEnv.bias==='short'||t.hEnv.bias==='strongShort'):(t.hEnv.bias==='long'||t.hEnv.bias==='strongLong');
+    if(sup){al++;if(t.win)alW++;}else if(against){ag++;if(t.win)agW++;}});
+  $('statCards').innerHTML=[
+    ['交易筆數',n,`對應K棒 ${matched} 筆`],
+    ['勝率',(wins/n*100).toFixed(1)+'%',`${wins}勝 / ${n-wins}敗`],
+    ['總損益',`<span class="${cls(totalPnl)}">${money(totalPnl)}</span>`,`每點 ${$('ptVal').value} 元`],
+    ['有訊號型錯誤',`${errT.length} 筆`,`占 ${(errT.length/n*100).toFixed(0)}%`],
+    ['錯誤單貢獻虧損',`<span class="bad">${money(-errLoss)}</span>`,'有錯誤標記的虧損單'],
+    ['順/逆大週期勝率',`<span class="good">${al?(alW/al*100).toFixed(0):'—'}%</span> / <span class="bad">${ag?(agW/ag*100).toFixed(0):'—'}%</span>`,`順勢${al}筆 · 逆勢${ag}筆`],
+  ].map(([k,v,s])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`).join('');
+}
+function renderErrSummary(){
+  let html='<div class="row">';
+  [...SIG_ORDER,...BEH_ORDER].forEach(id=>{const d=ERRDEF[id],field=d.type==='sig'?'errs':'behs';
+    const hits=TRADES.filter(t=>t[field].includes(id)),loss=hits.filter(t=>!t.win).reduce((s,t)=>s+(-t.pnl),0);
+    html+=`<div class="col" style="flex:1 1 250px"><div class="errbox">
+      <h4><span class="chip ${d.type==='sig'?'err':'beh'}">${d.type==='sig'?'訊號型':'行為型'}</span>${d.name}
+        <span class="sub" style="font-weight:600;font-size:12px">· ${hits.length} 筆</span></h4>
+      <div class="def">${d.def}</div>
+      <div class="metrics"><span>命中 <b>${hits.length}</b></span><span>虧損 <b class="bad">${hits.filter(t=>!t.win).length}</b></span><span>貢獻虧損 <b class="bad">${money(-loss)}</b></span></div>
+    </div></div>`;});
+  $('errSummary').innerHTML=html+'</div>';
+}
+function maStateChips(t){
+  if(!t.matched)return'<span class="chip mut">無對應K棒</span>';
+  const x=t.ind,b=t.bar,out=[];
+  if(x.bull)out.push('<span class="chip pos">多排</span>');else if(x.bear)out.push('<span class="chip neg">空排</span>');else out.push('<span class="chip mut">未排列</span>');
+  out.push(`<span class="chip mut">${b.c>x.ma3?'站上':'跌破'}MA20</span>`);
+  out.push(`<span class="chip mut">MA20${x.ma3Up?'↑':(x.ma3Dn?'↓':'→')}</span>`);
+  if(x.bullK3)out.push('<span class="chip pos">三線多</span>');if(x.bearK3)out.push('<span class="chip neg">三線空</span>');
+  if(t.goldAgo!=null)out.push(`<span class="chip pos">金叉${t.goldAgo?'-'+t.goldAgo:''}</span>`);
+  if(t.deadAgo!=null)out.push(`<span class="chip neg">死叉${t.deadAgo?'-'+t.deadAgo:''}</span>`);
+  return out.join('');
+}
+function hiChips(t){
+  if(!t.hind)return'<span class="chip mut">—</span>';
+  const out=[`<span class="chip bias-${t.hEnv.bias}" style="border:1px solid var(--line)">${TF_NAME[t.htf]}${BIAS_LABEL[t.hEnv.bias]}</span>`];
+  if(t.hResNear)out.push('<span class="chip warn">近壓力</span>');
+  if(t.hSupNear)out.push('<span class="chip warn">近支撐</span>');
+  if(t.hMA240Res)out.push('<span class="chip warn">240均壓</span>');
+  if(t.hMA240Sup)out.push('<span class="chip acc">240均撐</span>');
+  return out.join('');
+}
+function errChips(t){const c=[];
+  t.errs.forEach(id=>c.push(`<span class="chip err" title="${ERRDEF[id].def}">${ERRDEF[id].name}</span>`));
+  t.behs.forEach(id=>c.push(`<span class="chip beh" title="${ERRDEF[id].def}">${ERRDEF[id].name}${id==='E8'&&t.e8big?'(加碼)':''}</span>`));
+  return c.length?c.join(''):'<span class="chip ok">無標記</span>';}
+const fmtBarTime=b=>b?((b.date||'')+(b.time?' '+b.time:'')):'—';
+function fmtDT(ms){const d=new Date(ms);return`${d.getUTCFullYear()}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')} ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;}
+function renderTradeTbl(){
+  const heads=['#','進場時間','方向','進/出','口','損益(點)','損益($)','進場週期均線狀態','高週期(60分)','錯誤標籤'];
+  let html='<tr>'+heads.map(h=>`<th class="${['方向','進場時間','進場週期均線狀態','高週期(60分)','錯誤標籤'].includes(h)?'l':''}">${h}</th>`).join('')+'</tr>';
+  TRADES.forEach(t=>{html+=`<tr>
+    <td>${t.i+1}</td>
+    <td class="l">${isNaN(t.entryMs)?'<span class=bad>時間失敗</span>':(fmtDT(t.entryMs)+(t.hasTime?'':' <span class=sub>(無時間)</span>'))}</td>
+    <td class="l">${t.dir>0?'<span class="up">多</span>':'<span class="dn">空</span>'}</td>
+    <td>${t.inPx} → ${t.outPx}</td><td>${t.lots}</td>
+    <td class="${cls(t.pts)}">${t.pts>0?'+':''}${t.pts.toFixed(0)}</td>
+    <td class="${cls(t.pnl)}">${money(t.pnl)}</td>
+    <td class="l">${maStateChips(t)}</td>
+    <td class="l">${hiChips(t)}</td>
+    <td class="l">${errChips(t)}</td></tr>`;});
+  $('tradeTbl').innerHTML=html;
+}
+function renderFixCards(){
+  const ids=SIG_ORDER.filter(id=>FIXDEF[id]&&FIXDEF[id].kind==='filter'&&simFilter(id).net>0);
+  const comb=simCombined(ids);const base=TRADES.filter(t=>t.matched);
+  const baseWR=base.length?base.filter(t=>t.win).length/base.length*100:0;const stop=simStop();
+  $('fixCards').innerHTML=[
+    ['可避免虧損',`<span class="good">${money(comb.rmLoss$)}</span>`,`剔除 ${comb.rmN} 筆問題單`],
+    ['誤殺獲利',`<span class="bad">${money(-comb.rmWin$)}</span>`,'被過濾的獲利單'],
+    ['淨改善',`<span class="${cls(comb.rmLoss$-comb.rmWin$)}">${money(comb.rmLoss$-comb.rmWin$)}</span>`,'避免虧損 − 誤殺'],
+    ['改善後勝率',`${comb.keptWR.toFixed(1)}%`,`原 ${baseWR.toFixed(1)}% → 留 ${comb.keptN} 筆`],
+    ['設停損可再省',`<span class="good">${money(stop.save$)}</span>`,`${stop.n} 筆虧超過 ${stop.stopPt} 點`],
+  ].map(([k,v,s])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+  $('fixCards').dataset.fids=ids.join(',');
+}
+function renderFixList(){
+  let html='';
+  [...SIG_ORDER,'E5','E4','E8'].forEach(id=>{const F=FIXDEF[id],d=ERRDEF[id];if(!F)return;
+    if(F.kind==='filter'){const s=simFilter(id),good=s.net>0;
+      html+=`<div class="errbox"><h4><span class="chip ${good?'ok':'mut'}">${good?'建議採用':'效果有限'}</span>${d.name} → 過濾條件</h4>
+        <div class="fix">進場當下加上：多方 <b>${F.long.join(' + ')}</b>；空方 <b>${F.short.join(' + ')}</b>
+        <div class="muted-note">↑ 皆為主頁策略庫現有條件，可直接勾選。</div></div>
+        <div class="metrics"><span>可判斷 <b>${s.appl}</b></span>
+          <span>過濾虧損 <b class="good">${s.avoidN}</b>／省 <b class="good">${money(s.avoid$)}</b></span>
+          <span>誤殺獲利 <b class="bad">${s.killN}</b>／少賺 <b class="bad">${money(s.kill$)}</b></span>
+          <span>淨改善 <b class="${cls(s.net)}">${money(s.net)}</b></span></div></div>`;
+    }else{let extra='';
+      if(id==='E5'){const st=simStop();extra=`<div class="metrics"><span>虧超過 ${st.stopPt} 點：<b class="bad">${st.n}</b> 筆</span><span>設停損可省：<b class="good">${money(st.save$)}</b></span></div>`;}
+      if(id==='E4'){const n=TRADES.filter(t=>t.behs.includes('E4')).length;extra=`<div class="metrics"><span>過早出場：<b class="warn">${n}</b> 筆</span></div>`;}
+      if(id==='E8'){const n=TRADES.filter(t=>t.behs.includes('E8')).length;extra=`<div class="metrics"><span>連虧後進場：<b class="warn">${n}</b> 筆</span></div>`;}
+      html+=`<div class="errbox"><h4><span class="chip beh">紀律規則</span>${d.name} → 出場／紀律</h4><div class="fix">${F.text}</div>${extra}</div>`;}
+  });
+  $('fixList').innerHTML=html;
+}
+function renderCombo(){
+  const fids=($('fixCards').dataset.fids||'').split(',').filter(Boolean);
+  const L=new Set(),S=new Set();fids.forEach(id=>{const F=FIXDEF[id];if(F.kind!=='filter')return;F.long.forEach(c=>L.add(c));F.short.forEach(c=>S.add(c));});
+  if(!L.size&&!S.size){$('comboBox').innerHTML='<div class="msg warn">目前沒有「淨改善為正」的過濾組合——你的問題可能偏向行為面（停損/過早出場/情緒），請看上方紀律規則。</div>';return;}
+  const txt=`【多方進場過濾】${[...L].join(' + ')}\n【空方進場過濾】${[...S].join(' + ')}`;
+  $('comboBox').innerHTML=`<div class="copybar"><div class="copybox" id="comboTxt">${txt.replace(/\n/g,'<br>')}</div><button class="btn sm" id="btnCopy">📋 複製</button></div>
+    <div class="muted-note">到主頁「② 手動回測 → 進出場條件 → 編輯條件」勾選以上條件即可回測驗證。</div>`;
+  $('btnCopy').onclick=()=>navigator.clipboard.writeText(txt).then(()=>toast('已複製條件組合'));
+}
+function msg(el,txt,ok){el.innerHTML=txt?`<div class="msg ${ok?'ok':'err'}">${txt}</div>`:'';}
+function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1600);}
+
+/* ── 事件 ── */
+$('btnParse').onclick=()=>{const all=parseRows($('pasteBox').value);
+  if(!all){msg($('parseMsg'),'沒有內容可解析',false);return;}
+  PENDING=autoMap(all);renderMap();msg($('parseMsg'),`偵測到 ${PENDING.rows.length} 列。確認欄位後按「確認並分析」。`,true);};
+$('fileCsv').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{$('pasteBox').value=rd.result;$('btnParse').click();};rd.readAsText(f,'utf-8');};
+$('btnAnalyze').onclick=()=>{if(!PENDING)return;const{map}=PENDING;
+  if(map.dir==null||map.dir<0||map.inPx==null||map.inPx<0||map.outPx==null||map.outPx<0){$('mapMsg').innerHTML='<span class="bad">方向／進場價／出場價 為必填</span>';return;}
+  $('mapMsg').textContent='';render();};
+document.querySelectorAll('#tfSeg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tfSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');CURTF=b.dataset.tf;IND_CACHE={};updateStatus();if(TRADES.length&&PENDING)render();});
+['ma1','ma2','ma3','ma4','ma5','lb','tol','xN','ptVal','feePt','stopPt','earlyBar'].forEach(id=>$(id).addEventListener('change',()=>{IND_CACHE={};if(TRADES.length&&PENDING)render();}));
+$('btnDemo').onclick=()=>{$('pasteBox').value=DEMO;$('btnParse').click();};
+function updateStatus(){
+  const parts=TFS.map(tf=>`${TF_NAME[tf]} ${ALLBARS[tf]?ALLBARS[tf].length:0}`);
+  const cur=ALLBARS[CURTF]||[],htf=HTF(CURTF),h=ALLBARS[htf]||[];
+  let s=`已載入K棒：${parts.join('　·　')}　·　高週期＝${TF_NAME[htf]}(${h.length?h.length+'根':'無資料'})`;
+  if(!cur.length)s+=`　⚠ 進場週期「${TF_NAME[CURTF]}」無資料，請先到主頁匯入或改選週期。`;
+  else{const f=cur[0],l=cur[cur.length-1];s+=`　·　${TF_NAME[CURTF]} ${f.date}${f.time?' '+f.time:''}～${l.date}${l.time?' '+l.time:''}`;}
+  $('dataStatus').innerHTML=s;
+}
+const DEMO=`時間\t方向\t進場價\t出場價\t口數\t出場時間\t備註
+2026/07/01 10:00\t多\t23150\t23260\t1\t2026/07/01 12:00\t順勢多
+2026/07/01 13:20\t空\t23300\t23250\t2\t2026/07/01 13:40\t尾盤搶空
+2026/07/02 09:00\t多\t23400\t23360\t1\t2026/07/02 09:30\t開盤追多
+2026/07/02 11:00\t空\t23350\t23300\t1\t2026/07/02 13:00\t順勢空
+2026/07/03 10:30\t多\t23200\t23180\t2\t2026/07/03 11:00\t逆勢接刀
+2026/07/03 11:30\t多\t23180\t23120\t3\t2026/07/03 12:30\t連虧加碼`;
+
+(async function init(){
+  $('dataStatus').textContent='讀取已匯入的 K 棒中…';
+  try{await loadAllBars();}catch(e){console.warn(e);}
+  updateStatus();
+  if(!TFS.some(tf=>ALLBARS[tf]&&ALLBARS[tf].length))
+    $('dataStatus').innerHTML='⚠ 尚未讀到任何 K 棒。請先到 <a class="back" href="./taifex-ma-backtest.html">K棒均線回測</a> 匯入（與本頁共用同一份 IndexedDB）。你仍可「載入示範資料」試介面。';
+})();
+</script>
+</body>
+</html>
