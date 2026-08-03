@@ -419,6 +419,68 @@ function autoMap(all){
   ['inPx','outPx','lots'].forEach(f=>{if(map[f]==null&&free.length)map[f]=free.shift();});
   return{header,rows,nc,map};
 }
+
+/* ── 逐筆成交回報 → 配對成完整交易（券商匯出：每列一次買/賣，需 新倉↔平倉 FIFO 配對）── */
+function detectFills(all){
+  const header=looksHeader(all[0])?all[0]:null;const rows=header?all.slice(1):all;
+  const nc=Math.max(...rows.map(r=>r.length));
+  let sideCol=-1,ocCol=-1;
+  for(let c=0;c<nc;c++){let s=0,o=0,t=0;
+    for(const r of rows){const v=(r[c]||'').trim();if(!v)continue;t++;
+      if(/^買進$|^賣出$|^買$|^賣$|^buy$|^sell$/i.test(v))s++;
+      if(/新倉|平倉|開倉/.test(v))o++;}
+    if(t&&s/t>0.6&&sideCol<0)sideCol=c;
+    if(t&&o/t>0.6&&ocCol<0)ocCol=c;}
+  if(sideCol<0||ocCol<0)return null;   // 不是逐筆成交格式
+  // 內容找：時間欄、價格欄(整數且非時間)、口數欄(小整數)、商品欄(含中文/契約字)
+  const dt=[],num=[],txt=[];
+  for(let c=0;c<nc;c++){let a=0,n=0,x=0,t=0,intN=0;
+    for(const r of rows){const v=(r[c]||'').trim();if(!v)continue;t++;
+      if(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/.test(v))a++;
+      if(isNumTok(v)){n++;if(Number.isInteger(numTok(v)))intN++;}
+      if(/[一-龥]/.test(v)&&!/新倉|平倉|買進|賣出|新台幣|台幣/.test(v))x++;}
+    dt[c]=t&&a/t>0.6;num[c]=t&&n/t>0.8&&intN/Math.max(1,n)>0.8;txt[c]=t&&x/t>0.5;}
+  const timeCol=dt.findIndex(Boolean);
+  const prodCol=txt.findIndex((v,c)=>v&&c!==sideCol&&c!==ocCol);
+  // 價格＝數字整數欄中「值最大」那欄；口數＝數字欄中「值最小」那欄
+  const numCols=[];for(let c=0;c<nc;c++)if(num[c])numCols.push(c);
+  const colMax=c=>{let m=0;for(const r of rows){const v=numTok(r[c]);if(!isNaN(v))m=Math.max(m,v);}return m;};
+  const priceCol=numCols.slice().sort((a,b)=>colMax(b)-colMax(a))[0];
+  const qtyCol=numCols.filter(c=>c!==priceCol).sort((a,b)=>colMax(a)-colMax(b))[0];
+  return{rows,map:{time:timeCol,side:sideCol,oc:ocCol,price:priceCol,qty:qtyCol,prod:prodCol}};
+}
+function reconstructFills(f){
+  const{rows,map}=f;
+  const fills=[];
+  rows.forEach(r=>{
+    const timeStr=(r[map.time]||'').trim(), side=(r[map.side]||'').trim(), oc=(r[map.oc]||'').trim();
+    const price=numTok(r[map.price]), qty=Math.round(numTok(r[map.qty])||0), prod=(map.prod>=0?(r[map.prod]||''):'').trim();
+    const dt=parseDT(timeStr);
+    if(isNaN(dt.ms)||isNaN(price)||qty<1)return;
+    const isBuy=/買進|買|buy/i.test(side), isOpen=/新倉|開倉/.test(oc);
+    fills.push({ms:dt.ms,timeStr,isBuy,isOpen,price,qty,prod});
+  });
+  fills.sort((a,b)=>a.ms-b.ms);
+  const openLong={}, openShort={};   // prod -> [{ms,timeStr,price}]
+  const trades=[]; let orphan=0;
+  const prods=new Set();
+  fills.forEach(fl=>{ prods.add(fl.prod);
+    const kL=openLong[fl.prod]||(openLong[fl.prod]=[]), kS=openShort[fl.prod]||(openShort[fl.prod]=[]);
+    for(let q=0;q<fl.qty;q++){   // 拆成單口，FIFO 配對，損益最準
+      if(fl.isBuy&&fl.isOpen) kL.push({ms:fl.ms,timeStr:fl.timeStr,price:fl.price});          // 買進新倉＝開多
+      else if(!fl.isBuy&&fl.isOpen) kS.push({ms:fl.ms,timeStr:fl.timeStr,price:fl.price});     // 賣出新倉＝開空
+      else if(!fl.isBuy&&!fl.isOpen){ const op=kL.shift(); if(op) trades.push({dir:1,inPx:op.price,inT:op.timeStr,outPx:fl.price,outT:fl.timeStr,prod:fl.prod,ms:op.ms}); else orphan++; }  // 賣出平倉＝平多
+      else if(fl.isBuy&&!fl.isOpen){ const op=kS.shift(); if(op) trades.push({dir:-1,inPx:op.price,inT:op.timeStr,outPx:fl.price,outT:fl.timeStr,prod:fl.prod,ms:op.ms}); else orphan++; }  // 買進平倉＝平空
+    }
+  });
+  let openLeft=0; for(const p in openLong)openLeft+=openLong[p].length; for(const p in openShort)openLeft+=openShort[p].length;
+  trades.sort((a,b)=>a.ms-b.ms);
+  return{trades,orphan,openLeft,prods:[...prods]};
+}
+function pointValFor(prods){   // 依商品自動判斷每點價值
+  const s=prods.join('');
+  if(/微型|micro/i.test(s))return 10; if(/小型|小台|mini/i.test(s))return 50; if(/台指|臺指|TX/i.test(s))return 200; return 200;
+}
 function renderMap(){
   const{nc,map}=PENDING;
   const opts=i=>['<option value="-1">—未使用—</option>'].concat(Array.from({length:nc},(_,c)=>`<option value="${c}" ${map[i]===c?'selected':''}>第 ${c+1} 欄${PENDING.header?'（'+(PENDING.header[c]||'')+'）':''}</option>`)).join('');
@@ -627,10 +689,38 @@ function msg(el,txt,ok){el.innerHTML=txt?`<div class="msg ${ok?'ok':'err'}">${tx
 function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1600);}
 
 /* ── 事件 ── */
-$('btnParse').onclick=()=>{const all=parseRows($('pasteBox').value);
+function ingest(text){
+  const all=parseRows(text);
   if(!all){msg($('parseMsg'),'沒有內容可解析',false);return;}
-  PENDING=autoMap(all);renderMap();msg($('parseMsg'),`偵測到 ${PENDING.rows.length} 列。確認欄位後按「確認並分析」。`,true);};
-$('fileCsv').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{$('pasteBox').value=rd.result;$('btnParse').click();};rd.readAsText(f,'utf-8');};
+  const fills=detectFills(all);
+  if(fills){   // 逐筆成交回報 → 配對
+    const rec=reconstructFills(fills);
+    const taixTrades=rec.trades.filter(t=>/台指|臺指|TX/i.test(t.prod)||!t.prod);   // 只留台指系列(對得上K棒)
+    if(!taixTrades.length){msg($('parseMsg'),`偵測到逐筆成交，但配對後沒有「台指系列」交易（找到商品：${rec.prods.join('、')}）。本頁K棒為台指，其他商品無法對應。`,false);return;}
+    const pv=pointValFor(rec.prods); $('ptVal').value=pv;
+    // 掃描交易時間間隔，建議進場週期（多為分鐘級當沖 → 5分）
+    if(CURTF!=='M5'&&CURTF!=='M15'){setTF('M5');}
+    const recRows=taixTrades.map(t=>[t.inT,t.dir>0?'多':'空',String(t.inPx),String(t.outPx),'1',t.outT,t.prod]);
+    PENDING={rows:recRows,header:null,nc:7,map:{time:0,dir:1,inPx:2,outPx:3,lots:4,outT:5,note:6}};
+    renderMap();
+    const other=rec.trades.length-taixTrades.length;
+    msg($('parseMsg'),`✅ 逐筆成交已配對：${fills.rows.length} 筆成交 → <b>${taixTrades.length} 筆完整交易</b>（單口拆分、新倉↔平倉 FIFO）。每點價值自動設 ${pv} 元（${rec.prods.filter(p=>/微型|小型|台指/.test(p)).join('、')||'台指'}）。`
+      +(other?`　·　已排除 ${other} 筆非台指商品。`:'')
+      +(rec.orphan?`　·　⚠ ${rec.orphan} 口平倉找不到對應開倉（可能跨月/資料不全）已略過。`:'')
+      +(rec.openLeft?`　·　⚠ 尚有 ${rec.openLeft} 口未平倉（區間結束仍持倉）未納入。`:'')
+      +`　確認欄位後按「確認並分析」。`,true);
+    return;
+  }
+  PENDING=autoMap(all);renderMap();msg($('parseMsg'),`偵測到 ${PENDING.rows.length} 列。確認欄位後按「確認並分析」。`,true);
+}
+function setTF(tf){CURTF=tf;IND_CACHE={};document.querySelectorAll('#tfSeg button').forEach(x=>x.classList.toggle('on',x.dataset.tf===tf));updateStatus();}
+$('btnParse').onclick=()=>ingest($('pasteBox').value);
+$('fileCsv').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=()=>{const buf=new Uint8Array(rd.result);let text;
+    try{text=new TextDecoder('utf-8',{fatal:true}).decode(buf);}      // 先試 UTF-8
+    catch(_){try{text=new TextDecoder('big5').decode(buf);}catch(e2){text=new TextDecoder('utf-8').decode(buf);}}  // 失敗→Big5(台灣券商常見)
+    $('pasteBox').value=text; ingest(text);};
+  rd.readAsArrayBuffer(f);};
 $('btnAnalyze').onclick=()=>{if(!PENDING)return;const{map}=PENDING;
   if(map.dir==null||map.dir<0||map.inPx==null||map.inPx<0||map.outPx==null||map.outPx<0){$('mapMsg').innerHTML='<span class="bad">方向／進場價／出場價 為必填</span>';return;}
   $('mapMsg').textContent='';render();};
