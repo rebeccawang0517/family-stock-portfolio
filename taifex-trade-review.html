@@ -72,6 +72,10 @@
   .chip.neg{background:rgba(63,175,120,.16);color:#9fe0bd;border:1px solid rgba(63,175,120,.4)}
   .chip.mut{background:var(--panel3);color:var(--sub);border:1px solid var(--line)}
   .chip.acc{background:var(--gold-soft);color:var(--acc2);border:1px solid var(--gold-line)}
+  .evf{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;align-items:stretch}
+  .evf .evf-h{font-weight:800;font-size:13px;color:var(--txt);padding:2px 2px 0;position:sticky}
+  .evf .errbox{margin:0;height:100%}
+  @media(max-width:860px){.evf{grid-template-columns:1fr}.evf .evf-h{margin-top:6px}}
   .errbox{border:1px solid var(--line);border-radius:var(--radius-s);padding:12px 14px;margin:10px 0;background:var(--panel)}
   .errbox h4{margin:0 0 4px;font-size:13.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .errbox .def{color:var(--sub);font-size:12px;margin:2px 0 8px}
@@ -166,8 +170,10 @@
 
   <!-- ═══ 步驟 2：判斷錯誤 ═══ -->
   <section class="step hide" id="sec2">
-    <h2><span class="n">2</span> 判斷錯誤 <small>每筆只用「進場當下已收完的K棒＋高週期(60分/日線)」判斷，不看未來</small></h2>
+    <h2><span class="n">2</span> 判斷錯誤 × 對應建議 <small>左＝判斷出的錯誤，右＝進場當下就能執行的建議（不看未來）；逐項對齊</small></h2>
     <div class="body">
+      <div id="restoreBar"></div>
+      <div id="lessonReminder"></div>
       <div class="cards" id="statCards"></div>
       <div id="errSummary"></div>
       <div class="divider"></div>
@@ -178,13 +184,30 @@
 
   <!-- ═══ 步驟 3：依策略建議 ═══ -->
   <section class="step hide" id="sec3">
-    <h2><span class="n">3</span> 依現行策略提出建議 <small>每種錯誤 → 進場當下就能執行的過濾（對應主頁策略庫條件名稱）</small></h2>
+    <h2><span class="n">3</span> 整體改善試算 <small>把上面「淨改善為正」的過濾一起套用，估算可避免多少虧損＋產出可複製條件</small></h2>
     <div class="body">
       <div class="cards" id="fixCards"></div>
-      <div id="fixList"></div>
       <div class="divider"></div>
       <h3 style="margin:6px 0;font-size:14px">📋 建議條件組合（可複製回主回測頁勾選）</h3>
       <div id="comboBox"></div>
+    </div>
+  </section>
+
+  <!-- ═══ ④ 教訓記憶區（本機保存）═══ -->
+  <section class="step" id="secLessons">
+    <h2><span class="n">④</span> 教訓記憶區 <small>把特別重要的錯誤與心得記下來，之後每次分析自動提醒「這次也出現了」</small></h2>
+    <div class="body">
+      <div class="row" style="align-items:flex-end">
+        <label class="fld" style="flex:3 1 340px">教訓 / 心得
+          <input type="text" id="lsText" placeholder="例：日線空頭時絕不接刀做多；停損一律 40 點內；連兩敗當日收手"></label>
+        <label class="fld" style="flex:1 1 170px">關聯錯誤（選填）
+          <select id="lsTag"></select></label>
+        <label class="fld" style="flex:0 1 90px">設為重點
+          <span style="display:flex;align-items:center;gap:6px;height:36px"><input type="checkbox" id="lsStar" style="width:auto"> ⭐ 置頂</span></label>
+        <button class="btn" id="lsAdd">＋ 記下教訓</button>
+      </div>
+      <div class="muted-note">⭐ 重點教訓每次分析都會提醒；關聯錯誤者，只在該錯誤這次也出現時提醒。資料存在本機瀏覽器。</div>
+      <div id="lessonList" style="margin-top:14px"></div>
     </div>
   </section>
 
@@ -575,12 +598,73 @@ function simStop(){const stopPt=+$('stopPt').value||40,ptVal=+$('ptVal').value||
 /* ── 渲染 ── */
 const money=n=>(n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString('en-US');
 const cls=n=>n>0?'good':(n<0?'bad':'sub');
-function render(){
+function render(scroll){
   const built=buildTrades();TRADES=built.trades;
   if(!TRADES.length){msg($('parseMsg'),'沒有可解析的交易（請確認 方向/進場價/出場價 欄位）',false);return;}
-  renderStats();renderErrSummary();renderTradeTbl();renderFixCards();renderFixList();renderCombo();
+  renderStats();renderErrVsFix();renderTradeTbl();renderFixCards();renderCombo();renderLessonReminder();
   $('sec2').classList.remove('hide');$('sec3').classList.remove('hide');
-  if($('sec2').scrollIntoView)$('sec2').scrollIntoView({behavior:'smooth',block:'start'});
+  saveImport();
+  if(scroll!==false&&$('sec2').scrollIntoView)$('sec2').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ── 自動儲存 / 還原（本機 localStorage）── */
+const LS_IMPORT='tradeReview_import_v1', LS_LESSONS='tradeReview_lessons_v1';
+const SAVE_INPUTS=['ptVal','feePt','ma1','ma2','ma3','ma4','ma5','lb','tol','xN','stopPt','earlyBar'];
+function saveImport(){ if(!PENDING||!PENDING.rows)return; try{
+  const inp={};SAVE_INPUTS.forEach(id=>{if($(id))inp[id]=$(id).value;});
+  localStorage.setItem(LS_IMPORT,JSON.stringify({rows:PENDING.rows,map:PENDING.map,nc:PENDING.nc||7,tf:CURTF,inp,when:Date.now(),n:TRADES.length}));
+}catch(e){} }
+function restoreImport(){
+  let s;try{s=JSON.parse(localStorage.getItem(LS_IMPORT)||'null');}catch(e){}
+  if(!s||!s.rows||!s.rows.length){renderRestoreBar(null);return false;}
+  if(s.inp)for(const k in s.inp){if($(k))$(k).value=s.inp[k];}
+  if(s.tf)setTF(s.tf);
+  PENDING={rows:s.rows,header:null,nc:s.nc||7,map:s.map};
+  render(false);renderRestoreBar(s);return true;
+}
+function clearImport(){ try{localStorage.removeItem(LS_IMPORT);}catch(e){}
+  PENDING=null;TRADES=[];['sec2','sec3'].forEach(id=>$(id).classList.add('hide'));
+  $('mapArea').classList.add('hide');$('pasteBox').value='';renderRestoreBar(null);
+  msg($('parseMsg'),'已清除本機保存的交易紀錄（教訓記憶區不受影響）。',true);
+}
+function renderRestoreBar(s){ const el=$('restoreBar');if(!el)return;
+  el.innerHTML=s?`<div class="msg ok">💾 已自動還原上次匯入的 <b>${s.n}</b> 筆交易（${new Date(s.when).toLocaleString('zh-TW')}）。換一批資料直接重新匯入即可覆蓋。<button class="btn ghost sm" id="btnClearImport" style="margin-left:8px">🗑 清除</button></div>`:'';
+  if(s&&$('btnClearImport'))$('btnClearImport').onclick=clearImport;
+}
+
+/* ── 教訓記憶區（本機 localStorage）── */
+let LESSONS=[];
+function loadLessons(){try{LESSONS=JSON.parse(localStorage.getItem(LS_LESSONS)||'[]');}catch(e){LESSONS=[];}if(!Array.isArray(LESSONS))LESSONS=[];}
+function saveLessons(){try{localStorage.setItem(LS_LESSONS,JSON.stringify(LESSONS));}catch(e){}}
+const esc=s=>String(s==null?'':s).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function lessonTagName(tag){return tag&&ERRDEF[tag]?ERRDEF[tag].name:(tag||'');}
+function initLessonTagSelect(){ const sel=$('lsTag');if(!sel)return;
+  sel.innerHTML='<option value="">（不指定）</option>'+[...SIG_ORDER,...BEH_ORDER].map(id=>`<option value="${id}">${ERRDEF[id].name}</option>`).join('')+'<option value="_other">其他/自訂</option>';}
+function addLesson(){ const text=$('lsText').value.trim();if(!text){$('lsText').focus();return;}
+  LESSONS.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),text,tag:$('lsTag').value||'',star:$('lsStar').checked,when:Date.now()});
+  saveLessons();$('lsText').value='';$('lsStar').checked=false;renderLessons();renderLessonReminder();toast('已記下教訓');}
+function delLesson(id){ LESSONS=LESSONS.filter(l=>l.id!==id);saveLessons();renderLessons();renderLessonReminder();}
+function starLesson(id){ const l=LESSONS.find(x=>x.id===id);if(l){l.star=!l.star;saveLessons();renderLessons();renderLessonReminder();}}
+function sortedLessons(){return LESSONS.slice().sort((a,b)=>(b.star-a.star)||(b.when-a.when));}
+function renderLessons(){ const box=$('lessonList');if(!box)return;
+  if(!LESSONS.length){box.innerHTML='<div class="hint">還沒有記錄。把這個月最痛的教訓寫一句上去，下次分析就會提醒你。</div>';return;}
+  box.innerHTML=sortedLessons().map(l=>`<div class="errbox" style="margin:8px 0;padding:10px 12px;display:flex;gap:10px;align-items:flex-start">
+    <button class="btn ghost sm" title="設為/取消重點" data-lstar="${l.id}" style="padding:4px 9px">${l.star?'⭐':'☆'}</button>
+    <div style="flex:1">
+      <div>${l.tag?`<span class="chip mut">${esc(lessonTagName(l.tag))}</span> `:''}${esc(l.text)}</div>
+      <div class="muted-note">${new Date(l.when).toLocaleDateString('zh-TW')}</div>
+    </div>
+    <button class="btn ghost sm" title="刪除" data-ldel="${l.id}" style="padding:4px 9px">🗑</button></div>`).join('');
+  box.querySelectorAll('[data-lstar]').forEach(b=>b.onclick=()=>starLesson(b.dataset.lstar));
+  box.querySelectorAll('[data-ldel]').forEach(b=>b.onclick=()=>delLesson(b.dataset.ldel));
+}
+function renderLessonReminder(){ const el=$('lessonReminder');if(!el)return;
+  if(!TRADES.length){el.innerHTML='';return;}
+  const present=new Set();TRADES.forEach(t=>{t.errs.forEach(e=>present.add(e));t.behs.forEach(e=>present.add(e));});
+  const hits=sortedLessons().filter(l=>l.star||(l.tag&&l.tag!=='_other'&&present.has(l.tag)));
+  el.innerHTML=hits.length?`<div class="errbox" style="border-color:var(--gold-line);background:var(--gold-soft)">
+    <h4>📌 記取教訓 <span class="sub" style="font-weight:600;font-size:12px">· 你記下的重點／這次也出現的錯誤</span></h4>
+    ${hits.map(l=>`<div style="margin:4px 0">${l.star?'⭐ ':''}${l.tag?`<span class="chip err">${esc(lessonTagName(l.tag))}</span> `:''}${esc(l.text)}</div>`).join('')}</div>`:'';
 }
 function renderStats(){
   const n=TRADES.length,wins=TRADES.filter(t=>t.win).length,totalPnl=TRADES.reduce((s,t)=>s+t.pnl,0);
@@ -600,16 +684,30 @@ function renderStats(){
     ['順/逆大週期勝率',`<span class="good">${al?(alW/al*100).toFixed(0):'—'}%</span> / <span class="bad">${ag?(agW/ag*100).toFixed(0):'—'}%</span>`,`順勢${al}筆 · 逆勢${ag}筆`],
   ].map(([k,v,s])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`).join('');
 }
-function renderErrSummary(){
-  let html='<div class="row">';
-  [...SIG_ORDER,...BEH_ORDER].forEach(id=>{const d=ERRDEF[id],field=d.type==='sig'?'errs':'behs';
-    const hits=TRADES.filter(t=>t[field].includes(id)),loss=hits.filter(t=>!t.win).reduce((s,t)=>s+(-t.pnl),0);
-    html+=`<div class="col" style="flex:1 1 250px"><div class="errbox">
-      <h4><span class="chip ${d.type==='sig'?'err':'beh'}">${d.type==='sig'?'訊號型':'行為型'}</span>${d.name}
+// 左＝錯誤、右＝對應建議，逐項對齊（E?錯誤 ↔ E?建議 同一列）
+function renderErrVsFix(){
+  let html='<div class="evf"><div class="evf-h">❌ 判斷出的錯誤</div><div class="evf-h">🛠 不看未來的建議（對應主頁策略庫條件）</div>';
+  [...SIG_ORDER,...BEH_ORDER].forEach(id=>{
+    const d=ERRDEF[id],F=FIXDEF[id],field=d.type==='sig'?'errs':'behs';
+    const hits=TRADES.filter(t=>t[field].includes(id)),lossN=hits.filter(t=>!t.win).length,loss=hits.filter(t=>!t.win).reduce((s,t)=>s+(-t.pnl),0);
+    // 左：錯誤
+    html+=`<div class="errbox"><h4><span class="chip ${d.type==='sig'?'err':'beh'}">${d.type==='sig'?'訊號型':'行為型'}</span>${esc(d.name)}
         <span class="sub" style="font-weight:600;font-size:12px">· ${hits.length} 筆</span></h4>
-      <div class="def">${d.def}</div>
-      <div class="metrics"><span>命中 <b>${hits.length}</b></span><span>虧損 <b class="bad">${hits.filter(t=>!t.win).length}</b></span><span>貢獻虧損 <b class="bad">${money(-loss)}</b></span></div>
-    </div></div>`;});
+      <div class="def">${esc(d.def)}</div>
+      <div class="metrics"><span>命中 <b>${hits.length}</b></span><span>虧損 <b class="bad">${lossN}</b></span><span>貢獻虧損 <b class="bad">${money(-loss)}</b></span></div></div>`;
+    // 右：建議
+    if(F&&F.kind==='filter'){const s=simFilter(id),good=s.net>0;
+      html+=`<div class="errbox"><h4><span class="chip ${good?'ok':'mut'}">${good?'建議採用':'效果有限'}</span>過濾條件</h4>
+        <div class="fix">多方 <b>${F.long.join(' + ')}</b>；空方 <b>${F.short.join(' + ')}</b>
+        <div class="muted-note">↑ 主頁策略庫現有條件，可直接勾選</div></div>
+        <div class="metrics"><span>可判斷 <b>${s.appl}</b></span><span>過濾虧損 <b class="good">${s.avoidN}</b>／省 <b class="good">${money(s.avoid$)}</b></span><span>誤殺 <b class="bad">${s.killN}</b></span><span>淨 <b class="${cls(s.net)}">${money(s.net)}</b></span></div></div>`;
+    }else if(F){let extra='';
+      if(id==='E5'){const st=simStop();extra=`<div class="metrics"><span>虧超過 ${st.stopPt} 點 <b class="bad">${st.n}</b> 筆</span><span>設停損可省 <b class="good">${money(st.save$)}</b></span></div>`;}
+      if(id==='E4'){const n=TRADES.filter(t=>t.behs.includes('E4')).length;extra=`<div class="metrics"><span>過早出場 <b class="warn">${n}</b> 筆</span></div>`;}
+      if(id==='E8'){const n=TRADES.filter(t=>t.behs.includes('E8')).length;extra=`<div class="metrics"><span>連虧後進場 <b class="warn">${n}</b> 筆</span></div>`;}
+      html+=`<div class="errbox"><h4><span class="chip beh">紀律規則</span>出場／紀律</h4><div class="fix">${F.text}</div>${extra}</div>`;
+    }else html+='<div class="errbox"><div class="hint">—</div></div>';
+  });
   $('errSummary').innerHTML=html+'</div>';
 }
 function maStateChips(t){
@@ -666,25 +764,6 @@ function renderFixCards(){
   ].map(([k,v,s])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
   $('fixCards').dataset.fids=ids.join(',');
 }
-function renderFixList(){
-  let html='';
-  [...SIG_ORDER,'E5','E4','E8'].forEach(id=>{const F=FIXDEF[id],d=ERRDEF[id];if(!F)return;
-    if(F.kind==='filter'){const s=simFilter(id),good=s.net>0;
-      html+=`<div class="errbox"><h4><span class="chip ${good?'ok':'mut'}">${good?'建議採用':'效果有限'}</span>${d.name} → 過濾條件</h4>
-        <div class="fix">進場當下加上：多方 <b>${F.long.join(' + ')}</b>；空方 <b>${F.short.join(' + ')}</b>
-        <div class="muted-note">↑ 皆為主頁策略庫現有條件，可直接勾選。</div></div>
-        <div class="metrics"><span>可判斷 <b>${s.appl}</b></span>
-          <span>過濾虧損 <b class="good">${s.avoidN}</b>／省 <b class="good">${money(s.avoid$)}</b></span>
-          <span>誤殺獲利 <b class="bad">${s.killN}</b>／少賺 <b class="bad">${money(s.kill$)}</b></span>
-          <span>淨改善 <b class="${cls(s.net)}">${money(s.net)}</b></span></div></div>`;
-    }else{let extra='';
-      if(id==='E5'){const st=simStop();extra=`<div class="metrics"><span>虧超過 ${st.stopPt} 點：<b class="bad">${st.n}</b> 筆</span><span>設停損可省：<b class="good">${money(st.save$)}</b></span></div>`;}
-      if(id==='E4'){const n=TRADES.filter(t=>t.behs.includes('E4')).length;extra=`<div class="metrics"><span>過早出場：<b class="warn">${n}</b> 筆</span></div>`;}
-      if(id==='E8'){const n=TRADES.filter(t=>t.behs.includes('E8')).length;extra=`<div class="metrics"><span>連虧後進場：<b class="warn">${n}</b> 筆</span></div>`;}
-      html+=`<div class="errbox"><h4><span class="chip beh">紀律規則</span>${d.name} → 出場／紀律</h4><div class="fix">${F.text}</div>${extra}</div>`;}
-  });
-  $('fixList').innerHTML=html;
-}
 function renderCombo(){
   const fids=($('fixCards').dataset.fids||'').split(',').filter(Boolean);
   const L=new Set(),S=new Set();fids.forEach(id=>{const F=FIXDEF[id];if(F.kind!=='filter')return;F.long.forEach(c=>L.add(c));F.short.forEach(c=>S.add(c));});
@@ -738,6 +817,8 @@ document.querySelectorAll('#tfSeg button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#tfSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');CURTF=b.dataset.tf;IND_CACHE={};updateStatus();if(TRADES.length&&PENDING)render();});
 ['ma1','ma2','ma3','ma4','ma5','lb','tol','xN','ptVal','feePt','stopPt','earlyBar'].forEach(id=>$(id).addEventListener('change',()=>{IND_CACHE={};if(TRADES.length&&PENDING)render();}));
 $('btnDemo').onclick=()=>{$('pasteBox').value=DEMO;$('btnParse').click();};
+$('lsAdd').onclick=addLesson;
+$('lsText').addEventListener('keydown',e=>{if(e.key==='Enter')addLesson();});
 function updateStatus(){
   const parts=TFS.map(tf=>`${TF_NAME[tf]} ${ALLBARS[tf]?ALLBARS[tf].length:0}`);
   const cur=ALLBARS[CURTF]||[],htf=HTF(CURTF),h=ALLBARS[htf]||[];
@@ -755,11 +836,13 @@ const DEMO=`時間\t方向\t進場價\t出場價\t口數\t出場時間\t備註
 2026/07/03 11:30\t多\t23180\t23120\t3\t2026/07/03 12:30\t連虧加碼`;
 
 (async function init(){
+  initLessonTagSelect();loadLessons();renderLessons();
   $('dataStatus').textContent='讀取已匯入的 K 棒中…';
   try{await loadAllBars();}catch(e){console.warn(e);}
   updateStatus();
   if(!TFS.some(tf=>ALLBARS[tf]&&ALLBARS[tf].length))
     $('dataStatus').innerHTML='⚠ 尚未讀到任何 K 棒。請先到 <a class="back" href="./taifex-ma-backtest.html">K棒均線回測</a> 匯入（與本頁共用同一份 IndexedDB）。你仍可「載入示範資料」試介面。';
+  try{restoreImport();}catch(e){console.warn('還原失敗',e);renderRestoreBar(null);}
 })();
 </script>
 </body>
