@@ -461,19 +461,28 @@ function reconstructFills(f){
     fills.push({ms:dt.ms,timeStr,isBuy,isOpen,price,qty,prod});
   });
   fills.sort((a,b)=>a.ms-b.ms);
-  const openLong={}, openShort={};   // prod -> [{ms,timeStr,price}]
-  const trades=[]; let orphan=0;
-  const prods=new Set();
+  // FIFO 依「口數」配對：開倉存成有剩餘量的批次；一次平倉吃掉多個開倉批次 → 合併成「一筆」交易
+  // （口數＝這次平倉對到的總口數、進場價＝加權平均、進場時間＝最早那口＝持倉起點）
+  const openLong={}, openShort={};   // prod -> [{ms,timeStr,price,rem}]
+  const trades=[]; let orphan=0; const prods=new Set();
+  const closeAgainst=(queue,fl,dir)=>{
+    let need=fl.qty; const members=[];
+    while(need>0&&queue.length){ const op=queue[0]; const m=Math.min(op.rem,need);
+      members.push({price:op.price,ms:op.ms,timeStr:op.timeStr,qty:m}); op.rem-=m; need-=m; if(op.rem<=0)queue.shift(); }
+    if(need>0)orphan+=need;
+    if(members.length){ const q=members.reduce((s,x)=>s+x.qty,0);
+      const inPx=Math.round(members.reduce((s,x)=>s+x.price*x.qty,0)/q);
+      trades.push({dir,lots:q,inPx,inT:members[0].timeStr,ms:members[0].ms,outPx:fl.price,outT:fl.timeStr,prod:fl.prod,
+        scaled:members.length>1}); }   // scaled＝分批進場(加權平均)
+  };
   fills.forEach(fl=>{ prods.add(fl.prod);
     const kL=openLong[fl.prod]||(openLong[fl.prod]=[]), kS=openShort[fl.prod]||(openShort[fl.prod]=[]);
-    for(let q=0;q<fl.qty;q++){   // 拆成單口，FIFO 配對，損益最準
-      if(fl.isBuy&&fl.isOpen) kL.push({ms:fl.ms,timeStr:fl.timeStr,price:fl.price});          // 買進新倉＝開多
-      else if(!fl.isBuy&&fl.isOpen) kS.push({ms:fl.ms,timeStr:fl.timeStr,price:fl.price});     // 賣出新倉＝開空
-      else if(!fl.isBuy&&!fl.isOpen){ const op=kL.shift(); if(op) trades.push({dir:1,inPx:op.price,inT:op.timeStr,outPx:fl.price,outT:fl.timeStr,prod:fl.prod,ms:op.ms}); else orphan++; }  // 賣出平倉＝平多
-      else if(fl.isBuy&&!fl.isOpen){ const op=kS.shift(); if(op) trades.push({dir:-1,inPx:op.price,inT:op.timeStr,outPx:fl.price,outT:fl.timeStr,prod:fl.prod,ms:op.ms}); else orphan++; }  // 買進平倉＝平空
-    }
+    if(fl.isBuy&&fl.isOpen) kL.push({ms:fl.ms,timeStr:fl.timeStr,price:fl.price,rem:fl.qty});        // 買進新倉＝開多
+    else if(!fl.isBuy&&fl.isOpen) kS.push({ms:fl.ms,timeStr:fl.timeStr,price:fl.price,rem:fl.qty});   // 賣出新倉＝開空
+    else if(!fl.isBuy&&!fl.isOpen) closeAgainst(kL,fl,1);   // 賣出平倉＝平多
+    else if(fl.isBuy&&!fl.isOpen) closeAgainst(kS,fl,-1);   // 買進平倉＝平空
   });
-  let openLeft=0; for(const p in openLong)openLeft+=openLong[p].length; for(const p in openShort)openLeft+=openShort[p].length;
+  let openLeft=0; for(const p in openLong)openLong[p].forEach(o=>openLeft+=o.rem); for(const p in openShort)openShort[p].forEach(o=>openLeft+=o.rem);
   trades.sort((a,b)=>a.ms-b.ms);
   return{trades,orphan,openLeft,prods:[...prods]};
 }
@@ -700,11 +709,12 @@ function ingest(text){
     const pv=pointValFor(rec.prods); $('ptVal').value=pv;
     // 掃描交易時間間隔，建議進場週期（多為分鐘級當沖 → 5分）
     if(CURTF!=='M5'&&CURTF!=='M15'){setTF('M5');}
-    const recRows=taixTrades.map(t=>[t.inT,t.dir>0?'多':'空',String(t.inPx),String(t.outPx),'1',t.outT,t.prod]);
+    const recRows=taixTrades.map(t=>[t.inT,t.dir>0?'多':'空',String(t.inPx),String(t.outPx),String(t.lots),t.outT,t.prod+(t.scaled?'（分批進場·加權均價）':'')]);
+    const totLots=taixTrades.reduce((s,t)=>s+t.lots,0);
     PENDING={rows:recRows,header:null,nc:7,map:{time:0,dir:1,inPx:2,outPx:3,lots:4,outT:5,note:6}};
     renderMap();
     const other=rec.trades.length-taixTrades.length;
-    msg($('parseMsg'),`✅ 逐筆成交已配對：${fills.rows.length} 筆成交 → <b>${taixTrades.length} 筆完整交易</b>（單口拆分、新倉↔平倉 FIFO）。每點價值自動設 ${pv} 元（${rec.prods.filter(p=>/微型|小型|台指/.test(p)).join('、')||'台指'}）。`
+    msg($('parseMsg'),`✅ 逐筆成交已配對：${fills.rows.length} 筆成交 → <b>${taixTrades.length} 筆完整交易（共 ${totLots} 口）</b>（新倉↔平倉 FIFO；一次平倉的多口合併為一筆、顯示真實口數與加權平均進場價）。每點價值自動設 ${pv} 元（${rec.prods.filter(p=>/微型|小型|台指/.test(p)).join('、')||'台指'}）。`
       +(other?`　·　已排除 ${other} 筆非台指商品。`:'')
       +(rec.orphan?`　·　⚠ ${rec.orphan} 口平倉找不到對應開倉（可能跨月/資料不全）已略過。`:'')
       +(rec.openLeft?`　·　⚠ 尚有 ${rec.openLeft} 口未平倉（區間結束仍持倉）未納入。`:'')
