@@ -115,10 +115,12 @@ jobs:
             --max 50 \
             "${EXTRA[@]}"
 
-      # Eric 的凱基月對帳單（每月 3 日左右寄達；增量狀態獨立一份，
-      # 無狀態時回看 40 天以涵蓋一個月週期）
+      # Eric 的凱基月對帳單。
+      # ⚠ 已停用自動排程：Eric 的持股改為「全手動維護」，避免對帳單重算(rebuild_holding)
+      #   蓋掉手動輸入的股數（例如公司配股台積電）。
+      #   只有「手動觸發並明確選 mode=kgi」時才會跑；schedule / both 都不會碰 Eric。
       - name: Ingest kgi (Eric 凱基月對帳單)
-        if: ${{ github.event.inputs.mode == 'kgi' || github.event.inputs.mode == 'both' || github.event_name == 'schedule' }}
+        if: ${{ github.event.inputs.mode == 'kgi' }}
         env:
           MANUAL_AFTER: ${{ github.event.inputs.after }}
           PDF_PW: ${{ secrets.KGI_PDF_PASSWORD }}
