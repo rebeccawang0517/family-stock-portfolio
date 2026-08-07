@@ -2196,7 +2196,8 @@ const CGROUPS=[
   ['⑤ K棒確認',['red','green','strRed','strGreen','longLow','longUp','red2','green2','red3','green3'],'進場那根K的長相——多一層保險'],
   ['⑥ 量能確認',['volMild','volUp','volSpike','volKeep'],'放量＝有人跟，訊號更可信（1.2/1.5/2.5 三檔＋量不縮）'],
   ['⑦ 布林通道',['bbUpBk','bbDnBk','bbLowT','bbUpT','bbMidUp','bbMidDn'],'波動軌道：突破軌道順勢、觸軌收回反轉'],
-  ['⑧ 夜盤情境',['nightA','nightD','nightLoT','nightHiT','nightB','nightC'],'夜盤高低點＝日盤天然支撐壓力（日內限定）']
+  ['⑧ 夜盤情境',['nightA','nightD','nightLoT','nightHiT','nightHold','nightLoBk','nightHiBk','nightB','nightC'],'夜盤高低點＝日盤天然支撐壓力（日內限定）'],
+  ['⑨ 跳空缺口',['gapUpOpen','gapUpFilled','gapDnOpen','gapDnFilled','gapUpS','gapUpM','gapUpL','gapDnS','gapDnM','gapDnL'],'日盤開盤 vs 前夜收盤：回補與否＋跳空幅度（日內限定）']
 ];
 const COND_TOTAL=CGROUPS.reduce((s,g)=>s+g[1].length,0);
 // 每個條件的一行白話說明（顯示在選擇器名稱旁；完整定義仍在 CONDDEF tooltip）
@@ -2230,7 +2231,12 @@ const SHORTDEF={
   bbMidUp:'收盤站上中軌(20MA)＝偏多', bbMidDn:'收盤跌破中軌＝轉弱',
   nightA:'夜收上半+開高：破夜低僅~10%＝強多', nightD:'夜收下半+開低：破夜低~80%＝順勢空',
   nightLoT:'盤中踩夜低守住收回＝反彈買', nightHiT:'盤中觸夜高被壓回＝反彈賣',
-  nightB:'夜收上半+開低：夜低支撐轉弱(~43%)', nightC:'夜收下半+開高：中性偏空(~30%)'};
+  nightB:'夜收上半+開低：夜低支撐轉弱(~43%)', nightC:'夜收下半+開高：中性偏空(~30%)',
+  nightHold:'觸夜低但收盤守住(≥夜低)＝防守做多', nightLoBk:'跌破前夜盤最低＝破底確認(空)', nightHiBk:'突破前夜盤最高＝強勢突破(多)',
+  gapUpOpen:'高開且缺口未補＝強勢延續(做多)', gapUpFilled:'高開但缺口已回補＝轉弱(多方出場)',
+  gapDnOpen:'低開且缺口未補＝弱勢延續(做空)', gapDnFilled:'低開但缺口已回補＝轉強(空方出場)',
+  gapUpS:'高開≤50點＝小跳空(回補機率高、少破夜低)', gapUpM:'高開50~100點＝中跳空', gapUpL:'高開>100點＝大跳空(延續性高)',
+  gapDnS:'低開≤50點內＝小跳空', gapDnM:'低開50~100點＝中跳空', gapDnL:'低開>100點＝大跳空(破夜低機率高)'};
 function condSel(kind){ return [...document.querySelectorAll('.'+KCLS[kind]+':checked')].map(e=>e.value); }
 function setCond(kind,code,state){ const b=document.querySelector('.'+KCLS[kind]+'[value="'+code+'"]'); if(b) b.checked=state; }
 function renderChipConds(){
@@ -2292,7 +2298,7 @@ function renderCondPicker(){
   renderPkFootChips();
 }
 // 建構器可選的「觸發型」條件（事件只在發生當根成立的那批）
-const W_TRIGGERS=['goldX','deadX','xUp4','xDn4','ma1TurnUp','ma1TurnDn','ma4TurnUp','ma4TurnDn','bbUpBk','bbDnBk','bbLowT','bbUpT','nightLoT','nightHiT','supL','resL','longLow','longUp','strRed','strGreen','gap2R','gap2G'];
+const W_TRIGGERS=['goldX','deadX','xUp4','xDn4','ma1TurnUp','ma1TurnDn','ma4TurnUp','ma4TurnDn','bbUpBk','bbDnBk','bbLowT','bbUpT','nightLoT','nightHiT','supL','resL','longLow','longUp','strRed','strGreen','gap2R','gap2G','gapUpOpen','gapUpFilled','gapDnOpen','gapDnFilled','nightLoBk','nightHiBk','nightHold'];
 function renderPkFootChips(){
   if(!bpkKindS) return; const box=$('bpkFootChips'); if(!box) return;
   const sel=condSel(bpkKindS);
@@ -2856,6 +2862,9 @@ const CODEL={bull:'多排',bear:'空排',red:'紅K',green:'黑K',overMA1:'站上
   bbUpBk:'突破布林上軌',bbDnBk:'跌破布林下軌',bbLowT:'觸布林下軌',bbUpT:'觸布林上軌',bbMidUp:'站上布林中軌',bbMidDn:'破布林中軌',
   nightA:'A組(夜收上半+開高)',nightB:'B組(夜收上半+開低)',nightC:'C組(夜收下半+開高)',nightD:'D組(夜收下半+開低)',
   nightLoT:'夜低撐住(反彈買)',nightHiT:'夜高壓回(反彈賣)',
+  nightHold:'守夜低',nightLoBk:'破夜低',nightHiBk:'破夜高',
+  gapUpOpen:'高開未補',gapUpFilled:'高開已補',gapDnOpen:'低開未補',gapDnFilled:'低開已補',
+  gapUpS:'小高開≤50',gapUpM:'中高開50~100',gapUpL:'大高開>100',gapDnS:'小低開≥-50',gapDnM:'中低開-100~-50',gapDnL:'大低開<-100',
   gap2R:'跳空雙紅延續',gap2G:'跳空雙黑延續',volKeep:'量能不縮'};
 // 做多候選（條件碼）；做空用鏡射自動產生
 const L_ENTRY=[['bull'],['bull','red'],['bull','red','overMA3'],['bull','overMA3'],['bull','sup'],
@@ -2874,7 +2883,9 @@ const L_ENTRY=[['bull'],['bull','red'],['bull','red','overMA3'],['bull','overMA3
   ['bbLowT'],['bbLowT','longLow'],['bbLowT','bull'],['bull','bbUpBk'],['bbUpBk','volUp'],['bull','bbMidUp'],
   ['nightA'],['nightA','red'],['nightA','sup'],
   ['nightLoT'],['nightLoT','nightA'],['nightLoT','red'],
-  ['gap2R'],['gap2R','volKeep'],['gap2R','ma3Up']];   // 60K策略＋拐點＋布林＋夜盤A組(防守多)＋夜低撐住反彈買＋跳空雙紅延續（做空自動鏡射：nightA→nightD、nightLoT→nightHiT、gap2R→gap2G）
+  ['gap2R'],['gap2R','volKeep'],['gap2R','ma3Up'],
+  ['gapUpOpen'],['nightA','gapUpOpen'],['nightA','gapUpS'],['nightA','gapUpL'],['gapUpOpen','ma3Up'],
+  ['nightHold'],['nightHold','nightA'],['nightHiBk'],['gapDnFilled']];   // 跳空未回補/幅度/破夜高/守夜低（做空自動鏡射：gapUpOpen→gapDnOpen、gapUpS→gapDnS、gapUpL→gapDnL＝D組+大幅低開破夜低、nightHiBk→nightLoBk、gapDnFilled→gapUpFilled）
 const L_EXIT=[['underMA3'],['loseBull'],['bear'],['deadX'],['underMA5'],['underMA3','deadX'],['underMA3','loseBull'],['ma3Dn'],['bearK3'],['bbMidDn'],['bbUpT'],[]];   // 破MA5/MA10留在SIG_EXIT(便宜路徑)搜，不進SLS×TPS昂貴路徑；新增MA20下彎/三線轉空/布林中軌·上軌出場
 // 純訊號出場（不設點數停損停利）用的出場組合，每組至少要有一個訊號
 const SIG_EXIT=[['underMA3'],['underMA4'],['deadX'],['loseBull'],['bear'],['underMA5'],
@@ -2885,7 +2896,7 @@ const SIG_EXIT=[['underMA3'],['underMA4'],['deadX'],['loseBull'],['bear'],['unde
   ['bbMidDn'],['bbUpT'],['bbMidDn','underMA1']];   // 新增：MA20下彎/三線轉空/價跌破MA60/MA5·MA60剛下彎/布林中軌·上軌（60K策略＋拐點＋布林出場）
 // 「掃所有週期配對」用的精簡候選（老條件精選＋60K/拐點新條件混合，讓全配對也採樣得到新策略；數量維持10進/6出→速度差不多）
 const MTF_ALL_ENTRY=[['bull'],['bull','red','overMA3'],['bull','trendUp'],['bull','sup'],['bull','red'],
-  ['bullK3'],['bullK3','overMA3'],['ma3Up','overMA3'],['ma4TurnUp','bull'],['supL','bull'],['bbLowT'],['nightA'],['nightLoT'],['gap2R']];   // 後9組＝60K三線/三線+站上MA20/60/20表態/MA60剛上彎+多排/左側支撐+多排/觸布林下軌/夜盤A組(防守多)/夜低撐住反彈買/跳空雙紅延續
+  ['bullK3'],['bullK3','overMA3'],['ma3Up','overMA3'],['ma4TurnUp','bull'],['supL','bull'],['bbLowT'],['nightA'],['nightLoT'],['gap2R'],['gapUpOpen'],['nightA','gapUpOpen']];   // 後11組＝60K三線/三線+站上MA20/60/20表態/MA60剛上彎+多排/左側支撐+多排/觸布林下軌/夜盤A組(防守多)/夜低撐住反彈買/跳空雙紅延續/高開未回補/A組+高開未回補（做空自動鏡射→D組+低開未回補）
 const MTF_ALL_EXIT=[['underMA3'],['deadX'],['bear'],['ma3Dn'],['bearK3'],['ma1TurnDn'],['bbMidDn']];      // 後4組＝MA20下彎/三線轉空/MA5剛下彎/破布林中軌
 const SLS=[50,80,120,200], TPS=[0,120,200,300];
 const MIR={bull:'bear',bear:'bull',red:'green',green:'red',overMA3:'underMA3',underMA3:'overMA3',
@@ -2898,12 +2909,16 @@ const MIR={bull:'bear',bear:'bull',red:'green',green:'red',overMA3:'underMA3',un
   ma1TurnUp:'ma1TurnDn',ma1TurnDn:'ma1TurnUp',ma4TurnUp:'ma4TurnDn',ma4TurnDn:'ma4TurnUp',
   bbUpBk:'bbDnBk',bbDnBk:'bbUpBk',bbLowT:'bbUpT',bbUpT:'bbLowT',bbMidUp:'bbMidDn',bbMidDn:'bbMidUp',
   nightA:'nightD',nightD:'nightA',nightB:'nightC',nightC:'nightB',nightLoT:'nightHiT',nightHiT:'nightLoT',
-  gap2R:'gap2G',gap2G:'gap2R'};   // volKeep 中性(多空皆可)不進鏡射
+  gap2R:'gap2G',gap2G:'gap2R',
+  gapUpOpen:'gapDnOpen',gapDnOpen:'gapUpOpen',gapUpFilled:'gapDnFilled',gapDnFilled:'gapUpFilled',
+  gapUpS:'gapDnS',gapDnS:'gapUpS',gapUpM:'gapDnM',gapDnM:'gapUpM',gapUpL:'gapDnL',gapDnL:'gapUpL',
+  nightLoBk:'nightHiBk',nightHiBk:'nightLoBk',nightHold:'nightHiT'};   // volKeep 中性(多空皆可)不進鏡射；nightHold≈nightLoT(空方對應夜高壓回)
 const mir=arr=>arr.map(c=>MIR[c]||c);
 // 條件選擇器「只看多方/只看空方」篩選用：偏多方的代表代碼（另一半用 MIR 自動找出對應空方代碼）；沒列出的(如放量/爆量)＝中性，兩邊都顯示
 const LONG_SET=new Set(['bull','red','overMA1','overMA2','overMA3','overMA4','overMA5','sup','trendUp','loseBear',
   'goldX','strRed','longLow','red2','red3','nearHigh','ma3Up','xUp4','bullK3','supL',
-  'ma1TurnUp','ma4TurnUp','bbUpBk','bbLowT','bbMidUp','nightA','nightB','nightLoT','gap2R']);
+  'ma1TurnUp','ma4TurnUp','bbUpBk','bbLowT','bbMidUp','nightA','nightB','nightLoT','gap2R',
+  'nightHold','nightHiBk','gapUpOpen','gapDnFilled','gapUpS','gapUpM','gapUpL']);   // 高開情境/守夜低/破夜高/低開回補轉強＝偏多側；對應空方由 MIR 自動判定
 function condPolarity(code){ if(LONG_SET.has(code)) return 'long'; if(MIR[code]&&LONG_SET.has(MIR[code])) return 'short'; return 'neutral'; }
 // ⑦再次進場搜尋候選（空陣列=沿用首次進場；其餘為較嚴格組合）；做空自動鏡射
 const REENTRY=[[], ['bull','red'], ['bull','red','volUp'], ['bull','strRed']];
@@ -3250,6 +3265,22 @@ function condTrue(B,I,i,code,tol,align){
     // ── 夜低撐住/夜高壓回（回測到夜盤低/高點但守住＝反彈進場，非A/B/C/D分組）──
     case 'nightLoT':return !isNaN(x.nightLo)&&b.l<=x.nightLo*(1+tol)&&b.c>x.nightLo;   // 盤中觸夜低但收盤守在其上＝夜低撐住(反彈買)
     case 'nightHiT':return !isNaN(x.nightHi)&&b.h>=x.nightHi*(1-tol)&&b.c<x.nightHi;   // 盤中觸夜高但收盤壓回其下＝夜高壓回(反彈賣)
+    // ── 跳空回補：日盤開盤 vs 前一夜盤收盤(x.nightClose，與A/B/C/D同源)；只用已收完K棒 ──
+    case 'gapUpFilled':return !isNaN(x.nightClose)&&!isNaN(x.dayOpenPx)&&x.dayOpenPx>x.nightClose&&b.l<=x.nightClose;   // 高開且缺口已回補(這根低點觸夜收)＝轉弱
+    case 'gapUpOpen':  return !isNaN(x.nightClose)&&!isNaN(x.dayOpenPx)&&x.dayOpenPx>x.nightClose&&b.l>x.nightClose;    // 高開且缺口未補＝強勢延續
+    case 'gapDnFilled':return !isNaN(x.nightClose)&&!isNaN(x.dayOpenPx)&&x.dayOpenPx<=x.nightClose&&b.h>=x.nightClose;  // 低開且缺口已回補(這根高點觸夜收)＝轉強
+    case 'gapDnOpen':  return !isNaN(x.nightClose)&&!isNaN(x.dayOpenPx)&&x.dayOpenPx<=x.nightClose&&b.h<x.nightClose;   // 低開且缺口未補＝弱勢延續
+    // ── 跳空幅度(日開−夜收，點數，門檻50/100寫死) ──
+    case 'gapUpS':{const g=x.dayOpenPx-x.nightClose;return !isNaN(g)&&g>0&&g<=50;}      // 小幅高開
+    case 'gapUpM':{const g=x.dayOpenPx-x.nightClose;return !isNaN(g)&&g>50&&g<=100;}    // 中幅高開
+    case 'gapUpL':{const g=x.dayOpenPx-x.nightClose;return !isNaN(g)&&g>100;}           // 大幅高開
+    case 'gapDnS':{const g=x.dayOpenPx-x.nightClose;return !isNaN(g)&&g<0&&g>=-50;}     // 小幅低開
+    case 'gapDnM':{const g=x.dayOpenPx-x.nightClose;return !isNaN(g)&&g<-50&&g>=-100;}  // 中幅低開
+    case 'gapDnL':{const g=x.dayOpenPx-x.nightClose;return !isNaN(g)&&g<-100;}          // 大幅低開
+    // ── 破夜低/夜高、守夜低 ──
+    case 'nightLoBk':return !isNaN(x.nightLo)&&b.l<x.nightLo;   // 這根跌破前夜盤最低＝破底確認(空)
+    case 'nightHiBk':return !isNaN(x.nightHi)&&b.h>x.nightHi;   // 這根突破前夜盤最高＝強勢突破(多)
+    case 'nightHold':return !isNaN(x.nightLo)&&b.l<=x.nightLo*(1+tol)&&b.c>=x.nightLo;  // 觸夜低但收盤守住(≥夜低)＝防守做多(與nightLoT近同，收盤用≥)
   } return false; }
 const MTF_CONDS=[['bull','多排'],['bear','空排'],['red','紅K'],['green','黑K'],
   ['overMA1','站上MA5'],['underMA1','跌破MA5'],['overMA2','站上MA10'],['underMA2','跌破MA10'],
@@ -3267,6 +3298,10 @@ const MTF_CONDS=[['bull','多排'],['bear','空排'],['red','紅K'],['green','�
   ['bbUpBk','突破布林上軌'],['bbDnBk','跌破布林下軌'],['bbLowT','觸布林下軌(收回)'],['bbUpT','觸布林上軌(壓回)'],['bbMidUp','站上布林中軌'],['bbMidDn','跌破布林中軌'],
   ['nightA','A組(夜收上半+開高)'],['nightB','B組(夜收上半+開低)'],['nightC','C組(夜收下半+開高)'],['nightD','D組(夜收下半+開低)'],
   ['nightLoT','夜低撐住(反彈買)'],['nightHiT','夜高壓回(反彈賣)'],
+  ['nightHold','守住夜低(防守多)'],['nightLoBk','已破夜低(破底)'],['nightHiBk','已破夜高(突破)'],
+  ['gapUpOpen','高開未回補(強延續)'],['gapUpFilled','高開已回補(轉弱)'],['gapDnOpen','低開未回補(弱延續)'],['gapDnFilled','低開已回補(轉強)'],
+  ['gapUpS','小幅高開(≤50)'],['gapUpM','中幅高開(50~100)'],['gapUpL','大幅高開(>100)'],
+  ['gapDnS','小幅低開(≥-50)'],['gapDnM','中幅低開(-100~-50)'],['gapDnL','大幅低開(<-100)'],
   ['gap2R','跳空雙紅延續'],['gap2G','跳空雙黑延續'],['volKeep','量能不縮(≥前根8成)']];
 // 每個條件的定義（滑鼠移上去顯示；MA1~5=你在均線參數設的值，預設5/10/20/60/240）
 const CONDDEF={
@@ -3322,7 +3357,20 @@ const CONDDEF={
   nightHiT:'夜高壓回(反彈賣)：日盤這根K盤中最高觸及「當天夜盤最高點」附近(容差內)，但收盤被壓回夜高之下＝夜高壓力壓回、反彈進空單（夜低撐住的鏡射空方版）。只在日盤K棒且有前一夜盤資料時成立',
   gap2R:'跳空雙紅延續：前一根K「開盤價>再前一根最高價」(跳空開高)且收紅(第一根紅K)，這根也收紅且「收盤≥第一根紅K實體中點」(=(前根開+前根收)/2)＝跳空後不回補、第二根持續強勢，在第二根紅K進場。強勢延續型態，多頭趨勢中表現較佳；跳空過大(80~100點以上)易回補缺口勝率降，建議搭配量能不縮或均線斜率過濾',
   gap2G:'跳空雙黑延續：前一根「開盤價<再前一根最低價」(跳空開低)且收黑，這根也收黑且收盤≤第一根黑K實體中點＝空方強勢延續（跳空雙紅的鏡射）',
-  volKeep:'量能不縮：這根成交量 ≥ 前一根的80%＝第二根量能沒有明顯萎縮（跳空延續策略的量能過濾：續攻要有人跟，量縮的延續容易是假的）'};
+  volKeep:'量能不縮：這根成交量 ≥ 前一根的80%＝第二根量能沒有明顯萎縮（跳空延續策略的量能過濾：續攻要有人跟，量縮的延續容易是假的）',
+  nightHold:'守住夜低：這根日盤K盤中最低觸及「當天夜盤最低點」附近(容差內)，但收盤仍 ≥ 夜低＝夜低守住、做多進場。與「夜低撐住(nightLoT)」幾乎相同，差別在收盤用 ≥(含等於)。只在日盤K棒且有前一夜盤資料時成立，用已收完K棒判斷',
+  nightLoBk:'已破夜低：這根K棒最低價 < 前一夜盤最低價＝跌破夜低、破底確認，常作做空進場。用已收完K棒判斷，非未來函數',
+  nightHiBk:'已破夜高：這根K棒最高價 > 前一夜盤最高價＝突破夜高、強勢確認，常作做多進場（已破夜低的鏡射多方版）',
+  gapUpOpen:'高開未回補：今日日盤開盤 > 前一夜盤收盤(有高開)，且這根K最低仍 > 夜收（缺口尚未被回補）＝強勢延續，做多進場/強勢過濾。夜收＝當日夜盤(15:00~收盤)收盤價，與A/B/C/D同源；只在日盤K且有前夜盤資料時成立',
+  gapUpFilled:'高開已回補：今日日開 > 前夜收(高開)，但這根K最低 ≤ 夜收（缺口已被回補）＝高開走弱，常作做多出場/轉弱訊號',
+  gapDnOpen:'低開未回補：今日日開 ≤ 前夜收(低開/平)，且這根K最高仍 < 夜收（缺口尚未回補）＝弱勢延續，做空進場/弱勢過濾',
+  gapDnFilled:'低開已回補：今日日開 ≤ 前夜收(低開)，但這根K最高 ≥ 夜收（缺口已被回補）＝低開走強，常作做空出場/轉強訊號',
+  gapUpS:'小幅高開：日開 − 夜收 介於 0(不含)~50 點＝小跳空。歷史上回補機率高但破夜低機率低，是較穩的多方過濾（搭A組更佳）',
+  gapUpM:'中幅高開：日開 − 夜收 介於 50~100 點＝中等跳空',
+  gapUpL:'大幅高開：日開 − 夜收 > 100 點＝大跳空，回補機率低、方向延續性高',
+  gapDnS:'小幅低開：日開 − 夜收 介於 −50~0(不含) 點＝小低開',
+  gapDnM:'中幅低開：日開 − 夜收 介於 −100~−50 點＝中等低開',
+  gapDnL:'大幅低開：日開 − 夜收 < −100 點＝大幅低開，破夜低機率高，常作空方進場（搭D組更佳）'};
 let mtfBuilt=false;
 function buildMTFConds(){
   const mk=(cls,def)=>MTF_CONDS.map(([v,l])=>`<label title="${CONDDEF[v]||l}"><input type="checkbox" class="${cls}" value="${v}" ${def.includes(v)?'checked':''}> ${l}</label>`).join('');
@@ -3631,6 +3679,15 @@ const STRAT_LIB=[
   {name:'跳空雙紅延續', stars:4, note:'跳空開高+雙紅K收在實體中點上(第2根進)',
    logic:'跳空開高、第一根紅K、第二根也紅K且收在第一根實體中點之上 → 多；跳空開低雙黑鏡射 → 空。強勢延續型態，配量能不縮過濾。建議停損20~30/停利120/獲利80後移動停損',
    long:['gap2R','volKeep'], short:['gap2G','volKeep'], lx:['underMA1'], sx:['overMA1'], def:{sl:30,tp:120,trail:80,maxBars:5}},
+  {name:'A/D組＋跳空未回補延續', stars:5, note:'方向延續性高：高開沒補=強、低開沒補=弱',
+   logic:'A組(夜收上半+開高)＋高開未回補 → 強勢延續做多，夜低防守｜D組(夜收下半+開低)＋低開未回補 → 弱勢延續做空，夜高防守',
+   long:['nightA','gapUpOpen'], short:['nightD','gapDnOpen'], lx:['underMA3'], sx:['overMA3'], nightStop:true, def:{sl:80,trail:60}},
+  {name:'A/D組＋大幅跳空', stars:4, note:'大跳空回補機率低；D組+大幅低開破夜低機率極高',
+   logic:'A組＋大幅高開(>100) → 順勢做多｜D組＋大幅低開(<−100) → 破夜低機率極高的空方進場，夜高防守',
+   long:['nightA','gapUpL'], short:['nightD','gapDnL'], lx:['underMA3'], sx:['overMA3'], nightStop:true, def:{sl:100,trail:60}},
+  {name:'A/D組＋小幅跳空(穩健)', stars:4, note:'小跳空回補機率高但少破夜低＝較穩',
+   logic:'A組＋小幅高開(≤50) → 較穩的多方進場(回補機率高、破夜低機率極低)｜D組＋小幅低開 → 鏡射空方',
+   long:['nightA','gapUpS'], short:['nightD','gapDnS'], lx:['underMA3'], sx:['overMA3'], nightStop:true, def:{sl:50,trail:40}},
 ];
 function renderStratLib(){
   const el=$('stratTbl'); if(!el) return;
