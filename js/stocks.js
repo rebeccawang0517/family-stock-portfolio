@@ -284,6 +284,7 @@
             document.getElementById('lastUpdate').textContent = `最後更新: ${now.toLocaleTimeString('zh-TW')}`;
         }
 
+        // 篩選唯一真相＝三個下拉的值；applyFilters 是唯一計算 filteredStocks + 重畫的入口
         window.applyFilters = function() {
             const regionFilter = document.getElementById('filterRegion').value;
             const holderFilter = document.getElementById('filterHolder').value;
@@ -297,6 +298,7 @@
                 if (platformFilter && stockPlatform !== platformFilter) return false;
                 return true;
             });
+            updateFilterIndicator(regionFilter || holderFilter || platformFilter, filteredStocks.length);
             renderStocks();
             updateStats();
         };
@@ -305,10 +307,25 @@
             document.getElementById('filterRegion').value = '';
             document.getElementById('filterHolder').value = '';
             document.getElementById('filterPlatform').value = '';
-            filteredStocks = [...stocks];
-            renderStocks();
-            updateStats();
+            applyFilters();   // 走同一條路徑：清空下拉＝篩選全部
         };
+
+        // 篩選狀態提示：有任何篩選時，讓「清除篩選」鈕標示筆數並高亮；無篩選則回復原樣
+        function updateFilterIndicator(active, count) {
+            const btn = document.getElementById('clearFilterBtn') ||
+                document.querySelector('[onclick="clearFilters()"]');
+            if (!btn) return;
+            if (!btn.dataset.baseLabel) btn.dataset.baseLabel = btn.textContent.trim();
+            if (active) {
+                btn.textContent = `✕ 清除篩選（顯示 ${count} 筆）`;
+                btn.style.background = '#b45309';   // amber-700：一眼看出「正在篩選中」
+                btn.style.fontWeight = '700';
+            } else {
+                btn.textContent = btn.dataset.baseLabel;
+                btn.style.background = '';          // 還原成原本的 tailwind bg-slate-600
+                btn.style.fontWeight = '';
+            }
+        }
 
         window.loginWithGoogle = async () => {
             try { await signInWithPopup(auth, provider); } catch (error) { alert('登入失敗：' + error.message); }
@@ -326,10 +343,8 @@
             onSnapshot(stocksRef, (snapshot) => {
                 stocks = [];
                 snapshot.forEach((doc) => { stocks.push({ id: doc.id, ...doc.data() }); });
-                filteredStocks = [...stocks];
                 window.stocks = stocks;
-                renderStocks();
-                updateStats();
+                applyFilters();   // 資料更新後「重新套用目前篩選」，不再重設成全部（下拉＝唯一真相）
             });
         }
 
