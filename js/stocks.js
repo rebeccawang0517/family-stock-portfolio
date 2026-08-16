@@ -972,11 +972,25 @@
             document.getElementById('addStockModal').style.display = 'flex';
         };
         window.closeAddStockModal = function() { document.getElementById('addStockModal').style.display = 'none'; };
-        window.calculateNewCost = function() {
-            const shares = parseFloat(document.getElementById('newShares').value) || 0;
-            const price = parseFloat(document.getElementById('newCostPrice').value) || 0;
-            const fee = parseFloat(document.getElementById('newFee').value) || 0;
-            document.getElementById('newTotalCost').value = (shares * price + fee).toFixed(2);
+        // 任三算一：股數(s)、購買價格(p)、手續費(f)、總投資成本(c)，關係 c = s×p + f
+        // edited = 使用者剛編輯的欄位('shares'|'price'|'fee'|'cost')；剛好缺一個就補、四個都有就依編輯欄位重算相依值
+        window.calculateNewCost = function(edited) {
+            const gv = id => { const v = document.getElementById(id).value.trim(); return v === '' ? null : parseFloat(v); };
+            const has = v => v !== null && isFinite(v);
+            const region = (document.getElementById('newRegion') || {}).value;
+            const shareDp = region === '美股' ? 4 : 0;   // 台股整股、美股允許小數
+            const setV = (id, v, dp) => { if (isFinite(v) && v >= 0) document.getElementById(id).value = (dp === 0 ? Math.round(v) : parseFloat(v.toFixed(dp))); };
+            const s = gv('newShares'), p = gv('newCostPrice'), f = gv('newFee'), c = gv('newTotalCost');
+            const known = [s, p, f, c].filter(has).length;
+            if (known === 3) {                                  // 缺一個 → 補它
+                if (!has(c) && has(s) && has(p) && has(f)) setV('newTotalCost', s * p + f, 2);
+                else if (!has(f) && has(s) && has(p) && has(c)) setV('newFee', c - s * p, 2);
+                else if (!has(p) && has(s) && has(f) && has(c) && s !== 0) setV('newCostPrice', (c - f) / s, 4);
+                else if (!has(s) && has(p) && has(f) && has(c) && p !== 0) setV('newShares', (c - f) / p, shareDp);
+            } else if (known === 4) {                           // 四個都有 → 改總成本就調手續費，改其他就重算總成本
+                if (edited === 'cost') setV('newFee', c - s * p, 2);
+                else setV('newTotalCost', s * p + f, 2);
+            }
         };
         window.fetchNewCompanyName = async function() {
             const symbolInput = document.getElementById('newSymbol');
@@ -997,19 +1011,23 @@
             const region = document.getElementById('newRegion').value;
             const symbol = document.getElementById('newSymbol').value.toUpperCase().trim();
             const companyName = document.getElementById('newCompany').value.trim() || symbol;
+            calculateNewCost();   // 先把任三算一的第四個補齊
             const shares = parseFloat(document.getElementById('newShares').value);
-            const costPrice = parseFloat(document.getElementById('newCostPrice').value);
             const fee = parseFloat(document.getElementById('newFee').value) || 0;
+            let costPrice = parseFloat(document.getElementById('newCostPrice').value);
+            let totalCost = parseFloat(document.getElementById('newTotalCost').value);
+            // 允許用「總成本」代替「購買價格」：任一存在即可，另一個由關係式反推
+            if (!isFinite(costPrice) && isFinite(totalCost) && shares) costPrice = (totalCost - fee) / shares;
+            if (!isFinite(totalCost) && isFinite(costPrice) && isFinite(shares)) totalCost = shares * costPrice + fee;
             const holder = document.getElementById('newHolder').value;
             const platform = document.getElementById('newPlatform').value;
-            if (!date || !region || !symbol || !shares || !costPrice || !holder || !platform) { alert('請填寫所有必填欄位（標記 * 的欄位）'); return; }
+            if (!date || !region || !symbol || !shares || !isFinite(costPrice) || !holder || !platform) { alert('請填寫必填欄位：股數與（購買價格或總投資成本）擇一，及日期/代號/持有人/平台'); return; }
             const btn = event ? event.target : document.querySelector('button[onclick*="confirmAddStock"]');
             if (!btn) return;
             const originalText = btn.innerHTML;
             btn.disabled = true; btn.innerHTML = '⏳ 處理中...';
             const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('操作超時（30秒）')), 30000));
             const addStockPromise = (async () => {
-                const totalCost = shares * costPrice + fee;
                 let currentPrice = costPrice, changePercent = 0;
                 try {
                     const info = await Promise.race([fetchStockInfo(symbol, region), new Promise((_, reject) => setTimeout(() => reject(new Error('Overall timeout')), 20000))]);
