@@ -14,7 +14,7 @@
     let s = {};
     try { s = JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; } catch (e) {}
     return { ltv: s.ltv || 60, callRatio: s.callRatio || 130, liqRatio: s.liqRatio || 120,
-             loans: s.loans || {}, stress: s.stress || {}, open: s.open || {} };
+             loans: s.loans || {}, stress: s.stress || {}, open: s.open || {}, pledged: s.pledged || {} };
   }
   function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(st)); } catch (e) {} }
 
@@ -43,10 +43,13 @@
     });
     return m;
   }
-  function calcHolding(hld) {
-    const lots = Math.floor(hld.shares / LOT), pledgeShares = lots * LOT;
+  const heldLots = hld => Math.floor((hld.shares || 0) / LOT);
+  // 質押張數：未設→預設全部整張；設了→夾在 0~目前張數
+  function pledgedLots(key, hld) { const h = heldLots(hld); const v = st.pledged[key]; return v == null ? h : Math.max(0, Math.min(h, Math.floor(v))); }
+  function calcHolding(hld, pLots) {
+    const lots = pLots == null ? heldLots(hld) : pLots, pledgeShares = lots * LOT;
     const collateral = pledgeShares * hld.price;
-    return { lots, pledgeShares, collateral, maxLoan: collateral * st.ltv / 100 };
+    return { held: heldLots(hld), lots, pledgeShares, collateral, maxLoan: collateral * st.ltv / 100 };
   }
 
   function controlsBar() {
@@ -63,16 +66,20 @@
 
   // 每檔（點開看「單獨質押此檔借滿」的追繳/處分價，純參考）
   function holdingRow(h, hld) {
-    const key = h + '|' + hld.symbol, d = calcHolding(hld), open = !!st.open[key];
+    const key = h + '|' + hld.symbol, pLots = pledgedLots(key, hld), d = calcHolding(hld, pLots), open = !!st.open[key];
     const dp = hld.price < 1000 ? 2 : 0;
     const cell = (txt, w, col) => `<div style="flex:0 0 ${w};text-align:right;font-family:var(--mono,monospace)${col ? ';color:' + col : ''}">${txt}</div>`;
+    const lotCell = `<div style="flex:0 0 156px;text-align:right;font-family:var(--mono,monospace);color:#b9b4a9;white-space:nowrap">
+      ${d.held} 張 /
+      <input type="number" min="0" max="${d.held}" step="1" value="${pLots}" data-pledge="${esc(key)}" onclick="event.stopPropagation()"
+        style="width:52px;background:#2c2b27;border:1px solid rgba(255,255,255,.15);color:#f0ede6;font-size:13px;padding:4px 6px;border-radius:5px;text-align:right;outline:none"> 張</div>`;
     const head = `<div data-toggle="${esc(key)}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-top:1px solid rgba(255,255,255,.06)">
       <div style="flex:0 0 14px;color:#8a8a8a">${open ? '▾' : '▸'}</div>
-      <div style="flex:1;min-width:150px"><b style="color:#f0ede6">${esc(hld.symbol)}</b> <span style="color:#9aa1ab">${esc(hld.name)}</span></div>
-      ${cell(d.lots + ' 張', '64px', '#b9b4a9')}
-      ${cell(price(hld.price, dp), '84px', '#b9b4a9')}
-      ${cell(money(d.collateral), '120px', '#cfe8d6')}
-      ${cell(money(d.maxLoan), '120px', '#8fc0f0')}
+      <div style="flex:1;min-width:140px"><b style="color:#f0ede6">${esc(hld.symbol)}</b> <span style="color:#9aa1ab">${esc(hld.name)}</span></div>
+      ${lotCell}
+      ${cell(price(hld.price, dp), '80px', '#b9b4a9')}
+      ${cell(money(d.collateral), '118px', '#cfe8d6')}
+      ${cell(money(d.maxLoan), '118px', '#8fc0f0')}
     </div>`;
     if (!open) return `<div data-key="${esc(key)}">${head}</div>`;
     // 單獨質押此檔借滿：追繳/處分價 = 現價 × 成數 × (追繳或處分線) / 10000
@@ -89,7 +96,7 @@
     const list = Object.values(syms).filter(x => x.shares >= LOT).sort((a, b) => a.symbol.localeCompare(b.symbol));
     if (!list.length) return '';
     let coll = 0, maxL = 0;
-    list.forEach(x => { const d = calcHolding(x); coll += d.collateral; maxL += d.maxLoan; });
+    list.forEach(x => { const d = calcHolding(x, pledgedLots(h + '|' + x.symbol, x)); coll += d.collateral; maxL += d.maxLoan; });
     const loan = Number(st.loans[h]) || 0;
     const ratio = loan > 0 ? coll / loan * 100 : Infinity;
     const sA = statusOf(ratio, loan, st.callRatio, st.liqRatio);
@@ -120,9 +127,9 @@
       </div>
       ${loanBar}
       <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;color:#8a8a8a;font-size:11.5px;border-bottom:1px solid rgba(255,255,255,.06)">
-        <div style="flex:0 0 14px"></div><div style="flex:1;min-width:150px">擔保品明細（點開看單檔追繳/處分價）</div>
-        <div style="flex:0 0 64px;text-align:right">張數</div><div style="flex:0 0 84px;text-align:right">現價</div>
-        <div style="flex:0 0 120px;text-align:right">現值</div><div style="flex:0 0 120px;text-align:right">可借款</div>
+        <div style="flex:0 0 14px"></div><div style="flex:1;min-width:140px">擔保品明細（點開看單檔追繳/處分價）</div>
+        <div style="flex:0 0 156px;text-align:right">目前/質押張數</div><div style="flex:0 0 80px;text-align:right">現價</div>
+        <div style="flex:0 0 118px;text-align:right">現值</div><div style="flex:0 0 118px;text-align:right">可借款</div>
       </div>
       ${list.map(x => holdingRow(h, x)).join('')}
     </div>`;
@@ -134,7 +141,7 @@
     Object.keys(hh).forEach(h => {
       const list = Object.values(hh[h]).filter(x => x.shares >= LOT);
       if (!list.length) return; holders++;
-      let hc = 0; list.forEach(x => { const d = calcHolding(x); coll += d.collateral; maxL += d.maxLoan; hc += d.collateral; cnt++; });
+      let hc = 0; list.forEach(x => { const d = calcHolding(x, pledgedLots(h + '|' + x.symbol, x)); coll += d.collateral; maxL += d.maxLoan; hc += d.collateral; cnt++; });
       const loan = Number(st.loans[h]) || 0; if (loan > 0) { loanSum += loan; collLoaned += hc; }
     });
     if (!cnt) { box.style.display = 'none'; return; }
@@ -166,6 +173,7 @@
       if (t.dataset.g) { st[t.dataset.g] = parseFloat(t.value) || 0; save(); render(); return; }
       if (t.dataset.loan != null) { st.loans[t.dataset.loan] = t.value === '' ? 0 : (parseFloat(t.value) || 0); save(); render(); return; }
       if (t.dataset.stress != null) { st.stress[t.dataset.stress] = parseFloat(t.value) || 0; save(); render(); return; }
+      if (t.dataset.pledge != null) { st.pledged[t.dataset.pledge] = Math.max(0, Math.floor(parseFloat(t.value) || 0)); save(); render(); return; }
     };
     root.onclick = e => {
       const tog = e.target.closest('[data-toggle]');
