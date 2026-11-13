@@ -345,6 +345,9 @@
                 snapshot.forEach((doc) => { stocks.push({ id: doc.id, ...doc.data() }); });
                 window.stocks = stocks;
                 applyFilters();   // 資料更新後「重新套用目前篩選」，不再重設成全部（下拉＝唯一真相）
+                // 現價更新時，若正在看質押頁，擔保品現值即時連動重算
+                const plTab = document.getElementById('pledgeTab');
+                if (plTab && plTab.classList.contains('active') && window.pledgeRender) window.pledgeRender();
             });
         }
 
@@ -380,6 +383,11 @@
                 document.getElementById('tabSharpe').classList.add('active');
                 document.getElementById('tabSharpe').classList.remove('text-slate-400');
                 if (typeof window.sharpeRender === 'function') window.sharpeRender();
+            } else if (tabName === 'pledge') {
+                document.getElementById('pledgeTab').classList.add('active');
+                document.getElementById('tabPledge').classList.add('active');
+                document.getElementById('tabPledge').classList.remove('text-slate-400');
+                if (typeof window.pledgeRender === 'function') window.pledgeRender();
             }
         };
 
