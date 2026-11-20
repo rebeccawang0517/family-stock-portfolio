@@ -60,7 +60,8 @@
       <label style="font-size:12.5px;color:#b9b4a9">質借成數(%)<br>${inp('ltv', st.ltv, '可借款＝擔保品現值×成數，台股常見約60%')}</label>
       <label style="font-size:12.5px;color:#b9b4a9">追繳線(%)<br>${inp('callRatio', st.callRatio, '維持率低於此→追繳')}</label>
       <label style="font-size:12.5px;color:#b9b4a9">處分線(%)<br>${inp('liqRatio', st.liqRatio, '維持率低於此→斷頭處分')}</label>
-      <div style="font-size:12px;color:#8a8a8a;align-self:center;max-width:300px">每位持有人填「目前借款」即顯示<b style="color:#8fc0f0">目前維持率</b>；借滿成數時維持率＝<b style="color:#8fc0f0">${Math.round(10000 / st.ltv)}%</b>。</div>
+      <div style="font-size:12px;color:#8a8a8a;align-self:center;max-width:260px">填好借款/質押張數/參數後按「計算」才套用；借滿維持率＝<b style="color:#8fc0f0">${Math.round(10000 / st.ltv)}%</b>。</div>
+      <button data-calc style="margin-left:auto;align-self:center;background:#2c6ba8;border:none;color:#fff;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✓ 計算</button>
     </div>`;
   }
 
@@ -168,20 +169,22 @@
   }
 
   function bind(root) {
+    // 輸入只更新狀態、先不重算；按「計算」才套用（避免每改一格就跳動）
     root.onchange = e => {
       const t = e.target; if (!t.dataset) return;
-      if (t.dataset.g) { st[t.dataset.g] = parseFloat(t.value) || 0; save(); render(); return; }
-      if (t.dataset.loan != null) { st.loans[t.dataset.loan] = t.value === '' ? 0 : (parseFloat(t.value) || 0); save(); render(); return; }
-      if (t.dataset.stress != null) { st.stress[t.dataset.stress] = parseFloat(t.value) || 0; save(); render(); return; }
-      if (t.dataset.pledge != null) { st.pledged[t.dataset.pledge] = Math.max(0, Math.floor(parseFloat(t.value) || 0)); save(); render(); return; }
+      if (t.dataset.g) { st[t.dataset.g] = parseFloat(t.value) || 0; save(); }
+      else if (t.dataset.loan != null) { st.loans[t.dataset.loan] = t.value === '' ? 0 : (parseFloat(t.value) || 0); save(); }
+      else if (t.dataset.stress != null) { st.stress[t.dataset.stress] = parseFloat(t.value) || 0; save(); }
+      else if (t.dataset.pledge != null) { st.pledged[t.dataset.pledge] = Math.max(0, Math.floor(parseFloat(t.value) || 0)); save(); }
     };
     root.onclick = e => {
+      if (e.target.closest('[data-calc]')) { render(); return; }     // 計算：套用所有輸入
       const tog = e.target.closest('[data-toggle]');
       if (tog) { const k = tog.dataset.toggle; st.open[k] = !st.open[k]; save(); render(); return; }
       const fill = e.target.closest('[data-fill]');
       if (fill) {
         const h = fill.dataset.fill, hh = holderHoldings();
-        let maxL = 0; Object.values(hh[h] || {}).filter(x => x.shares >= LOT).forEach(x => maxL += calcHolding(x).maxLoan);
+        let maxL = 0; Object.values(hh[h] || {}).filter(x => x.shares >= LOT).forEach(x => maxL += calcHolding(x, pledgedLots(h + '|' + x.symbol, x)).maxLoan);
         st.loans[h] = Math.round(maxL); save(); render();
       }
     };
