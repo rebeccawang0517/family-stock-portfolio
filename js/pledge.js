@@ -14,7 +14,7 @@
     let s = {};
     try { s = JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; } catch (e) {}
     return { ltv: s.ltv || 60, callRatio: s.callRatio || 130, liqRatio: s.liqRatio || 120,
-             loans: s.loans || {}, stress: s.stress || {}, open: s.open || {}, pledged: s.pledged || {} };
+             loans: s.loans || {}, stress: s.stress || {}, open: s.open || {}, pledged: s.pledged || {}, px: s.px || {} };
   }
   function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(st)); } catch (e) {} }
 
@@ -44,12 +44,14 @@
     return m;
   }
   const heldLots = hld => Math.floor((hld.shares || 0) / LOT);
-  // 質押張數：未設→預設全部整張；設了→夾在 0~目前張數
-  function pledgedLots(key, hld) { const h = heldLots(hld); const v = st.pledged[key]; return v == null ? h : Math.max(0, Math.min(h, Math.floor(v))); }
-  function calcHolding(hld, pLots) {
+  // 質押張數：未設→預設全部整張；設了→可自由調整(≥0整張，不再限制上限)
+  function pledgedLots(key, hld) { const v = st.pledged[key]; return v == null ? heldLots(hld) : Math.max(0, Math.floor(v)); }
+  // 股價：可手動覆寫；未覆寫→用即時現價
+  function priceOf(key, hld) { const v = st.px[key]; return (v == null || v === '') ? hld.price : (Number(v) || 0); }
+  function calcHolding(hld, pLots, px) {
     const lots = pLots == null ? heldLots(hld) : pLots, pledgeShares = lots * LOT;
-    const collateral = pledgeShares * hld.price;
-    return { held: heldLots(hld), lots, pledgeShares, collateral, maxLoan: collateral * st.ltv / 100 };
+    const p = px == null ? hld.price : px, collateral = pledgeShares * p;
+    return { held: heldLots(hld), lots, px: p, pledgeShares, collateral, maxLoan: collateral * st.ltv / 100 };
   }
 
   function controlsBar() {
@@ -60,35 +62,46 @@
       <label style="font-size:12.5px;color:#b9b4a9">質借成數(%)<br>${inp('ltv', st.ltv, '可借款＝擔保品現值×成數，台股常見約60%')}</label>
       <label style="font-size:12.5px;color:#b9b4a9">追繳線(%)<br>${inp('callRatio', st.callRatio, '維持率低於此→追繳')}</label>
       <label style="font-size:12.5px;color:#b9b4a9">處分線(%)<br>${inp('liqRatio', st.liqRatio, '維持率低於此→斷頭處分')}</label>
-      <div style="font-size:12px;color:#8a8a8a;align-self:center;max-width:260px">填好借款/質押張數/參數後按「計算」才套用；借滿維持率＝<b style="color:#8fc0f0">${Math.round(10000 / st.ltv)}%</b>。</div>
-      <button data-calc style="margin-left:auto;align-self:center;background:#2c6ba8;border:none;color:#fff;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✓ 計算</button>
+      <div style="font-size:12px;color:#8a8a8a;align-self:center;max-width:230px">試算：可改股價/質押張數/借款/參數，按「計算」套用（不影響實際持股）。</div>
+      <button data-reset title="清除所有試算：股價回即時現價、質押張數回全部整張" style="margin-left:auto;align-self:center;background:none;border:1px solid rgba(255,255,255,.2);color:#b9b4a9;padding:9px 14px;border-radius:8px;font-size:13px;cursor:pointer">↺ 還原</button>
+      <button data-calc style="align-self:center;background:#2c6ba8;border:none;color:#fff;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✓ 計算</button>
     </div>`;
   }
 
   // 每檔（點開看「單獨質押此檔借滿」的追繳/處分價，純參考）
   function holdingRow(h, hld) {
-    const key = h + '|' + hld.symbol, pLots = pledgedLots(key, hld), d = calcHolding(hld, pLots), open = !!st.open[key];
-    const dp = hld.price < 1000 ? 2 : 0;
+    const key = h + '|' + hld.symbol, pLots = pledgedLots(key, hld), px = priceOf(key, hld), d = calcHolding(hld, pLots, px), open = !!st.open[key];
     const cell = (txt, w, col) => `<div style="flex:0 0 ${w};text-align:right;font-family:var(--mono,monospace)${col ? ';color:' + col : ''}">${txt}</div>`;
-    const lotCell = `<div style="flex:0 0 156px;text-align:right;font-family:var(--mono,monospace);color:#b9b4a9;white-space:nowrap">
+    // 試算覆寫偵測：張數或股價被改過 → 以琥珀色明顯標示，與實際區分
+    const AMBER = '#e0a14a';
+    const lotsOv = st.pledged[key] != null && Math.floor(st.pledged[key]) !== d.held;
+    const pxOv = st.px[key] != null && st.px[key] !== '' && Number(st.px[key]) !== hld.price;
+    const sim = lotsOv || pxOv;
+    const dp0 = hld.price < 1000 ? 2 : 0;
+    const inpStyle = (w, ov) => `width:${w}px;background:${ov ? '#3a3320' : '#2c2b27'};border:1px solid ${ov ? AMBER : 'rgba(255,255,255,.15)'};color:${ov ? AMBER : '#f0ede6'};font-weight:${ov ? 700 : 400};font-size:13px;padding:4px 6px;border-radius:5px;text-align:right;outline:none`;
+    const lotCell = `<div style="flex:0 0 150px;text-align:right;font-family:var(--mono,monospace);color:#b9b4a9;white-space:nowrap">
       ${d.held} 張 /
-      <input type="number" min="0" max="${d.held}" step="1" value="${pLots}" data-pledge="${esc(key)}" onclick="event.stopPropagation()"
-        style="width:52px;background:#2c2b27;border:1px solid rgba(255,255,255,.15);color:#f0ede6;font-size:13px;padding:4px 6px;border-radius:5px;text-align:right;outline:none"> 張</div>`;
-    const head = `<div data-toggle="${esc(key)}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-top:1px solid rgba(255,255,255,.06)">
-      <div style="flex:0 0 14px;color:#8a8a8a">${open ? '▾' : '▸'}</div>
-      <div style="flex:1;min-width:140px"><b style="color:#f0ede6">${esc(hld.symbol)}</b> <span style="color:#9aa1ab">${esc(hld.name)}</span></div>
+      <input type="number" min="0" step="1" value="${pLots}" data-pledge="${esc(key)}" onclick="event.stopPropagation()" style="${inpStyle(50, lotsOv)}"> 張</div>`;
+    const pxCell = `<div style="flex:0 0 110px;text-align:right">
+      <input type="number" min="0" step="0.01" value="${px}" data-px="${esc(key)}" onclick="event.stopPropagation()" title="試算股價（覆寫即時現價，不影響實際持股）" style="${inpStyle(90, pxOv)}">
+      ${pxOv ? `<div style="font-size:10.5px;color:#8a8a8a;margin-top:1px">實 ${price(hld.price, dp0)}</div>` : ''}</div>`;
+    const simChip = sim ? ` <span style="background:${AMBER}22;color:${AMBER};padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:700">試算</span>` : '';
+    const head = `<div data-toggle="${esc(key)}" style="display:flex;align-items:${sim ? 'flex-start' : 'center'};gap:10px;padding:9px 12px;cursor:pointer;border-top:1px solid rgba(255,255,255,.06)${sim ? ';background:rgba(224,161,74,.06)' : ''}">
+      <div style="flex:0 0 14px;color:#8a8a8a;padding-top:${sim ? '4px' : '0'}">${open ? '▾' : '▸'}</div>
+      <div style="flex:1;min-width:130px;padding-top:${sim ? '4px' : '0'}"><b style="color:#f0ede6">${esc(hld.symbol)}</b> <span style="color:#9aa1ab">${esc(hld.name)}</span>${simChip}</div>
       ${lotCell}
-      ${cell(price(hld.price, dp), '80px', '#b9b4a9')}
-      ${cell(money(d.collateral), '118px', '#cfe8d6')}
+      ${pxCell}
+      ${cell(money(d.collateral), '118px', sim ? AMBER : '#cfe8d6')}
       ${cell(money(d.maxLoan), '118px', '#8fc0f0')}
     </div>`;
     if (!open) return `<div data-key="${esc(key)}">${head}</div>`;
-    // 單獨質押此檔借滿：追繳/處分價 = 現價 × 成數 × (追繳或處分線) / 10000
-    const pCall = hld.price * st.ltv * st.callRatio / 10000, pLiq = hld.price * st.ltv * st.liqRatio / 10000;
+    const dp = px < 1000 ? 2 : 0;
+    // 單獨質押此檔借滿：追繳/處分價 = 股價 × 成數 × (追繳或處分線) / 10000
+    const pCall = px * st.ltv * st.callRatio / 10000, pLiq = px * st.ltv * st.liqRatio / 10000;
     const detail = `<div style="padding:8px 14px 12px 36px;background:#17181c;border-top:1px dashed rgba(255,255,255,.08);font-size:12.5px;color:#9fb3a8">
       單獨質押此檔 ${d.lots} 張、借滿 ${money(d.maxLoan)}（維持率 ${Math.round(10000 / st.ltv)}%）：
-      追繳價 <b style="color:#e8944a">${price(pCall, dp)}</b>（跌 ${((1 - pCall / hld.price) * 100).toFixed(1)}%）
-      · 處分價 <b style="color:#e8675a">${price(pLiq, dp)}</b>（跌 ${((1 - pLiq / hld.price) * 100).toFixed(1)}%）
+      追繳價 <b style="color:#e8944a">${price(pCall, dp)}</b>（跌 ${px > 0 ? ((1 - pCall / px) * 100).toFixed(1) : '0'}%）
+      · 處分價 <b style="color:#e8675a">${price(pLiq, dp)}</b>（跌 ${px > 0 ? ((1 - pLiq / px) * 100).toFixed(1) : '0'}%）
     </div>`;
     return `<div data-key="${esc(key)}">${head}${detail}</div>`;
   }
@@ -97,7 +110,8 @@
     const list = Object.values(syms).filter(x => x.shares >= LOT).sort((a, b) => a.symbol.localeCompare(b.symbol));
     if (!list.length) return '';
     let coll = 0, maxL = 0;
-    list.forEach(x => { const d = calcHolding(x, pledgedLots(h + '|' + x.symbol, x)); coll += d.collateral; maxL += d.maxLoan; });
+    list.forEach(x => { const k = h + '|' + x.symbol; const d = calcHolding(x, pledgedLots(k, x), priceOf(k, x)); coll += d.collateral; maxL += d.maxLoan; });
+    const hasSim = list.some(x => { const k = h + '|' + x.symbol; return (st.pledged[k] != null && Math.floor(st.pledged[k]) !== heldLots(x)) || (st.px[k] != null && st.px[k] !== '' && Number(st.px[k]) !== x.price); });
     const loan = Number(st.loans[h]) || 0;
     const ratio = loan > 0 ? coll / loan * 100 : Infinity;
     const sA = statusOf(ratio, loan, st.callRatio, st.liqRatio);
@@ -113,7 +127,7 @@
         <input type="number" min="0" step="1000" value="${loan || ''}" placeholder="填入實際借款" data-loan="${esc(h)}"
           style="width:160px;background:#2c2b27;border:1px solid rgba(255,255,255,.15);color:#f0ede6;font-size:14px;padding:6px 10px;border-radius:6px;text-align:right;font-family:var(--mono,monospace);outline:none">
         <button data-fill="${esc(h)}" title="借滿可借額度" style="margin-left:6px;background:none;border:1px solid rgba(143,192,240,.5);color:#8fc0f0;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer">借滿 ${money(maxL)}</button></label>
-      <div style="font-size:12.5px;color:#b9b4a9">目前維持率<br>
+      <div style="font-size:12.5px;color:#b9b4a9">目前維持率${hasSim ? ' <span style="color:#e0a14a;font-weight:700">(含試算)</span>' : ''}<br>
         <span style="font-size:24px;font-weight:800;color:${sA.color};font-family:var(--mono,monospace)">${loan > 0 && isFinite(ratio) ? ratio.toFixed(1) + '%' : '—'}</span>
         <span style="background:${sA.color}22;color:${sA.color};padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;margin-left:4px">${sA.status}</span></div>
       ${loan > 0 ? `<div style="font-size:12px;color:#9fb3a8;align-self:center">到追繳線還能跌 <b style="color:#e8944a">${dropCall.toFixed(1)}%</b> · 到處分線 <b style="color:#e8675a">${dropLiq.toFixed(1)}%</b><br>
@@ -129,7 +143,7 @@
       ${loanBar}
       <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;color:#8a8a8a;font-size:11.5px;border-bottom:1px solid rgba(255,255,255,.06)">
         <div style="flex:0 0 14px"></div><div style="flex:1;min-width:140px">擔保品明細（點開看單檔追繳/處分價）</div>
-        <div style="flex:0 0 156px;text-align:right">目前/質押張數</div><div style="flex:0 0 80px;text-align:right">現價</div>
+        <div style="flex:0 0 150px;text-align:right">目前/質押張數</div><div style="flex:0 0 110px;text-align:right">現價(可試算)</div>
         <div style="flex:0 0 118px;text-align:right">現值</div><div style="flex:0 0 118px;text-align:right">可借款</div>
       </div>
       ${list.map(x => holdingRow(h, x)).join('')}
@@ -142,7 +156,7 @@
     Object.keys(hh).forEach(h => {
       const list = Object.values(hh[h]).filter(x => x.shares >= LOT);
       if (!list.length) return; holders++;
-      let hc = 0; list.forEach(x => { const d = calcHolding(x, pledgedLots(h + '|' + x.symbol, x)); coll += d.collateral; maxL += d.maxLoan; hc += d.collateral; cnt++; });
+      let hc = 0; list.forEach(x => { const k = h + '|' + x.symbol; const d = calcHolding(x, pledgedLots(k, x), priceOf(k, x)); coll += d.collateral; maxL += d.maxLoan; hc += d.collateral; cnt++; });
       const loan = Number(st.loans[h]) || 0; if (loan > 0) { loanSum += loan; collLoaned += hc; }
     });
     if (!cnt) { box.style.display = 'none'; return; }
@@ -176,15 +190,18 @@
       else if (t.dataset.loan != null) { st.loans[t.dataset.loan] = t.value === '' ? 0 : (parseFloat(t.value) || 0); save(); }
       else if (t.dataset.stress != null) { st.stress[t.dataset.stress] = parseFloat(t.value) || 0; save(); }
       else if (t.dataset.pledge != null) { st.pledged[t.dataset.pledge] = Math.max(0, Math.floor(parseFloat(t.value) || 0)); save(); }
+      else if (t.dataset.px != null) { st.px[t.dataset.px] = t.value === '' ? null : (parseFloat(t.value) || 0); save(); }
     };
     root.onclick = e => {
       if (e.target.closest('[data-calc]')) { render(); return; }     // 計算：套用所有輸入
+      if (e.target.closest('[data-reset]')) { st.px = {}; st.pledged = {}; save(); render(); return; }   // 還原試算
+
       const tog = e.target.closest('[data-toggle]');
       if (tog) { const k = tog.dataset.toggle; st.open[k] = !st.open[k]; save(); render(); return; }
       const fill = e.target.closest('[data-fill]');
       if (fill) {
         const h = fill.dataset.fill, hh = holderHoldings();
-        let maxL = 0; Object.values(hh[h] || {}).filter(x => x.shares >= LOT).forEach(x => maxL += calcHolding(x, pledgedLots(h + '|' + x.symbol, x)).maxLoan);
+        let maxL = 0; Object.values(hh[h] || {}).filter(x => x.shares >= LOT).forEach(x => { const k = h + '|' + x.symbol; maxL += calcHolding(x, pledgedLots(k, x), priceOf(k, x)).maxLoan; });
         st.loans[h] = Math.round(maxL); save(); render();
       }
     };
