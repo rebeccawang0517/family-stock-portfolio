@@ -121,6 +121,9 @@
     const stress = (st.stress[h] == null ? 10 : Number(st.stress[h])) || 0;
     const ratioAfter = loan > 0 ? coll * (1 - stress / 100) / loan * 100 : Infinity;
     const sB = statusOf(ratioAfter, loan, st.callRatio, st.liqRatio);
+    // 全部下跌 10/20/30% 快速試算（擔保品整體下跌後的維持率與狀態）
+    const dropView = p => { const r2 = loan > 0 ? coll * (1 - p / 100) / loan * 100 : Infinity; const sp = statusOf(r2, loan, st.callRatio, st.liqRatio); return `<span style="white-space:nowrap">跌${p}% <b style="color:${sp.color};font-family:var(--mono,monospace)">${isFinite(r2) ? r2.toFixed(1) + '%' : '—'}</b></span>`; };
+    const presetLine = loan > 0 ? `<div style="font-size:12px;color:#9fb3a8;align-self:center;border-left:1px solid #2e3036;padding-left:16px">📉 全部下跌試算<br>${dropView(10)}　${dropView(20)}　${dropView(30)}</div>` : '';
 
     const loanBar = `<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;padding:12px 16px;background:#1b1d22;border-bottom:1px solid #2e3036">
       <label style="font-size:12.5px;color:#b9b4a9">目前借款(TWD)<br>
@@ -132,6 +135,7 @@
         <span style="background:${sA.color}22;color:${sA.color};padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;margin-left:4px">${sA.status}</span></div>
       ${loan > 0 ? `<div style="font-size:12px;color:#9fb3a8;align-self:center">到追繳線還能跌 <b style="color:#e8944a">${dropCall.toFixed(1)}%</b> · 到處分線 <b style="color:#e8675a">${dropLiq.toFixed(1)}%</b><br>
         再跌 <input type="number" min="0" max="99" step="1" value="${stress}" data-stress="${esc(h)}" style="width:56px;background:#2c2b27;border:1px solid rgba(255,255,255,.15);color:#f0ede6;font-size:12px;padding:3px 6px;border-radius:5px;text-align:right;outline:none">% → 維持率 <b style="color:${sB.color}">${isFinite(ratioAfter) ? ratioAfter.toFixed(1) + '%' : '—'}</b> ${sB.status}</div>` : '<div style="font-size:12px;color:#8a8a8a;align-self:center">填入目前借款即顯示目前維持率</div>'}
+      ${presetLine}
     </div>`;
 
     return `<div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl mb-5" style="overflow:hidden;border-left:4px solid ${loan > 0 ? sA.color : '#2e3036'}">
